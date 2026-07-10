@@ -1,0 +1,75 @@
+[api]
+port = 54321
+schemas = ["public", "auth", "storage"]
+extra_search_path = ["public"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://*.afribook.com"]
+jwt_expiry = 3600
+enable_signup = true
+enable_confirmations = false
+enable_automatic_migrations = true
+
+[auth.email]
+enable_confirmations = false
+enable_automatic_migrations = true
+secure_password_requirements = true
+min_password_length = 8
+
+[auth.sms]
+enable_signup = true
+twilio_verify_enabled = false
+
+[auth.external]
+enabled = true
+
+[auth.external.google]
+enabled = true
+client_id = ""
+secret = ""
+
+[auth.external.github]
+enabled = true
+client_id = ""
+secret = ""
+
+[auth.external.apple]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "50MB"
+mime_types = ["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif", "application/pdf", "text/plain", "text/csv"]
+
+[storage.buckets.uploads]
+public = false
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif"]
+file_size_limit = "10MB"
+
+[storage.buckets.documents]
+public = false
+allowed_mime_types = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain", "text/csv"]
+file_size_limit = "25MB"
+
+[storage.buckets.images]
+public = true
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp", "image/avif", "image/gif"]
+file_size_limit = "10MB"
+
+[storage.buckets.avatars]
+public = true
+allowed_mime_types = ["image/png", "image/jpeg", "image/webp"]
+file_size_limit = "2MB"
+
+[analytics]
+enabled = true
+
+[functions]
+enabled = true
