@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Search, MapPin, Star, Users, ShoppingBag, ArrowRight,
-  TrendingUp, Sparkles, Clock, ChevronRight, Store,
+  TrendingUp, Sparkles, Clock, ChevronRight, Store, Heart,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'

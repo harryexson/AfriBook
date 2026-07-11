@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
@@ -57,7 +58,9 @@ export default function RootLayout({
       className={`${inter.variable} ${poppins.variable} h-full`}
     >
       <head>
-        <script
+        <Script
+          id="theme-preload"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
