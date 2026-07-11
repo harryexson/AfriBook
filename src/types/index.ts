@@ -584,28 +584,204 @@ export interface Chargeback {
   updatedAt: string;
 }
 
+// ─── RideLy DB row types ─────────────────────────────────────
+
+/** Coordinate pair stored in ride/delivery pickup/destination columns. */
+export interface DbGeoLocation {
+  lat: number;
+  lng: number;
+}
+
+export interface RideRequestRow {
+  id: string;
+  rider_id: string;
+  driver_id: string | null;
+  ride_type: string;
+  status: string;
+  pickup_location: DbGeoLocation;
+  pickup_address: string;
+  destination_location: DbGeoLocation;
+  destination_address: string;
+  distance_km: number;
+  estimated_duration_min: number;
+  estimated_fare: number;
+  surge_multiplier: number;
+  payment_type: string;
+  route_polyline: string | null;
+  matched_at: string | null;
+  accepted_at: string | null;
+  arrived_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  cancellation_fee: number | null;
+  rating: number | null;
+  review: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DeliveryRequestRow {
+  id: string;
+  customer_id: string;
+  driver_id: string | null;
+  delivery_type: string;
+  status: string;
+  pickup_location: DbGeoLocation;
+  pickup_address: string;
+  pickup_contact_name: string;
+  pickup_contact_phone: string;
+  destination_location: DbGeoLocation;
+  destination_address: string;
+  destination_contact_name: string;
+  destination_contact_phone: string;
+  package_description: string;
+  package_weight: number | null;
+  package_value: number | null;
+  distance_km: number;
+  estimated_duration_min: number;
+  estimated_fare: number;
+  surge_multiplier: number;
+  payment_type: string;
+  signature_required: boolean;
+  matched_at: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  cancellation_fee: number | null;
+  delivered_at: string | null;
+  picked_up_at: string | null;
+  signature: string | null;
+  photo_url: string | null;
+  special_instructions: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FoodOrderRow {
+  id: string;
+  order_id: string;
+  restaurant_id: string;
+  customer_id: string;
+  driver_id: string | null;
+  status: string;
+  subtotal: number;
+  delivery_fee: number;
+  total: number;
+  restaurant_location: GeoPoint;
+  destination_location: GeoPoint;
+  estimated_delivery_time: string | null;
+  actual_delivery_time: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DriverLocationRow {
+  id: string;
+  driver_id: string;
+  location: GeoPoint;
+  heading: number;
+  speed: number;
+  accuracy: number | null;
+  timestamp: string;
+}
+
+export interface DriverOfferRow {
+  id: string;
+  ride_id: string;
+  driver_id: string;
+  status: string;
+  expires_at: string;
+  created_at: string;
+}
+
+export interface SurgeZoneRow {
+  id: string;
+  country_code: string;
+  name: string;
+  center: GeoPoint;
+  radius_km: number;
+  multiplier: number;
+  demand: number;
+  supply: number;
+  ratio: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DriverOnlineSessionRow {
+  id: string;
+  driver_id: string;
+  started_at: string;
+  ended_at: string | null;
+}
+
 // ─── Database row types (mirrors Supabase schema) ────────────
 
 export interface Database {
   public: {
     Tables: {
-      users: { Row: User; Insert: Omit<User, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<User, 'id'>> };
-      businesses: { Row: Business; Insert: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Business, 'id'>> };
-      services: { Row: Service; Insert: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Service, 'id'>> };
-      products: { Row: Product; Insert: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Product, 'id'>> };
-      bookings: { Row: Booking; Insert: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Booking, 'id'>> };
-      orders: { Row: Order; Insert: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Order, 'id'>> };
-      staff: { Row: Staff; Insert: Omit<Staff, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Staff, 'id'>> };
-      drivers: { Row: Driver; Insert: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Driver, 'id'>> };
-      payments: { Row: Payment; Insert: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Payment, 'id'>> };
-      payouts: { Row: Payout; Insert: Omit<Payout, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Payout, 'id'>> };
-      reviews: { Row: Review; Insert: Omit<Review, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Review, 'id'>> };
-      notifications: { Row: Notification; Insert: Omit<Notification, 'id' | 'createdAt'>; Update: Partial<Omit<Notification, 'id'>> };
-      audit_logs: { Row: AuditLog; Insert: Omit<AuditLog, 'id' | 'createdAt'>; Update: never };
-      disputes: { Row: Dispute; Insert: Omit<Dispute, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Dispute, 'id'>> };
+      users: { Row: Omit<User, never>; Insert: Omit<User, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<User, 'id'>>; Relationships: never[] };
+      businesses: { Row: Omit<Business, never>; Insert: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Business, 'id'>>; Relationships: never[] };
+      services: { Row: Omit<Service, never>; Insert: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Service, 'id'>>; Relationships: never[] };
+      products: { Row: Omit<Product, never>; Insert: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Product, 'id'>>; Relationships: never[] };
+      bookings: { Row: Omit<Booking, never>; Insert: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Booking, 'id'>>; Relationships: never[] };
+      orders: { Row: Omit<Order, never>; Insert: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Order, 'id'>>; Relationships: never[] };
+      staff: { Row: Omit<Staff, never>; Insert: Omit<Staff, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Staff, 'id'>>; Relationships: never[] };
+      drivers: { Row: Omit<Driver, never>; Insert: Omit<Driver, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Driver, 'id'>>; Relationships: never[] };
+      payments: { Row: Omit<Payment, never>; Insert: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Payment, 'id'>>; Relationships: never[] };
+      payouts: { Row: Omit<Payout, never>; Insert: Omit<Payout, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Payout, 'id'>>; Relationships: never[] };
+      reviews: { Row: Omit<Review, never>; Insert: Omit<Review, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Review, 'id'>>; Relationships: never[] };
+      notifications: { Row: Omit<Notification, never>; Insert: Omit<Notification, 'id' | 'createdAt'>; Update: Partial<Omit<Notification, 'id'>>; Relationships: never[] };
+      audit_logs: { Row: Omit<AuditLog, never>; Insert: Omit<AuditLog, 'id' | 'createdAt'>; Update: never; Relationships: never[] };
+      disputes: { Row: Omit<Dispute, never>; Insert: Omit<Dispute, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Dispute, 'id'>>; Relationships: never[] };
+      ride_requests: {
+        Row: Omit<RideRequestRow, never>;
+        Insert: Omit<RideRequestRow, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<RideRequestRow, 'id'>>;
+        Relationships: never[];
+      };
+      delivery_requests: {
+        Row: Omit<DeliveryRequestRow, never>;
+        Insert: Omit<DeliveryRequestRow, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<DeliveryRequestRow, 'id'>>;
+        Relationships: never[];
+      };
+      food_orders: {
+        Row: Omit<FoodOrderRow, never>;
+        Insert: Omit<FoodOrderRow, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<FoodOrderRow, 'id'>>;
+        Relationships: never[];
+      };
+      driver_locations: {
+        Row: Omit<DriverLocationRow, never>;
+        Insert: Omit<DriverLocationRow, 'id'>;
+        Update: Partial<Omit<DriverLocationRow, 'id'>>;
+        Relationships: never[];
+      };
+      driver_offers: {
+        Row: Omit<DriverOfferRow, never>;
+        Insert: Omit<DriverOfferRow, 'id' | 'created_at'>;
+        Update: Partial<Omit<DriverOfferRow, 'id'>>;
+        Relationships: never[];
+      };
+      surge_zones: {
+        Row: Omit<SurgeZoneRow, never>;
+        Insert: Omit<SurgeZoneRow, 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Omit<SurgeZoneRow, 'id'>>;
+        Relationships: never[];
+      };
+      driver_online_sessions: {
+        Row: Omit<DriverOnlineSessionRow, never>;
+        Insert: Omit<DriverOnlineSessionRow, 'id'>;
+        Update: Partial<Omit<DriverOnlineSessionRow, 'id'>>;
+        Relationships: never[];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
-    Enums: Record<string, never>;
   };
 }

@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, X, ShoppingBag, Store, Truck, Utensils, Package,
-  LogIn, UserPlus, Heart, HelpCircle, ChevronRight,
+  LogIn, UserPlus, Heart, HelpCircle, ChevronRight, Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -17,6 +17,7 @@ interface MobileNavProps {
 
 const NAV_ITEMS = [
   { label: 'Marketplace', href: '/marketplace', icon: ShoppingBag },
+  { label: 'Events', href: '/events', icon: Calendar },
   { label: 'Sell', href: '/sell', icon: Store },
   { label: 'Rides', href: '/rides', icon: Truck },
   { label: 'Food', href: '/food', icon: Utensils },
@@ -82,7 +83,7 @@ export default function MobileNav({ open, onClose }: MobileNavProps) {
                 {!authenticated && (
                   <div className="flex flex-col gap-2 mb-6 px-2">
                     <Link
-                      href="/auth/signin"
+                      href="/login"
                       onClick={onClose}
                       className="flex items-center justify-center gap-2 w-full py-3 rounded-xl border border-border text-text-primary font-semibold hover:bg-surface-secondary transition-colors"
                     >
@@ -90,7 +91,7 @@ export default function MobileNav({ open, onClose }: MobileNavProps) {
                       Sign In
                     </Link>
                     <Link
-                      href="/vendor/signup"
+                      href="/register"
                       onClick={onClose}
                       className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-amber-500 text-white font-semibold hover:bg-amber-600 transition-colors"
                     >

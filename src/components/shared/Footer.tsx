@@ -19,6 +19,7 @@ const FOOTER_LINKS = {
     { label: 'All Categories', href: '/marketplace' },
     { label: 'Services', href: '/marketplace/services' },
     { label: 'Products', href: '/marketplace/products' },
+    { label: 'Events & Tickets', href: '/events' },
     { label: 'Food & Dining', href: '/food' },
     { label: 'Rides', href: '/rides' },
   ],
@@ -31,7 +32,7 @@ const FOOTER_LINKS = {
   ],
   Legal: [
     { label: 'Terms of Service', href: '/legal/terms' },
-    { label: 'Privacy Policy', href: 'legal/privacy' },
+    { label: 'Privacy Policy', href: '/legal/privacy' },
     { label: 'Cookie Policy', href: '/legal/cookies' },
     { label: 'Vendor Agreement', href: '/legal/vendor' },
     { label: 'Community Guidelines', href: '/legal/guidelines' },

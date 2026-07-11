@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, Search, X, Menu, ChevronDown, User, ShoppingBag,
-  Package, LogOut, Settings, Heart, Bell, Store, Truck, Utensils,
+  Package, LogOut, Settings, Heart, Bell, Store, Truck, Utensils, Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
@@ -18,6 +18,7 @@ import CountrySelector from './CountrySelector'
 
 const NAV_LINKS = [
   { label: 'Marketplace', href: '/marketplace', icon: ShoppingBag },
+  { label: 'Events', href: '/events', icon: Calendar },
   { label: 'Sell', href: '/sell', icon: Store },
   { label: 'Rides', href: '/rides', icon: Truck },
   { label: 'Food', href: '/food', icon: Utensils },
@@ -203,7 +204,7 @@ export default function Header() {
                 ) : (
                   <>
                     <Link
-                      href="/auth/signin"
+                      href="/login"
                       className={cn(
                         'text-sm font-medium transition-colors',
                         scrolled ? 'text-text-secondary hover:text-text-primary' : 'text-white/80 hover:text-white'
@@ -212,7 +213,7 @@ export default function Header() {
                       Sign In
                     </Link>
                     <Link
-                      href="/vendor/signup"
+                      href="/register"
                       className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors shadow-sm"
                     >
                       <Store className="w-4 h-4" />

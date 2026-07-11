@@ -1,0 +1,98 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await req.json().catch(() => ({}));
+    const { organizerId, adminRole } = body;
+
+    const { data: event, error: fetchError } = await supabase
+      .from('events')
+      .select('id, organizer_id, status, title, start_date, ticket_types: event_ticket_types(id, name, price, quantity_available)')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !event) {
+      return NextResponse.json(
+        { success: false, error: 'Event not found' },
+        { status: 404 }
+      );
+    }
+
+    if (organizerId && event.organizer_id !== organizerId && adminRole !== 'admin' && adminRole !== 'super_admin') {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: you can only publish your own events' },
+        { status: 403 }
+      );
+    }
+
+    if (event.status === 'published') {
+      return NextResponse.json(
+        { success: false, error: 'Event is already published' },
+        { status: 400 }
+      );
+    }
+
+    if (event.status === 'cancelled') {
+      return NextResponse.json(
+        { success: false, error: 'Cannot publish a cancelled event' },
+        { status: 400 }
+      );
+    }
+
+    if (new Date(event.start_date) < new Date()) {
+      return NextResponse.json(
+        { success: false, error: 'Cannot publish an event with a past start date' },
+        { status: 400 }
+      );
+    }
+
+    const now = new Date().toISOString();
+
+    const { data: updated, error: updateError } = await supabase
+      .from('events')
+      .update({
+        status: 'published',
+        published_at: now,
+        updated_at: now,
+      })
+      .eq('id', id)
+      .select('*, event_ticket_types(*)')
+      .single();
+
+    if (updateError) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to publish event' },
+        { status: 500 }
+      );
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: event.organizer_id,
+      type: 'event_published',
+      title: 'Event Published',
+      body: `Your event "${event.title}" is now live and accepting registrations.`,
+      data: { event_id: id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: updated,
+      message: 'Event published successfully',
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
