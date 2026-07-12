@@ -1,7 +1,7 @@
 // ─── Dispatch Engine ──────────────────────────────────────────
-// Uber-style dispatch: search nearby drivers, rank them, send
-// simultaneous offers, wait for the first acceptance, and expand
-// the search radius if no one accepts.
+// Uber-style dispatch: search nearby drivers via PostGIS+H3,
+// rank them, send simultaneous offers, and use Supabase Realtime
+// for event-driven acceptance instead of blocking poll loops.
 // ──────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server';
@@ -29,6 +29,7 @@ const RADIUS_EXPANSION = [5, 8, 12, 20] as const;
 
 // ─── Dispatch Ride ────────────────────────────────────────────
 // Main dispatch flow: search → rank → offer → assign.
+// Uses PostGIS-powered spatial search and Realtime for offers.
 
 export async function dispatchRide(
   rideRequest: RideRequest,
@@ -61,9 +62,9 @@ export async function dispatchRide(
 
     const topDrivers = getTopDrivers(ranked, MAX_OFFERS_PER_ROUND);
 
-    const acceptedDriverId = await offerAndWait(
+    const acceptedDriverId = await offerWithRealtime(
       rideRequest.id,
-      topDrivers.map((d) => d.driverId),
+      topDrivers,
       OFFER_TIMEOUT_MS,
     );
 
@@ -128,9 +129,9 @@ export async function dispatchDelivery(
 
     const topDrivers = getTopDrivers(ranked, MAX_OFFERS_PER_ROUND);
 
-    const acceptedDriverId = await offerAndWait(
+    const acceptedDriverId = await offerWithRealtime(
       deliveryRequest.id,
-      topDrivers.map((d) => d.driverId),
+      topDrivers,
       OFFER_TIMEOUT_MS,
     );
 
@@ -204,7 +205,7 @@ export async function dispatchFoodDelivery(
     surgeZones,
   });
 
-  const prepTimeMin = foodOrder.subtotal > 0 ? 20 : 15; // estimate from order size
+  const prepTimeMin = foodOrder.subtotal > 0 ? 20 : 15;
 
   for (const topDriver of getTopDrivers(ranked, MAX_OFFERS_PER_ROUND)) {
     const candidate = allCandidates.find(
@@ -254,14 +255,103 @@ export async function dispatchFoodDelivery(
   };
 }
 
-// ─── Send Driver Offer ────────────────────────────────────────
+// ─── Event-Driven Offer via Supabase Realtime ─────────────────
+// Sends offers to top drivers simultaneously and waits for
+// the first acceptance using Realtime subscriptions instead of
+// a blocking poll loop.
 
-export async function sendDriverOffer(
+async function offerWithRealtime(
   rideId: string,
-  driverId: string,
-): Promise<boolean> {
+  topDrivers: DriverCandidate[],
+  timeoutMs: number,
+): Promise<string | null> {
   const supabase = await createClient();
 
+  const expiresAt = new Date(Date.now() + timeoutMs).toISOString();
+
+  // Insert all offers simultaneously
+  const offers = topDrivers.map((d) => ({
+    ride_id: rideId,
+    driver_id: d.driverId,
+    status: 'pending' as const,
+    expires_at: expiresAt,
+  }));
+
+  const { error: insertError } = await supabase
+    .from('driver_offers')
+    .insert(offers);
+
+  if (insertError) {
+    console.error('[dispatch] offerWithRealtime insert error:', insertError);
+    return null;
+  }
+
+  // Send push notifications to all drivers
+  await Promise.all(
+    topDrivers.map((d) =>
+      sendPushNotification(d.driverId, {
+        title: 'New Ride Request',
+        body: 'You have a new ride request. Tap to view details.',
+        data: { rideId, type: 'ride_offer' },
+      }),
+    ),
+  );
+
+  // Subscribe to Realtime for the first acceptance
+  return new Promise<string | null>((resolve) => {
+    let resolved = false;
+
+    const channel = supabase
+      .channel(`dispatch:${rideId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'driver_offers',
+          filter: `ride_id=eq.${rideId}`,
+        },
+        (payload) => {
+          if (resolved) return;
+          if (payload.new && (payload.new as any).status === 'accepted') {
+            resolved = true;
+            supabase.removeChannel(channel);
+            resolve((payload.new as any).driver_id as string);
+          }
+        },
+      )
+      .subscribe();
+
+    // Timeout fallback
+    setTimeout(async () => {
+      if (resolved) return;
+      resolved = true;
+      supabase.removeChannel(channel);
+
+      // Expire all pending offers
+      await supabase
+        .from('driver_offers')
+        .update({ status: 'expired' })
+        .eq('ride_id', rideId)
+        .eq('status', 'pending');
+
+      resolve(null);
+    }, timeoutMs);
+  });
+}
+
+// ─── Send Driver Offer (with delay for food delivery) ─────────
+
+async function sendOfferWithDelay(
+  rideId: string,
+  driverId: string,
+  delayMs: number,
+): Promise<boolean> {
+  if (delayMs > 0) {
+    await sleep(delayMs);
+  }
+
+  const supabase = await createClient();
   const expiresAt = new Date(Date.now() + OFFER_TIMEOUT_MS).toISOString();
 
   const { error } = await supabase.from('driver_offers').insert({
@@ -271,18 +361,59 @@ export async function sendDriverOffer(
     expires_at: expiresAt,
   });
 
-  if (error) {
-    console.error('[dispatch] sendDriverOffer error:', error);
-    return false;
-  }
+  if (error) return false;
 
   await sendPushNotification(driverId, {
-    title: 'New Ride Request',
-    body: 'You have a new ride request. Tap to view details.',
-    data: { rideId, type: 'ride_offer' },
+    title: 'New Food Delivery',
+    body: 'You have a food delivery request. Tap to view.',
+    data: { rideId, type: 'food_delivery_offer' },
   });
 
-  return true;
+  // Wait for acceptance via Realtime
+  return new Promise<boolean>((resolve) => {
+    let resolved = false;
+
+    const channel = supabase
+      .channel(`offer:${rideId}:${driverId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'driver_offers',
+          filter: `ride_id=eq.${rideId}&driver_id=eq.${driverId}`,
+        },
+        (payload) => {
+          if (resolved) return;
+          const status = (payload.new as any)?.status;
+          if (status === 'accepted') {
+            resolved = true;
+            supabase.removeChannel(channel);
+            resolve(true);
+          } else if (status === 'declined' || status === 'expired') {
+            resolved = true;
+            supabase.removeChannel(channel);
+            resolve(false);
+          }
+        },
+      )
+      .subscribe();
+
+    setTimeout(async () => {
+      if (resolved) return;
+      resolved = true;
+      supabase.removeChannel(channel);
+
+      await supabase
+        .from('driver_offers')
+        .update({ status: 'expired' })
+        .eq('ride_id', rideId)
+        .eq('driver_id', driverId)
+        .eq('status', 'pending');
+
+      resolve(false);
+    }, OFFER_TIMEOUT_MS);
+  });
 }
 
 // ─── Handle Offer Response ────────────────────────────────────
@@ -308,6 +439,7 @@ export async function handleOfferResponse(
     return false;
   }
 
+  // If accepted, expire all other pending offers for this ride
   if (accepted) {
     await supabase
       .from('driver_offers')
@@ -345,98 +477,13 @@ export async function handleDriverTimeout(rideId: string): Promise<void> {
 
 // ─── Private Helpers ──────────────────────────────────────────
 
-async function offerAndWait(
-  rideId: string,
-  driverIds: string[],
-  timeoutMs: number,
-): Promise<string | null> {
-  const supabase = await createClient();
-
-  for (const driverId of driverIds) {
-    await sendDriverOffer(rideId, driverId);
-  }
-
-  const deadline = Date.now() + timeoutMs;
-
-  while (Date.now() < deadline) {
-    const { data } = await supabase
-      .from('driver_offers')
-      .select('driver_id, status')
-      .eq('ride_id', rideId)
-      .eq('status', 'accepted')
-      .maybeSingle();
-
-    if (data) {
-      return data.driver_id as string;
-    }
-
-    await sleep(500);
-  }
-
-  await handleDriverTimeout(rideId);
-  return null;
-}
-
-async function sendOfferWithDelay(
-  rideId: string,
-  driverId: string,
-  delayMs: number,
-): Promise<boolean> {
-  if (delayMs > 0) {
-    await sleep(delayMs);
-  }
-
-  const supabase = await createClient();
-
-  const expiresAt = new Date(Date.now() + OFFER_TIMEOUT_MS).toISOString();
-
-  const { error } = await supabase.from('driver_offers').insert({
-    ride_id: rideId,
-    driver_id: driverId,
-    status: 'pending',
-    expires_at: expiresAt,
-  });
-
-  if (error) return false;
-
-  await sendPushNotification(driverId, {
-    title: 'New Food Delivery',
-    body: 'You have a food delivery request. Tap to view.',
-    data: { rideId, type: 'food_delivery_offer' },
-  });
-
-  const deadline = Date.now() + OFFER_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const { data } = await supabase
-      .from('driver_offers')
-      .select('status')
-      .eq('ride_id', rideId)
-      .eq('driver_id', driverId)
-      .maybeSingle();
-
-    if (data?.status === 'accepted') return true;
-    if (data?.status === 'declined') return false;
-
-    await sleep(500);
-  }
-
-  await supabase
-    .from('driver_offers')
-    .update({ status: 'expired' })
-    .eq('ride_id', rideId)
-    .eq('driver_id', driverId)
-    .eq('status', 'pending');
-
-  return false;
-}
-
 async function updateRideStatus(
   supabase: Awaited<ReturnType<typeof createClient>>,
   rideId: string,
   status: string,
 ): Promise<void> {
   await supabase
-    .from('ride_requests')
+    .from('ridely_rides')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', rideId);
 }
@@ -447,7 +494,7 @@ async function updateDeliveryStatus(
   status: string,
 ): Promise<void> {
   await supabase
-    .from('delivery_requests')
+    .from('ridely_deliveries')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', deliveryId);
 }
@@ -458,7 +505,7 @@ async function assignDriverToRide(
   driverId: string,
 ): Promise<void> {
   await supabase
-    .from('ride_requests')
+    .from('ridely_rides')
     .update({
       driver_id: driverId,
       status: 'matched',
@@ -469,7 +516,7 @@ async function assignDriverToRide(
 
   await supabase
     .from('drivers')
-    .update({ status: 'on_trip', currentTripId: rideId } as any)
+    .update({ status: 'on_trip' } as any)
     .eq('id', driverId);
 }
 
@@ -479,7 +526,7 @@ async function assignDriverToDelivery(
   driverId: string,
 ): Promise<void> {
   await supabase
-    .from('delivery_requests')
+    .from('ridely_deliveries')
     .update({
       driver_id: driverId,
       status: 'matched',
@@ -500,7 +547,7 @@ async function assignDriverToFoodOrder(
   driverId: string,
 ): Promise<void> {
   await supabase
-    .from('food_orders')
+    .from('ridely_food_deliveries')
     .update({
       driver_id: driverId,
       status: 'matched',
@@ -551,6 +598,7 @@ async function sendPushNotification(
 
   if (!driver) return;
 
+  // Insert notification record
   await supabase.from('notifications').insert({
     userId: driver.userId,
     type: 'booking',
@@ -559,6 +607,35 @@ async function sendPushNotification(
     data: notification.data,
     isRead: false,
   } as any);
+
+  // Send push notification via Expo Push / FCM
+  try {
+    const { data: tokens } = await supabase
+      .from('push_tokens')
+      .select('token, platform')
+      .eq('user_id', driver.userId)
+      .eq('is_active', true);
+
+    if (tokens?.length) {
+      await Promise.all(
+        tokens.map(async (t) => {
+          await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: t.token,
+              title: notification.title,
+              body: notification.body,
+              data: notification.data,
+              sound: 'default',
+            }),
+          }).catch(() => {});
+        }),
+      );
+    }
+  } catch {
+    // Push notification failure is non-critical
+  }
 }
 
 function sleep(ms: number): Promise<void> {

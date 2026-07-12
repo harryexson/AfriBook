@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import type { EventGuest } from '@/types/events';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,6 +9,15 @@ const supabase = createClient(
 );
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+
+function generateTicketCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 export async function GET(
   req: NextRequest,
@@ -257,11 +267,164 @@ export async function PATCH(
   }
 }
 
-function generateTicketCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: ticketId } = await params;
+    const body = await req.json();
+    const { name, email, phone, dietaryRestrictions, specialRequirements } = body;
+
+    if (!name || !email) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required fields: name, email' },
+        { status: 400 }
+      );
+    }
+
+    const { data: ticket, error: fetchError } = await supabase
+      .from('ticket_purchases')
+      .select('id, event_id, buyer_id, quantity, ticket_type_id')
+      .eq('id', ticketId)
+      .single();
+
+    if (fetchError || !ticket) {
+      return NextResponse.json(
+        { success: false, error: 'Ticket not found' },
+        { status: 404 }
+      );
+    }
+
+    const { count } = await supabase
+      .from('event_guests')
+      .select('id', { count: 'exact', head: true })
+      .eq('ticket_purchase_id', ticketId);
+
+    const { data: ticketType } = await supabase
+      .from('event_ticket_types')
+      .select('max_guests_per_ticket, includes_guest_registration')
+      .eq('id', ticket.ticket_type_id)
+      .single();
+
+    if (!ticketType?.includes_guest_registration) {
+      return NextResponse.json(
+        { success: false, error: 'Guest registration is not enabled for this ticket type' },
+        { status: 400 }
+      );
+    }
+
+    const maxGuests = (ticketType.max_guests_per_ticket ?? 0) * ticket.quantity;
+    if ((count ?? 0) >= maxGuests) {
+      return NextResponse.json(
+        { success: false, error: `Maximum ${maxGuests} guests allowed for this ticket` },
+        { status: 400 }
+      );
+    }
+
+    const guestCode = generateTicketCode();
+    const guestData = {
+      event_id: ticket.event_id,
+      ticket_purchase_id: ticketId,
+      host_id: ticket.buyer_id ?? '',
+      guest_name: name,
+      guest_email: email,
+      guest_phone: phone ?? null,
+      ticket_code: guestCode,
+      qr_code_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${ticket.event_id}/guest/${guestCode}`,
+      check_in_status: 'not_checked_in',
+      dietary_restrictions: dietaryRestrictions ?? null,
+      special_requirements: specialRequirements ?? null,
+      created_at: new Date().toISOString(),
+    };
+
+    const { data: guest, error: guestError } = await supabase
+      .from('event_guests')
+      .insert(guestData)
+      .select()
+      .single();
+
+    if (guestError) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to add guest' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: true, data: guest },
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
   }
-  return code;
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: ticketId } = await params;
+    const { searchParams } = new URL(req.url);
+    const guestId = searchParams.get('guestId');
+    const buyerId = searchParams.get('buyerId');
+
+    if (!guestId) {
+      return NextResponse.json(
+        { success: false, error: 'guestId query parameter is required' },
+        { status: 400 }
+      );
+    }
+
+    const { data: guest, error: fetchError } = await supabase
+      .from('event_guests')
+      .select('id, ticket_purchase_id, host_id, event_id')
+      .eq('id', guestId)
+      .eq('ticket_purchase_id', ticketId)
+      .single();
+
+    if (fetchError || !guest) {
+      return NextResponse.json(
+        { success: false, error: 'Guest not found' },
+        { status: 404 }
+      );
+    }
+
+    if (buyerId && guest.host_id !== buyerId) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: you can only remove your own guests' },
+        { status: 403 }
+      );
+    }
+
+    if (guest.check_in_status === 'checked_in') {
+      return NextResponse.json(
+        { success: false, error: 'Cannot remove a guest who has already checked in' },
+        { status: 400 }
+      );
+    }
+
+    const { error: deleteError } = await supabase
+      .from('event_guests')
+      .delete()
+      .eq('id', guestId);
+
+    if (deleteError) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to remove guest' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ success: true, data: { message: 'Guest removed successfully' } });
+  } catch (error) {
+    return NextResponse.json(
+      { success: false, error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    );
+  }
 }

@@ -2,8 +2,27 @@ import { COUNTRIES } from './countries';
 import { CURRENCIES } from './currencies';
 import { LANGUAGES } from './languages';
 import { TRANSLATIONS, type Translations } from './translations';
+import {
+  getPPPConfig,
+  usdToLocal,
+  getMinimumFeeFloor,
+  getLocalizedSubscriptionPrices,
+  getPlatformCommission,
+  getAvailablePPPCountries,
+  convertDistance,
+} from './ppp';
 
 export { COUNTRIES, CURRENCIES, LANGUAGES, TRANSLATIONS };
+export {
+  getPPPConfig,
+  usdToLocal,
+  getMinimumFeeFloor,
+  getLocalizedSubscriptionPrices,
+  getPlatformCommission,
+  getAvailablePPPCountries,
+  convertDistance,
+};
+export type { PPPConfig } from './ppp';
 export type { CountryConfig, PaymentMethodConfig } from './countries';
 export type { CurrencyConfig } from './currencies';
 export type { LanguageConfig } from './languages';

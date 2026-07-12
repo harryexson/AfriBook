@@ -10,11 +10,14 @@ import { useUIStore } from '@/stores/ui-store'
 import {
   LayoutDashboard, Route, Wallet, Car, Settings, Bell,
   Menu, X, Home, ChevronRight, Wifi, WifiOff,
+  ShoppingBag, Shield,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/driver', icon: LayoutDashboard },
+  { label: 'Active Delivery', href: '/driver/delivery', icon: ShoppingBag },
   { label: 'Trips', href: '/driver/trips', icon: Route },
+  { label: 'Safety', href: '/driver/safety', icon: Shield },
   { label: 'Earnings', href: '/driver/earnings', icon: Wallet },
   { label: 'Vehicle', href: '/driver/vehicle', icon: Car },
   { label: 'Settings', href: '/driver/settings', icon: Settings },
@@ -22,7 +25,9 @@ const NAV_ITEMS = [
 
 const BREADCRUMB_MAP: Record<string, string> = {
   driver: 'Dashboard',
+  delivery: 'Active Delivery',
   trips: 'Trips',
+  safety: 'Safety',
   earnings: 'Earnings',
   vehicle: 'Vehicle',
   settings: 'Settings',

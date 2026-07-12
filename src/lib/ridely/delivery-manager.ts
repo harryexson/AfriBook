@@ -383,7 +383,7 @@ function rowToDeliveryRequest(row: Record<string, unknown>): DeliveryRequest {
       minimumFare: 0,
       surgeMultiplier: row.surge_multiplier as number,
       estimatedFare: row.estimated_fare as number,
-      currencyCode: 'NGN',
+      currencyCode: (row.currency_code as string) ?? 'USD',
     },
     paymentType: row.payment_type as DeliveryRequest['paymentType'],
     cancelledBy: row.cancelled_by as CancellationActor | undefined,

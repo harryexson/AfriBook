@@ -33,13 +33,17 @@ export interface MenuCartItem {
 
 export type CartItem = BookingCartItem | ProductCartItem | MenuCartItem;
 
+type FulfillmentMethod = 'delivery' | 'pickup';
+
 type CartMode = 'booking' | 'order' | 'mixed';
 
 interface CartState {
   items: CartItem[];
   businessId: string | null;
   mode: CartMode;
+  fulfillmentMethod: FulfillmentMethod;
   deliveryAddressId: string | null;
+  pickupNotes: string;
   tip: number;
   notes: string;
   promoCode: string | null;
@@ -51,7 +55,9 @@ interface CartState {
   clearCart: () => void;
   setBusinessId: (id: string | null) => void;
   setMode: (mode: CartMode) => void;
+  setFulfillmentMethod: (method: FulfillmentMethod) => void;
   setDeliveryAddressId: (id: string | null) => void;
+  setPickupNotes: (notes: string) => void;
   setTip: (tip: number) => void;
   setNotes: (notes: string) => void;
   setPromoCode: (code: string | null) => void;
@@ -68,7 +74,9 @@ export const useCartStore = create<CartState>()(
       items: [],
       businessId: null,
       mode: 'order',
+      fulfillmentMethod: 'delivery',
       deliveryAddressId: null,
+      pickupNotes: '',
       tip: 0,
       notes: '',
       promoCode: null,
@@ -105,7 +113,9 @@ export const useCartStore = create<CartState>()(
           items: [],
           businessId: null,
           mode: 'order',
+          fulfillmentMethod: 'delivery',
           deliveryAddressId: null,
+          pickupNotes: '',
           tip: 0,
           notes: '',
           promoCode: null,
@@ -114,7 +124,9 @@ export const useCartStore = create<CartState>()(
 
       setBusinessId: (id) => set({ businessId: id }),
       setMode: (mode) => set({ mode }),
+      setFulfillmentMethod: (method) => set({ fulfillmentMethod: method }),
       setDeliveryAddressId: (id) => set({ deliveryAddressId: id }),
+      setPickupNotes: (notes) => set({ pickupNotes: notes }),
       setTip: (tip) => set({ tip }),
       setNotes: (notes) => set({ notes }),
       setPromoCode: (code) => set({ promoCode: code }),
@@ -142,6 +154,7 @@ export const useCartStore = create<CartState>()(
         items: state.items,
         businessId: state.businessId,
         mode: state.mode,
+        fulfillmentMethod: state.fulfillmentMethod,
         promoCode: state.promoCode,
       }),
     },

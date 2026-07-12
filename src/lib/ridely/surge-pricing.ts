@@ -21,6 +21,7 @@ import type {
 import { RIDE_TYPE_CONFIG } from '@/types/ridely';
 import { calculateDistance } from './geospatial';
 import { COUNTRIES } from '@/lib/localization/countries';
+import { getSurgeMultiplierForLocation, getH3DemandSupply } from './h3-grid';
 
 // ─── Surge Thresholds ─────────────────────────────────────────
 
@@ -80,6 +81,28 @@ export async function calculateSurgeMultiplier(
   location: GeoLocation,
   rideType: RideType,
 ): Promise<SurgePricingInfo> {
+  // Try H3-based surge first (uses PostGIS RPC)
+  try {
+    const h3Result = await getSurgeMultiplierForLocation(location);
+    if (h3Result.h3Index) {
+      const demand = await estimateSurgeDemand(location, 3);
+      const supply = await estimateSurgeSupply(location, 3);
+
+      return {
+        active: h3Result.multiplier > 1.0,
+        multiplier: h3Result.multiplier,
+        reason: h3Result.multiplier > 1.0
+          ? `High demand in your area (${demand} requests, ${supply} drivers)`
+          : 'Normal pricing',
+        demand,
+        supply,
+      };
+    }
+  } catch {
+    // Fall back to legacy computation
+  }
+
+  // Legacy: estimate demand/supply via bounding box
   const demand = await estimateSurgeDemand(location, 3);
   const supply = await estimateSurgeSupply(location, 3);
 

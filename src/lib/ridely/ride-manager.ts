@@ -399,7 +399,7 @@ function rowToRideRequest(row: Record<string, unknown>): RideRequest {
       minimumFare: 0,
       surgeMultiplier: row.surge_multiplier as number,
       estimatedFare: row.estimated_fare as number,
-      currencyCode: 'NGN',
+      currencyCode: (row.currency_code as string) ?? 'USD',
     },
     paymentType: row.payment_type as RideRequest['paymentType'],
     routePolyline: row.route_polyline as string | undefined,
