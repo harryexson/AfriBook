@@ -1,211 +1,382 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { useState, useMemo } from 'react'
+import { motion } from 'framer-motion'
 import {
   Search,
   MapPin,
   Star,
   Clock,
-  Bike,
-  TrendingUp,
-  ArrowRight,
-  Utensils,
-  Flame,
-  ShoppingBag,
-} from 'lucide-react';
+  Truck,
+  ChevronDown,
+  Navigation,
+} from 'lucide-react'
+import FeaturedRestaurants from '@/components/food/FeaturedRestaurants'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
   visible: { opacity: 1, y: 0 },
-};
+}
 
 const staggerContainer = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.1 } },
-};
+}
 
-const cuisines = [
-  { name: 'African', emoji: '🍲', count: 450 },
-  { name: 'Nigerian', emoji: '🥘', count: 320 },
-  { name: 'Kenyan', emoji: '🍛', count: 280 },
-  { name: 'Ethiopian', emoji: '🫓', count: 180 },
-  { name: 'South African', emoji: '🥩', count: 220 },
-  { name: 'Ghanaian', emoji: '🍚', count: 200 },
-  { name: 'Grills & BBQ', emoji: '🔥', count: 350 },
-  { name: 'Fast Food', emoji: '🍔', count: 500 },
-  { name: 'Healthy', emoji: '🥗', count: 150 },
-  { name: 'Bakery', emoji: '🍞', count: 120 },
-];
+const categories = [
+  'All',
+  'Fast Food',
+  'Nigerian',
+  'Ethiopian',
+  'Moroccan',
+  'Seafood',
+  'Vegetarian',
+  'Chinese',
+]
 
-const restaurants = [
+const sortOptions = ['Recommended', 'Rating', 'Delivery Time', 'Price'] as const
+type SortOption = (typeof sortOptions)[number]
+
+interface Restaurant {
+  id: string
+  name: string
+  cuisine: string
+  category: string[]
+  rating: number
+  deliveryTime: string
+  deliveryTimeMinutes: number
+  deliveryFee: string
+  priceRange: string
+  location: string
+  initials: string
+  featured: boolean
+  gradient: string
+}
+
+const restaurants: Restaurant[] = [
   {
+    id: '1',
     name: 'Mama Nkechi\'s Kitchen',
     cuisine: 'Nigerian',
+    category: ['Nigerian'],
     rating: 4.9,
-    reviews: 567,
     deliveryTime: '25-35 min',
+    deliveryTimeMinutes: 30,
     deliveryFee: '$1.50',
     priceRange: '$$',
-    address: 'Lekki, Lagos',
+    location: 'Lekki, Lagos',
     initials: 'MN',
     featured: true,
-    promo: 'Free delivery on first order',
+    gradient: 'from-amber-500/20 to-orange-500/20',
   },
   {
+    id: '2',
     name: 'Carnivore Nairobi',
     cuisine: 'Kenyan / BBQ',
+    category: ['Seafood'],
     rating: 4.8,
-    reviews: 432,
     deliveryTime: '30-40 min',
+    deliveryTimeMinutes: 35,
     deliveryFee: '$2.00',
     priceRange: '$$$',
-    address: 'Westlands, Nairobi',
+    location: 'Westlands, Nairobi',
     initials: 'CN',
     featured: true,
-    promo: null,
+    gradient: 'from-emerald-500/20 to-teal-500/20',
   },
   {
-    name: 'Yejoka Ethiopian',
+    id: '3',
+    name: 'Addis in Cape',
     cuisine: 'Ethiopian',
+    category: ['Ethiopian'],
     rating: 4.7,
-    reviews: 289,
     deliveryTime: '30-45 min',
+    deliveryTimeMinutes: 37,
     deliveryFee: '$1.80',
     priceRange: '$$',
-    address: 'Sandton, Johannesburg',
-    initials: 'YE',
+    location: 'Woodstock, Cape Town',
+    initials: 'AC',
     featured: false,
-    promo: '20% off orders over $20',
+    gradient: 'from-yellow-500/20 to-amber-500/20',
   },
   {
-    name: 'Buka Hut',
-    cuisine: 'Ghanaian',
+    id: '4',
+    name: 'Medina Grill',
+    cuisine: 'Moroccan',
+    category: ['Moroccan'],
     rating: 4.6,
-    reviews: 345,
-    deliveryTime: '20-30 min',
-    deliveryFee: '$1.20',
-    priceRange: '$',
-    address: 'Osu, Accra',
-    initials: 'BH',
+    deliveryTime: '35-50 min',
+    deliveryTimeMinutes: 42,
+    deliveryFee: '$2.20',
+    priceRange: '$$',
+    location: 'Guéliz, Marrakech',
+    initials: 'MG',
     featured: false,
-    promo: null,
+    gradient: 'from-red-500/20 to-rose-500/20',
   },
   {
-    name: 'Spice Route',
-    cuisine: 'Pan-African',
-    rating: 4.8,
-    reviews: 198,
-    deliveryTime: '35-45 min',
-    deliveryFee: '$2.50',
-    priceRange: '$$$',
-    address: 'Kigali',
-    initials: 'SR',
-    featured: true,
-    promo: 'New: Try our jollof special',
-  },
-  {
-    name: 'QuickBite Lagos',
-    cuisine: 'Fast Food',
+    id: '5',
+    name: 'Lagos Street Bites',
+    cuisine: 'Fast Food / Nigerian',
+    category: ['Fast Food', 'Nigerian'],
     rating: 4.5,
-    reviews: 678,
     deliveryTime: '15-25 min',
+    deliveryTimeMinutes: 20,
     deliveryFee: '$0.99',
     priceRange: '$',
-    address: 'Victoria Island, Lagos',
-    initials: 'QB',
+    location: 'Victoria Island, Lagos',
+    initials: 'LB',
     featured: false,
-    promo: null,
+    gradient: 'from-orange-500/20 to-red-500/20',
   },
-];
+  {
+    id: '6',
+    name: 'Zanzibar Spice House',
+    cuisine: 'Seafood / Tanzanian',
+    category: ['Seafood'],
+    rating: 4.8,
+    deliveryTime: '30-40 min',
+    deliveryTimeMinutes: 35,
+    deliveryFee: '$1.70',
+    priceRange: '$$',
+    location: 'Stone Town, Zanzibar',
+    initials: 'ZS',
+    featured: true,
+    gradient: 'from-cyan-500/20 to-blue-500/20',
+  },
+  {
+    id: '7',
+    name: 'Green Leaf Vegan',
+    cuisine: 'Vegetarian / Pan-African',
+    category: ['Vegetarian'],
+    rating: 4.4,
+    deliveryTime: '25-35 min',
+    deliveryTimeMinutes: 30,
+    deliveryFee: '$1.40',
+    priceRange: '$$',
+    location: 'Kigali, Rwanda',
+    initials: 'GL',
+    featured: false,
+    gradient: 'from-green-500/20 to-emerald-500/20',
+  },
+  {
+    id: '8',
+    name: 'Dragon Wok Accra',
+    cuisine: 'Chinese / West African Fusion',
+    category: ['Chinese'],
+    rating: 4.3,
+    deliveryTime: '20-30 min',
+    deliveryTimeMinutes: 25,
+    deliveryFee: '$1.30',
+    priceRange: '$',
+    location: 'Osu, Accra',
+    initials: 'DW',
+    featured: false,
+    gradient: 'from-purple-500/20 to-violet-500/20',
+  },
+  {
+    id: '9',
+    name: 'Buka Hut',
+    cuisine: 'Ghanaian',
+    category: ['Nigerian', 'Fast Food'],
+    rating: 4.6,
+    deliveryTime: '20-30 min',
+    deliveryTimeMinutes: 25,
+    deliveryFee: '$1.20',
+    priceRange: '$',
+    location: 'East Legon, Accra',
+    initials: 'BH',
+    featured: false,
+    gradient: 'from-pink-500/20 to-rose-500/20',
+  },
+  {
+    id: '10',
+    name: 'Spice Route Kigali',
+    cuisine: 'Pan-African',
+    category: ['Moroccan', 'Ethiopian'],
+    rating: 4.8,
+    deliveryTime: '35-45 min',
+    deliveryTimeMinutes: 40,
+    deliveryFee: '$2.50',
+    priceRange: '$$$',
+    location: 'Kigali, Rwanda',
+    initials: 'SR',
+    featured: true,
+    gradient: 'from-indigo-500/20 to-blue-500/20',
+  },
+]
 
-const popularDishes = [
-  { name: 'Jollof Rice Special', restaurant: 'Mama Nkechi\'s', price: '$8.50', initials: 'JR' },
-  { name: 'Nyama Choma Platter', restaurant: 'Carnivore Nairobi', price: '$15.00', initials: 'NC' },
-  { name: 'Injera Combo', restaurant: 'Yejoka Ethiopian', price: '$12.00', initials: 'IC' },
-  { name: 'Waakye Bowl', restaurant: 'Buka Hut', price: '$6.50', initials: 'WB' },
-  { name: 'Suya & Fries', restaurant: 'QuickBite Lagos', price: '$7.00', initials: 'SF' },
-  { name: 'Chapati Wrap', restaurant: 'Spice Route', price: '$9.00', initials: 'CW' },
-];
-
-const steps = [
-  {
-    step: '01',
-    title: 'Choose Your Meal',
-    description: 'Browse restaurants and menus near you. Filter by cuisine, price, or rating.',
-  },
-  {
-    step: '02',
-    title: 'Place Your Order',
-    description: 'Customize your meal, add to cart, and checkout securely in seconds.',
-  },
-  {
-    step: '03',
-    title: 'Track & Enjoy',
-    description: 'Watch your order in real-time as our drivers bring it right to your door.',
-  },
-];
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <Star
+          key={star}
+          className={`w-3.5 h-3.5 ${
+            star <= Math.round(rating)
+              ? 'text-amber-500 fill-amber-500'
+              : 'text-text-tertiary'
+          }`}
+        />
+      ))}
+    </div>
+  )
+}
 
 export default function FoodPage() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('All')
+  const [sortBy, setSortBy] = useState<SortOption>('Recommended')
+  const [showSortDropdown, setShowSortDropdown] = useState(false)
+  const [userLocation, setUserLocation] = useState<string | null>(null)
+  const [locating, setLocating] = useState(false)
+
+  const handleUseLocation = () => {
+    if (!navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation(
+          `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`
+        )
+        setLocating(false)
+      },
+      () => {
+        setUserLocation('Location unavailable')
+        setLocating(false)
+      }
+    )
+  }
+
+  const filteredRestaurants = useMemo(() => {
+    let result = [...restaurants]
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      result = result.filter(
+        (r) =>
+          r.name.toLowerCase().includes(q) ||
+          r.cuisine.toLowerCase().includes(q) ||
+          r.location.toLowerCase().includes(q)
+      )
+    }
+
+    if (selectedCategory !== 'All') {
+      result = result.filter((r) => r.category.includes(selectedCategory))
+    }
+
+    switch (sortBy) {
+      case 'Rating':
+        result.sort((a, b) => b.rating - a.rating)
+        break
+      case 'Delivery Time':
+        result.sort((a, b) => a.deliveryTimeMinutes - b.deliveryTimeMinutes)
+        break
+      case 'Price':
+        result.sort((a, b) => a.priceRange.length - b.priceRange.length)
+        break
+      default:
+        result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
+    }
+
+    return result
+  }, [searchQuery, selectedCategory, sortBy])
 
   return (
     <div className="min-h-screen bg-surface">
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-amber-600 via-orange-500 to-red-500 py-24 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-amber-600 via-orange-500 to-red-500 py-20 overflow-hidden">
         <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
-            <motion.div
-              variants={fadeIn}
-              className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6"
-            >
-              <Flame className="w-4 h-4" />
-              Free delivery on your first order!
-            </motion.div>
             <motion.h1
               variants={fadeIn}
               className="font-heading text-4xl md:text-6xl font-bold text-white mb-6"
             >
-              Delicious Food,{' '}
-              <span className="text-dark-300">Delivered to You</span>
+              Discover Restaurants{' '}
+              <span className="text-dark-300">Near You</span>
             </motion.h1>
-            <motion.p variants={fadeIn} className="text-xl text-white/90 max-w-3xl mx-auto mb-8">
-              From local favorites to gourmet experiences — order from the best
-              restaurants across Africa and get it delivered fast.
+            <motion.p variants={fadeIn} className="text-xl text-white/90 max-w-2xl mx-auto mb-8">
+              Order from the best African restaurants and get it delivered to your door.
             </motion.p>
-            <motion.div variants={fadeIn} className="max-w-2xl mx-auto">
-              <div className="relative bg-white rounded-2xl p-2 shadow-xl flex gap-2">
-                <div className="relative flex-1 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-amber-500 ml-3" />
-                  <input
-                    type="text"
-                    placeholder="Enter your delivery address"
-                    className="w-full py-3 pr-4 text-text-primary placeholder-text-tertiary focus:outline-none"
-                  />
-                </div>
-                <div className="w-px bg-border" />
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" />
-                  <input
-                    type="text"
-                    placeholder="Search restaurants or dishes"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 text-text-primary placeholder-text-tertiary focus:outline-none"
-                  />
-                </div>
-                <button className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-6 py-3 rounded-xl transition-colors">
-                  Find Food
-                </button>
+            <motion.div variants={fadeIn} className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={handleUseLocation}
+                disabled={locating}
+                className="inline-flex items-center gap-2 bg-white text-amber-600 font-medium px-6 py-3 rounded-xl hover:bg-white/90 transition-colors disabled:opacity-60"
+              >
+                <Navigation className="w-4 h-4" />
+                {locating ? 'Locating...' : userLocation ? 'Location Set' : 'Use My Location'}
+              </button>
+              <div className="relative w-full sm:w-96">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" />
+                <input
+                  type="text"
+                  placeholder="Search restaurants or dishes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/95 text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-white/50"
+                />
               </div>
             </motion.div>
           </motion.div>
         </div>
       </section>
 
-      {/* Cuisine Filters */}
+      {/* Category Filters & Sort */}
+      <section className="py-6 bg-surface border-b border-border sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mb-1">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    selectedCategory === category
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-surface-secondary border border-border text-text-secondary hover:border-amber-500/50 hover:text-text-primary'
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setShowSortDropdown(!showSortDropdown)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-secondary border border-border text-sm font-medium text-text-primary hover:border-amber-500/50 transition-colors"
+              >
+                {sortBy}
+                <ChevronDown className="w-4 h-4 text-text-tertiary" />
+              </button>
+              {showSortDropdown && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-surface rounded-xl border border-border shadow-xl z-30 overflow-hidden">
+                  {sortOptions.map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => {
+                        setSortBy(option)
+                        setShowSortDropdown(false)
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                        sortBy === option
+                          ? 'bg-amber-500/10 text-amber-500 font-medium'
+                          : 'text-text-secondary hover:bg-surface-secondary'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Restaurant Grid */}
       <section className="py-12 bg-surface">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
@@ -216,9 +387,12 @@ export default function FoodPage() {
             className="mb-8"
           >
             <h2 className="font-heading text-2xl font-bold text-text-primary mb-2">
-              Explore by Cuisine
+              All Restaurants
             </h2>
-            <p className="text-text-secondary">Discover the flavors of Africa</p>
+            <p className="text-text-secondary">
+              {filteredRestaurants.length} restaurant{filteredRestaurants.length !== 1 ? 's' : ''} found
+              {selectedCategory !== 'All' && ` in ${selectedCategory}`}
+            </p>
           </motion.div>
 
           <motion.div
@@ -226,78 +400,31 @@ export default function FoodPage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {cuisines.map((cuisine) => (
-              <motion.button
-                key={cuisine.name}
-                variants={fadeIn}
-                className="flex flex-col items-center gap-2 min-w-[100px] p-4 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/50 transition-colors"
-              >
-                <span className="text-3xl">{cuisine.emoji}</span>
-                <span className="text-sm font-medium text-text-primary">{cuisine.name}</span>
-                <span className="text-xs text-text-tertiary">{cuisine.count}+</span>
-              </motion.button>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Featured Restaurants */}
-      <section className="py-12 bg-surface-secondary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeIn}
-            className="flex items-center justify-between mb-8"
-          >
-            <div>
-              <h2 className="font-heading text-2xl font-bold text-text-primary mb-2">
-                Featured Restaurants
-              </h2>
-              <p className="text-text-secondary">Top picks near you</p>
-            </div>
-            <Link
-              href="#"
-              className="text-amber-500 hover:text-amber-600 font-medium text-sm flex items-center gap-1"
-            >
-              View All <ArrowRight className="w-4 h-4" />
-            </Link>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={staggerContainer}
-            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {restaurants.map((restaurant) => (
+            {filteredRestaurants.map((restaurant) => (
               <motion.div
-                key={restaurant.name}
+                key={restaurant.id}
                 variants={fadeIn}
-                className="bg-surface rounded-2xl border border-border hover:border-amber-500/50 transition-colors overflow-hidden"
+                className="bg-surface-secondary rounded-2xl border border-border hover:border-amber-500/50 transition-colors overflow-hidden group cursor-pointer"
               >
-                {/* Image placeholder */}
-                <div className="h-40 bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center relative">
+                <div className={`h-40 bg-gradient-to-br ${restaurant.gradient} flex items-center justify-center relative`}>
                   <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center">
                     <span className="text-white font-heading font-bold text-xl">
                       {restaurant.initials}
                     </span>
                   </div>
-                  {restaurant.promo && (
-                    <div className="absolute bottom-3 left-3 bg-dark-500/90 backdrop-blur-sm text-white text-xs font-medium px-3 py-1.5 rounded-full">
-                      {restaurant.promo}
+                  {restaurant.featured && (
+                    <div className="absolute top-3 right-3 bg-amber-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
+                      Featured
                     </div>
                   )}
                 </div>
 
                 <div className="p-5">
-                  <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-start justify-between mb-1">
                     <div>
-                      <h3 className="font-heading font-bold text-text-primary">
+                      <h3 className="font-heading font-bold text-text-primary group-hover:text-amber-500 transition-colors">
                         {restaurant.name}
                       </h3>
                       <p className="text-text-secondary text-sm">
@@ -305,118 +432,47 @@ export default function FoodPage() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-lg">
-                      <Star className="w-4 h-4 text-amber-500 fill-current" />
+                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                       <span className="text-sm font-bold text-text-primary">
                         {restaurant.rating}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 text-sm text-text-tertiary">
+                  <StarRating rating={restaurant.rating} />
+
+                  <div className="flex items-center gap-4 text-sm text-text-secondary mt-3">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4" />
+                      <Clock className="w-4 h-4 text-text-tertiary" />
                       {restaurant.deliveryTime}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Bike className="w-4 h-4" />
+                      <Truck className="w-4 h-4 text-text-tertiary" />
                       {restaurant.deliveryFee}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {restaurant.address}
-                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1 text-xs text-text-tertiary mt-2">
+                    <MapPin className="w-3 h-3" />
+                    {restaurant.location}
                   </div>
                 </div>
               </motion.div>
             ))}
           </motion.div>
+
+          {filteredRestaurants.length === 0 && (
+            <div className="text-center py-16">
+              <p className="text-text-secondary text-lg">
+                No restaurants found. Try a different search or category.
+              </p>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* Popular Dishes */}
-      <section className="py-12 bg-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeIn}
-            className="mb-8"
-          >
-            <h2 className="font-heading text-2xl font-bold text-text-primary mb-2">
-              Popular Dishes
-            </h2>
-            <p className="text-text-secondary">Most ordered items this week</p>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={staggerContainer}
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
-          >
-            {popularDishes.map((dish) => (
-              <motion.div
-                key={dish.name}
-                variants={fadeIn}
-                className="bg-surface-secondary rounded-2xl p-4 border border-border hover:border-amber-500/50 transition-colors text-center cursor-pointer"
-              >
-                <div className="w-14 h-14 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-xl flex items-center justify-center mx-auto mb-3">
-                  <Utensils className="w-6 h-6 text-amber-500" />
-                </div>
-                <h3 className="font-heading font-bold text-text-primary text-sm mb-1">
-                  {dish.name}
-                </h3>
-                <p className="text-text-tertiary text-xs mb-2">{dish.restaurant}</p>
-                <span className="text-amber-500 font-bold text-sm">{dish.price}</span>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="py-16 bg-surface-secondary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeIn}
-            className="text-center mb-12"
-          >
-            <h2 className="font-heading text-3xl font-bold text-text-primary mb-4">
-              How Food Delivery Works
-            </h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-8"
-          >
-            {steps.map((step, i) => (
-              <motion.div
-                key={step.step}
-                variants={fadeIn}
-                transition={{ delay: i * 0.1 }}
-                className="text-center"
-              >
-                <div className="w-16 h-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <span className="text-white font-heading font-bold text-xl">{step.step}</span>
-                </div>
-                <h3 className="font-heading text-xl font-bold text-text-primary mb-3">
-                  {step.title}
-                </h3>
-                <p className="text-text-secondary max-w-xs mx-auto">{step.description}</p>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+      {/* Featured Restaurants Section */}
+      <FeaturedRestaurants />
     </div>
-  );
+  )
 }

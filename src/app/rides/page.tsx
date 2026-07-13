@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -84,7 +84,7 @@ const safetyFeatures = [
 
 const driverBenefits = [
   'Earn up to $500/week',
-  'Flexible hours — drive when you want',
+  'Flexible hours â€” drive when you want',
   'Weekly payouts to your bank',
   'Free insurance coverage while driving',
   '24/7 driver support',
@@ -116,14 +116,14 @@ export default function RidesPage() {
               </motion.p>
               <motion.div variants={fadeIn} className="flex gap-4">
                 <Link
-                  href="#"
+                  href="/rides/book"
                   className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-medium px-6 py-3 rounded-xl transition-colors"
                 >
                   Book a Ride
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
-                  href="#"
+                  href="/rides/apply"
                   className="inline-flex items-center gap-2 border border-white/30 text-white font-medium px-6 py-3 rounded-xl hover:bg-white/10 transition-colors"
                 >
                   Become a Driver
@@ -163,9 +163,9 @@ export default function RidesPage() {
                       className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-surface border border-border text-text-primary placeholder-text-tertiary focus:outline-none focus:border-amber-500"
                     />
                   </div>
-                  <button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors">
+                  <Link href="/rides/book" className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors text-center block">
                     See Prices
-                  </button>
+                  </Link>
                 </div>
               </div>
             </motion.div>
@@ -234,7 +234,7 @@ export default function RidesPage() {
                     <span className="font-heading text-2xl font-bold text-text-primary">
                       {ride.price}
                     </span>
-                    <span className="text-text-tertiary text-sm ml-2">· {ride.eta}</span>
+                    <span className="text-text-tertiary text-sm ml-2">Â· {ride.eta}</span>
                   </div>
                   <span className="text-text-tertiary text-sm flex items-center gap-1">
                     <Users className="w-4 h-4" />
@@ -322,7 +322,7 @@ export default function RidesPage() {
                 ))}
               </div>
               <Link
-                href="/contact"
+                href="/rides/apply"
                 className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-medium px-8 py-3 rounded-xl transition-colors"
               >
                 Apply to Drive

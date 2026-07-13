@@ -27,6 +27,10 @@ const BREADCRUMB_MAP: Record<string, string> = {
   analytics: 'Analytics',
   kyc: 'KYC / KYB',
   settings: 'Settings',
+  team: 'Team Management',
+  audit: 'Audit Logs',
+  crm: 'CRM',
+  compliance: 'Compliance',
 }
 
 const QUICK_SEARCH_ITEMS = [

@@ -20,9 +20,6 @@ import {
   Minus,
   Tag,
   Copy,
-  Facebook,
-  Twitter,
-  Instagram,
   Send,
   Eye,
   ArrowLeft,
@@ -33,6 +30,13 @@ import {
   AlertTriangle,
   Info,
 } from 'lucide-react';
+import { Facebook, Twitter, Instagram } from '@/components/icons/SocialIcons';
+import {
+  generateGoogleCalendarUrl,
+  generateAppleCalendarUrl,
+  type CalendarEvent,
+} from '@/lib/events/calendar';
+import { validatePromoCode } from '@/lib/events/pricing';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -153,6 +157,22 @@ const mockEvent = {
   ],
 };
 
+const calendarEvent: CalendarEvent = {
+  title: mockEvent.title,
+  description: mockEvent.description,
+  startDate: mockEvent.startDate,
+  endDate: mockEvent.endDate,
+  startTime: mockEvent.startTime,
+  endTime: mockEvent.endTime,
+  venue: mockEvent.venue,
+  address: mockEvent.address,
+  city: mockEvent.city,
+  country: mockEvent.country,
+};
+
+const EVENT_LAT = 6.4281;
+const EVENT_LNG = 3.4219;
+
 function GuestAvatar({ name, initials }: { name: string; initials: string }) {
   return (
     <div className="relative group">
@@ -171,6 +191,8 @@ export default function EventDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [promoCode, setPromoCode] = useState('');
   const [promoApplied, setPromoApplied] = useState(false);
+  const [promoError, setPromoError] = useState('');
+  const [promoDiscount, setPromoDiscount] = useState(0);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [referralCode] = useState('AFRI-2026-NIGHT');
   const heroRef = useRef<HTMLDivElement>(null);
@@ -184,7 +206,7 @@ export default function EventDetailPage() {
   const platformFee = Math.round(subtotal * 0.05 * 100) / 100;
   const processingFee = 1.5;
   const tax = Math.round(subtotal * 0.075 * 100) / 100;
-  const discount = promoApplied ? Math.round(subtotal * 0.1 * 100) / 100 : 0;
+  const discount = promoApplied ? promoDiscount : 0;
   const total = subtotal + platformFee + processingFee + tax - discount;
 
   return (
@@ -364,14 +386,22 @@ export default function EventDetailPage() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-surface rounded-lg border border-border text-sm text-text-secondary hover:border-amber-500/50 transition-colors">
+                  <a
+                    href={generateGoogleCalendarUrl(calendarEvent)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface rounded-lg border border-border text-sm text-text-secondary hover:border-amber-500/50 transition-colors"
+                  >
                     <CalendarPlus className="w-4 h-4" />
                     Add to Google Calendar
-                  </button>
-                  <button className="flex items-center gap-1.5 px-3 py-1.5 bg-surface rounded-lg border border-border text-sm text-text-secondary hover:border-amber-500/50 transition-colors">
+                  </a>
+                  <a
+                    href={generateAppleCalendarUrl(calendarEvent)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-surface rounded-lg border border-border text-sm text-text-secondary hover:border-amber-500/50 transition-colors"
+                  >
                     <CalendarPlus className="w-4 h-4" />
                     Apple Calendar
-                  </button>
+                  </a>
                 </div>
               </div>
             </motion.section>
@@ -396,16 +426,23 @@ export default function EventDetailPage() {
                     {mockEvent.city}, {mockEvent.country}
                   </p>
                 </div>
-                <button className="flex items-center gap-1.5 text-amber-500 text-sm font-medium hover:text-amber-600 transition-colors">
+                <a
+                  href={`https://www.google.com/maps?q=${EVENT_LAT},${EVENT_LNG}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-amber-500 text-sm font-medium hover:text-amber-600 transition-colors"
+                >
                   <ExternalLink className="w-4 h-4" />
                   Open in Maps
-                </button>
+                </a>
               </div>
-              <div className="mt-4 bg-surface rounded-xl border border-border h-48 flex items-center justify-center">
-                <div className="text-center text-text-tertiary">
-                  <MapPin className="w-8 h-8 mx-auto mb-2" />
-                  <p className="text-sm">Map preview</p>
-                </div>
+              <div className="mt-4 rounded-xl border border-border overflow-hidden h-48">
+                <iframe
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${EVENT_LNG - 0.01},${EVENT_LAT - 0.01},${EVENT_LNG + 0.01},${EVENT_LAT + 0.01}&layer=mapnik&marker=${EVENT_LAT},${EVENT_LNG}`}
+                  className="w-full h-full border-0"
+                  loading="lazy"
+                  title="Event location map"
+                />
               </div>
             </motion.section>
 
@@ -525,7 +562,19 @@ export default function EventDetailPage() {
                     />
                   </div>
                   <button
-                    onClick={() => promoCode && setPromoApplied(true)}
+                    onClick={() => {
+                      if (!promoCode) return;
+                      setPromoError('');
+                      const result = validatePromoCode('percent', 10, subtotal);
+                      if (result.valid) {
+                        setPromoApplied(true);
+                        setPromoDiscount(result.discount);
+                      } else {
+                        setPromoError(result.error || 'Invalid promo code');
+                        setPromoApplied(false);
+                        setPromoDiscount(0);
+                      }
+                    }}
                     className="bg-amber-500 hover:bg-amber-600 text-white font-medium px-4 py-2.5 rounded-lg text-sm transition-colors"
                   >
                     Apply
@@ -534,8 +583,11 @@ export default function EventDetailPage() {
                 {promoApplied && (
                   <p className="text-green-600 text-sm mt-2 flex items-center gap-1">
                     <Check className="w-4 h-4" />
-                    10% discount applied!
+                    ${promoDiscount.toFixed(2)} discount applied!
                   </p>
+                )}
+                {promoError && (
+                  <p className="text-red-500 text-sm mt-2">{promoError}</p>
                 )}
               </div>
 
@@ -568,7 +620,7 @@ export default function EventDetailPage() {
                     </div>
                     {promoApplied && (
                       <div className="flex justify-between text-green-600">
-                        <span>Discount (10%)</span>
+                        <span>Discount</span>
                         <span>-${discount.toFixed(2)}</span>
                       </div>
                     )}

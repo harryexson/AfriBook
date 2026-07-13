@@ -12,12 +12,8 @@ import {
   Headphones,
   Building,
   Globe,
-  Twitter,
-  Facebook,
-  Instagram,
-  Linkedin,
-  Youtube,
 } from 'lucide-react';
+import { Twitter, Facebook, Instagram, Linkedin, Youtube } from '@/components/icons/SocialIcons';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },

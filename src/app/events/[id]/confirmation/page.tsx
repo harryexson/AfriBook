@@ -11,8 +11,6 @@ import {
   Download,
   Share2,
   Copy,
-  Facebook,
-  Twitter,
   Send,
   Ticket,
   ArrowRight,
@@ -22,7 +20,14 @@ import {
   Plus,
   Check,
 } from 'lucide-react';
+import { Facebook, Twitter } from '@/components/icons/SocialIcons';
 import { QRCodeSVG } from 'qrcode.react';
+import {
+  generateGoogleCalendarUrl,
+  generateAppleCalendarUrl,
+  generateOutlookCalendarUrl,
+  type CalendarEvent,
+} from '@/lib/events/calendar';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -38,6 +43,19 @@ export default function ConfirmationPage() {
   const [copied, setCopied] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
   const ticketCode = 'AFB-EVT001-VIP-0847';
+
+  const calEvent: CalendarEvent = {
+    title: 'Afrobeats Night: The Ultimate Concert Experience',
+    description: 'Join us for an unforgettable night of Afrobeats featuring the biggest names in African music.',
+    startDate: 'Sat, Aug 15, 2026',
+    endDate: 'Sat, Aug 15, 2026',
+    startTime: '8:00 PM',
+    endTime: '2:00 AM',
+    venue: 'Eko Convention Centre',
+    address: 'Eko Hotels & Suites, Plot 14, Adetokunbo Ademola Crescent, Victoria Island',
+    city: 'Lagos',
+    country: 'Nigeria',
+  };
 
   const copyTicketCode = () => {
     navigator.clipboard.writeText(ticketCode);
@@ -213,14 +231,28 @@ export default function ConfirmationPage() {
             <div className="bg-surface rounded-xl border border-border p-4">
               <p className="font-medium text-text-primary text-sm mb-3">Add to Calendar</p>
               <div className="grid grid-cols-3 gap-2">
-                {['Google', 'Apple', 'Outlook'].map((cal) => (
-                  <button
-                    key={cal}
-                    className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors"
-                  >
-                    {cal}
-                  </button>
-                ))}
+                <a
+                  href={generateGoogleCalendarUrl(calEvent)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
+                >
+                  Google
+                </a>
+                <a
+                  href={generateAppleCalendarUrl(calEvent)}
+                  className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
+                >
+                  Apple
+                </a>
+                <a
+                  href={generateOutlookCalendarUrl(calEvent)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
+                >
+                  Outlook
+                </a>
               </div>
             </div>
           </motion.div>

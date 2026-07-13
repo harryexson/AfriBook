@@ -245,7 +245,7 @@ export default function GlobeSection({
             className="flex flex-col sm:flex-row items-center justify-center gap-4"
           >
             <motion.a
-              href="/vendor/signup"
+              href="/register"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               className="flex items-center gap-2 px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold text-lg shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 transition-shadow duration-300"

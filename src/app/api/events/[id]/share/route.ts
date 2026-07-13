@@ -33,7 +33,7 @@ export async function POST(
         { success: false, error: 'platforms array is required' },
         { status: 400 }
       );
-    );
+    };
 
     const { data: event, error: eventError } = await supabase
       .from('events')

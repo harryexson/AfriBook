@@ -11,7 +11,9 @@ import type { UserRole, AdminRole } from '@/types'
 import {
   LayoutDashboard, Users, Building2, CreditCard, Scale,
   Globe, BarChart3, ShieldCheck, Settings, X,
-  ChevronLeft, ChevronRight, Search,
+  ChevronLeft, ChevronRight, Search, UserCog, ScrollText,
+  Headphones, Megaphone, DollarSign, FileText, Ticket,
+  MessageSquare, BookOpen, Flag, MegaphoneIcon,
 } from 'lucide-react'
 
 interface NavItem {
@@ -19,17 +21,44 @@ interface NavItem {
   href: string
   icon: typeof LayoutDashboard
   roles: (UserRole | AdminRole)[]
+  section?: string
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'moderator', 'finance', 'support'] },
-  { label: 'Users', href: '/admin/users', icon: Users, roles: ['super_admin', 'admin', 'moderator', 'support'] },
+  // ── Overview ──────────────────────────────────────────────
+  { label: 'Dashboard', href: '/admin', icon: LayoutDashboard, roles: ['super_admin', 'admin', 'moderator', 'finance', 'support'], section: 'Overview' },
+
+  // ── Operations ────────────────────────────────────────────
+  { label: 'Users', href: '/admin/users', icon: Users, roles: ['super_admin', 'admin', 'moderator', 'support'], section: 'Operations' },
   { label: 'Businesses', href: '/admin/businesses', icon: Building2, roles: ['super_admin', 'admin', 'moderator'] },
   { label: 'Payments', href: '/admin/payments', icon: CreditCard, roles: ['super_admin', 'admin', 'finance'] },
   { label: 'Disputes', href: '/admin/disputes', icon: Scale, roles: ['super_admin', 'admin', 'finance'] },
-  { label: 'Countries', href: '/admin/countries', icon: Globe, roles: ['super_admin', 'admin'] },
-  { label: 'Analytics', href: '/admin/analytics', icon: BarChart3, roles: ['super_admin', 'admin', 'finance'] },
   { label: 'KYC / KYB', href: '/admin/kyc', icon: ShieldCheck, roles: ['super_admin', 'admin', 'moderator'] },
+
+  // ── CRM & Support ────────────────────────────────────────
+  { label: 'CRM', href: '/admin/crm', icon: MessageSquare, roles: ['super_admin', 'admin', 'support', 'moderator'], section: 'CRM & Support' },
+  { label: 'Customers', href: '/admin/crm/customers', icon: Users, roles: ['super_admin', 'admin', 'support'] },
+  { label: 'Support Center', href: '/admin/support', icon: Headphones, roles: ['super_admin', 'admin', 'support'] },
+  { label: 'Knowledge Base', href: '/admin/support/knowledge-base', icon: BookOpen, roles: ['super_admin', 'admin', 'support'] },
+
+  // ── Pricing & Billing ─────────────────────────────────────
+  { label: 'Subscriptions', href: '/admin/pricing', icon: DollarSign, roles: ['super_admin', 'admin', 'finance'], section: 'Pricing & Billing' },
+  { label: 'Billing', href: '/admin/pricing/billing', icon: CreditCard, roles: ['super_admin', 'admin', 'finance'] },
+  { label: 'Feature Flags', href: '/admin/pricing/feature-flags', icon: Flag, roles: ['super_admin', 'admin'] },
+
+  // ── Marketing ─────────────────────────────────────────────
+  { label: 'Promotions', href: '/admin/promotions', icon: Megaphone, roles: ['super_admin', 'admin', 'moderator'], section: 'Marketing' },
+  { label: 'Promo Codes', href: '/admin/promotions/codes', icon: Ticket, roles: ['super_admin', 'admin', 'moderator'] },
+  { label: 'Ad Campaigns', href: '/admin/promotions/ads', icon: MegaphoneIcon, roles: ['super_admin', 'admin'] },
+
+  // ── Analytics & Config ────────────────────────────────────
+  { label: 'Analytics', href: '/admin/analytics', icon: BarChart3, roles: ['super_admin', 'admin', 'finance'], section: 'Analytics & Config' },
+  { label: 'Countries', href: '/admin/countries', icon: Globe, roles: ['super_admin', 'admin'] },
+
+  // ── Administration ────────────────────────────────────────
+  { label: 'Team', href: '/admin/team', icon: UserCog, roles: ['super_admin', 'admin'], section: 'Administration' },
+  { label: 'Audit Logs', href: '/admin/audit', icon: ScrollText, roles: ['super_admin', 'admin'] },
+  { label: 'Legal', href: '/admin/legal', icon: FileText, roles: ['super_admin', 'admin'] },
   { label: 'Settings', href: '/admin/settings', icon: Settings, roles: ['super_admin', 'admin'] },
 ]
 
@@ -92,26 +121,33 @@ export default function AdminSidebar({ onNavigate }: AdminSidebarProps) {
       )}
 
       <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
-        {visibleItems.map((item) => {
+        {visibleItems.map((item, idx) => {
           const active = isActive(item.href)
+          const showSection = item.section && (idx === 0 || visibleItems[idx - 1]?.section !== item.section)
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group',
-                active
-                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
-                  : 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
+            <div key={item.href}>
+              {showSection && sidebarOpen && (
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-text-tertiary px-3 pt-4 pb-1">
+                  {item.section}
+                </p>
               )}
-            >
-              <item.icon className={cn(
-                'w-5 h-5 shrink-0 transition-colors',
-                active ? 'text-amber-600 dark:text-amber-400' : 'text-text-tertiary group-hover:text-text-secondary'
-              )} />
-              {sidebarOpen && <span className="truncate">{item.label}</span>}
-            </Link>
+              <Link
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group',
+                  active
+                    ? 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
+                    : 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
+                )}
+              >
+                <item.icon className={cn(
+                  'w-5 h-5 shrink-0 transition-colors',
+                  active ? 'text-amber-600 dark:text-amber-400' : 'text-text-tertiary group-hover:text-text-secondary'
+                )} />
+                {sidebarOpen && <span className="truncate">{item.label}</span>}
+              </Link>
+            </div>
           )
         })}
       </nav>

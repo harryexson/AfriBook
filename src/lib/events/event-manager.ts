@@ -6,7 +6,7 @@ import type {
   EventStatus,
 } from '@/types/events';
 import type { CreateEventParams, EventFilters } from './types';
-import { SUBSCRIPTION_PLANS } from '@/types/events';
+import { SUBSCRIPTION_PLANS } from '@/types/subscription-plans';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -607,7 +607,7 @@ function mapEvent(row: Record<string, unknown>): Event {
     startDate: row.start_date as string,
     endDate: row.end_date as string,
     timezone: row.timezone as string,
-    doorsOpen: (row.doors_open as string) ?? undefined,
+    doorsOpenAt: (row.doors_open as string) ?? undefined,
     isVirtual: (row.is_virtual as boolean) ?? false,
     venueName: (row.venue_name as string) ?? undefined,
     venueAddress: (row.venue_address as string) ?? undefined,

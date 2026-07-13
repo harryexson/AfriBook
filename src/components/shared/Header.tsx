@@ -53,7 +53,28 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [])
 
-  const selectedCountry = Object.values(COUNTRIES).find((c) => c.subdomain === 'ng')
+  const getCountryFromCookie = (): string => {
+    if (typeof document === 'undefined') return 'NG'
+    const match = document.cookie.match(/country=([A-Z]{2})/)
+    return match?.[1] ?? 'NG'
+  }
+
+  const getCountryFromUrl = (): string => {
+    if (typeof window === 'undefined') return 'NG'
+    const pathParts = window.location.pathname.split('/')
+    const candidate = pathParts[1]?.toUpperCase()
+    if (candidate && COUNTRIES[candidate]) return candidate
+    return 'NG'
+  }
+
+  const [selectedCountryCode, setSelectedCountryCode] = useState('NG')
+
+  useEffect(() => {
+    const code = getCountryFromUrl() || getCountryFromCookie()
+    setSelectedCountryCode(code)
+  }, [])
+
+  const selectedCountry = COUNTRIES[selectedCountryCode] ?? Object.values(COUNTRIES).find((c) => c.subdomain === 'ng')
 
   return (
     <>

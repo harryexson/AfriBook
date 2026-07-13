@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star, MapPin, Clock, Phone, Mail, Globe, ChevronLeft, ChevronRight,
   Share2, Heart, ThumbsUp, MessageCircle, Calendar, Users, Scissors,
-  ShoppingBag, Timer, Map, X, Check,
+  ShoppingBag, Timer, Map, X, Check, Image, Video,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -84,6 +84,7 @@ export default function BusinessDetailPage() {
 
   const tabs = [
     { id: 'services', label: 'Services', icon: Scissors },
+    { id: 'portfolio', label: 'Portfolio', icon: Image },
     { id: 'products', label: 'Products', icon: ShoppingBag },
     { id: 'menu', label: 'Menu', icon: Timer },
     { id: 'staff', label: 'Staff', icon: Users },
@@ -222,6 +223,54 @@ export default function BusinessDetailPage() {
                         onBook={(s) => router.push(`/${params?.country}/book/${business.id}/${s.id}`)}
                       />
                     ))}
+                  </div>
+                )}
+
+                {/* Portfolio Tab */}
+                {activeTab === 'portfolio' && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-bold font-heading text-text-primary mb-3">Our Work</h3>
+                      <p className="text-sm text-text-secondary mb-4">Browse through our latest projects, transformations, and deliveries.</p>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {[
+                        'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop',
+                        'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=400&fit=crop',
+                        'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=400&h=400&fit=crop',
+                        'https://images.unsplash.com/photo-1590779033100-9f8a05c1b5e6?w=400&h=400&fit=crop',
+                        'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop',
+                        'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=400&fit=crop',
+                      ].map((img, i) => (
+                        <div key={i} className="aspect-square rounded-xl overflow-hidden bg-surface-secondary border border-border group cursor-pointer">
+                          <img src={img} alt={`Portfolio ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
+                        </div>
+                      ))}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold font-heading text-text-primary mb-3 flex items-center gap-2">
+                        <Video className="w-5 h-5 text-amber-500" />
+                        Video Showcase
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {[
+                          { title: 'Fresh Produce Selection Process', duration: '2:30' },
+                          { title: 'Farm to Table Journey', duration: '4:15' },
+                        ].map((video, i) => (
+                          <div key={i} className="rounded-xl overflow-hidden bg-surface-secondary border border-border group cursor-pointer">
+                            <div className="aspect-video bg-gradient-to-br from-amber-500/10 to-orange-500/10 flex items-center justify-center relative">
+                              <div className="w-14 h-14 rounded-full bg-amber-500/90 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                                <svg className="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                              </div>
+                              <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded">{video.duration}</span>
+                            </div>
+                            <div className="p-3">
+                              <p className="text-sm font-medium text-text-primary">{video.title}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -425,13 +474,23 @@ export default function BusinessDetailPage() {
 
               {/* Map */}
               <div className="pt-4 border-t border-border">
-                <div className="h-40 rounded-xl bg-surface-secondary border border-border flex items-center justify-center">
-                  <div className="text-center">
-                    <Map className="w-8 h-8 text-text-tertiary mx-auto" />
-                    <p className="text-xs text-text-secondary mt-1">Map loading...</p>
-                    <p className="text-xs text-text-tertiary">{business.address.city}, {business.address.state}</p>
-                  </div>
+                <div className="h-40 rounded-xl overflow-hidden border border-border">
+                  <iframe
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${(business.location.longitude || 3.3792) - 0.01},${(business.location.latitude || 6.5244) - 0.01},${(business.location.longitude || 3.3792) + 0.01},${(business.location.latitude || 6.5244) + 0.01}&layer=mapnik&marker=${business.location.latitude || 6.5244},${business.location.longitude || 3.3792}`}
+                    className="w-full h-full border-0"
+                    loading="lazy"
+                    title="Business location map"
+                  />
                 </div>
+                <a
+                  href={`https://www.google.com/maps?q=${business.location.latitude || 6.5244},${business.location.longitude || 3.3792}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-amber-500 text-xs font-medium hover:text-amber-600 mt-2 transition-colors"
+                >
+                  <MapPin className="w-3 h-3" />
+                  Open in Maps
+                </a>
               </div>
             </motion.div>
           </div>

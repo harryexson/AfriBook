@@ -1,7 +1,10 @@
 'use client'
 
+import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
+import { ArrowRight, Truck, ShoppingBag, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import CategoryGrid from '@/components/marketplace/CategoryGrid'
 import FeaturedBusinesses from '@/components/marketplace/FeaturedBusinesses'
@@ -38,6 +41,30 @@ const flagItemVariants = {
 }
 
 export default function HomePage() {
+  useEffect(() => {
+    if (!navigator.geolocation) return
+    const timeoutId = setTimeout(() => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=3`
+            )
+            const data = await res.json()
+            const countryCode = data.address?.country_code?.toUpperCase()
+            if (countryCode && COUNTRIES[countryCode]) {
+              document.cookie = `country=${countryCode};path=/;max-age=31536000`
+            }
+          } catch {}
+        },
+        () => {},
+        { timeout: 5000, maximumAge: 600000 }
+      )
+    }, 1000)
+    return () => clearTimeout(timeoutId)
+  }, [])
+
   return (
     <div className="flex flex-col">
       {/* Hero / Globe Section */}
@@ -95,6 +122,47 @@ export default function HomePage() {
             >
               <span className="text-sm font-bold text-amber-600 dark:text-amber-400">+4 more</span>
             </motion.div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Call to Action */}
+      <section className="py-16 sm:py-20 bg-gradient-to-br from-dark-500 via-dark-300 to-amber-600">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+          >
+            <h2 className="text-3xl sm:text-4xl font-bold font-heading text-white mb-4">
+              Ready to Get Started?
+            </h2>
+            <p className="text-white/70 text-lg mb-10 max-w-2xl mx-auto">
+              Join millions across Africa. Shop, ride, eat, and deliver — all in one place.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                href="/register"
+                className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-8 py-4 rounded-xl transition-colors text-lg shadow-lg shadow-amber-500/30"
+              >
+                Start Free
+                <ArrowRight className="w-5 h-5" />
+              </Link>
+              <Link
+                href="/rides/book"
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-8 py-4 rounded-xl transition-colors backdrop-blur-sm border border-white/20"
+              >
+                <Truck className="w-5 h-5" />
+                Book a Ride
+              </Link>
+              <Link
+                href="/events"
+                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-8 py-4 rounded-xl transition-colors backdrop-blur-sm border border-white/20"
+              >
+                <Calendar className="w-5 h-5" />
+                Browse Events
+              </Link>
+            </div>
           </motion.div>
         </div>
       </section>

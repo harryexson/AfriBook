@@ -8,9 +8,9 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
-import Button from '../../src/components/ui/Button';
-import type { Service } from '../../src/types';
+import { colors, spacing, typography, borderRadius, shadows } from '../../../src/theme';
+import Button from '../../../src/components/ui/Button';
+import type { Service } from '../../../src/types';
 
 const MOCK_SERVICE: Service = {
   id: 's1',

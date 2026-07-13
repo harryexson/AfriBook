@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Search, MapPin, Star, Users, ShoppingBag, ArrowRight,
   TrendingUp, Sparkles, Clock, ChevronRight, Store, Heart,
+  Copy, Check,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,108 @@ const HERO_GRADIENTS: Record<string, string> = {
   AE: 'from-red-600 to-amber-800',
   DE: 'from-yellow-700 to-red-800',
   FR: 'from-blue-600 to-red-800',
+}
+
+interface PromoConfig {
+  title: string
+  desc: string
+  code?: string
+  gradient: string
+}
+
+const COUNTRY_PROMOS: Record<string, PromoConfig[]> = {
+  US: [
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Refer a friend', desc: 'Earn $5 for each friend who signs up and books', code: 'REFER5', gradient: 'from-purple-500 to-violet-500' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+  ],
+  NG: [
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Refer a friend', desc: 'Earn \u20A6500 for each friend who signs up and books', code: 'REFER500', gradient: 'from-purple-500 to-violet-500' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+  ],
+  KE: [
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Refer a friend', desc: 'Earn KSh 500 for each friend who signs up and books', code: 'REFER500', gradient: 'from-purple-500 to-violet-500' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+  ],
+  GH: [
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Refer a friend', desc: 'Earn GH\u20B550 for each friend who signs up and books', code: 'REFER50', gradient: 'from-purple-500 to-violet-500' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+  ],
+  GB: [
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Refer a friend', desc: 'Earn \u00A35 for each friend who signs up and books', code: 'REFER5', gradient: 'from-purple-500 to-violet-500' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+  ],
+  ZA: [
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Refer a friend', desc: 'Earn R50 for each friend who signs up and books', code: 'REFER50', gradient: 'from-purple-500 to-violet-500' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+  ],
+}
+
+const DEFAULT_PROMOS: PromoConfig[] = [
+  { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+  { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+  { title: 'Refer a friend', desc: 'Earn rewards for each friend who signs up and books', code: 'REFER', gradient: 'from-purple-500 to-violet-500' },
+  { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+]
+
+function PromoCard({ promo }: { promo: PromoConfig }) {
+  const [copied, setCopied] = useState(false)
+
+  const handleClaim = useCallback(() => {
+    if (!promo.code) return
+    navigator.clipboard.writeText(promo.code).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [promo.code])
+
+  return (
+    <div
+      className={cn(
+        'relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-gradient-to-br text-white',
+        promo.gradient
+      )}
+    >
+      <div className="relative z-10">
+        {promo.code && (
+          <span className="inline-block px-2.5 py-0.5 rounded-md bg-white/20 backdrop-blur-sm text-xs font-mono font-bold tracking-wider mb-3">
+            {promo.code}
+          </span>
+        )}
+        <h3 className="text-xl font-bold">{promo.title}</h3>
+        <p className="text-white/80 mt-1 text-sm">{promo.desc}</p>
+        <button
+          onClick={handleClaim}
+          className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white text-sm font-semibold hover:bg-white/30 transition-colors"
+        >
+          {copied ? (
+            <>
+              <Check className="w-4 h-4" />
+              Copied!
+            </>
+          ) : (
+            <>
+              <Copy className="w-4 h-4" />
+              Copy code
+            </>
+          )}
+        </button>
+      </div>
+      <div className="absolute -bottom-4 -right-4 w-32 h-32 rounded-full bg-white/5" />
+      <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/5" />
+    </div>
+  )
 }
 
 const CONTAINER_VARIANTS = {
@@ -259,32 +362,15 @@ export default function CountryHomePage() {
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-              { title: '20% off first booking', desc: 'Use code WELCOME20 on your first service booking', gradient: 'from-amber-500 to-orange-500' },
-              { title: 'Free delivery', desc: 'On all orders above the minimum order value', gradient: 'from-emerald-500 to-teal-500' },
-              { title: 'Refer a friend', desc: 'Earn {currency} 500 for each friend who signs up and books', gradient: 'from-purple-500 to-violet-500' },
-              { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', gradient: 'from-pink-500 to-rose-500' },
-            ].map((promo, i) => (
+            {(COUNTRY_PROMOS[countryCode] ?? DEFAULT_PROMOS).map((promo, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className={cn(
-                  'relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-gradient-to-br text-white',
-                  promo.gradient
-                )}
               >
-                <div className="relative z-10">
-                  <h3 className="text-xl font-bold">{promo.title}</h3>
-                  <p className="text-white/80 mt-1 text-sm">{promo.desc}</p>
-                  <button className="mt-4 px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white text-sm font-semibold hover:bg-white/30 transition-colors">
-                    Claim offer
-                  </button>
-                </div>
-                <div className="absolute -bottom-4 -right-4 w-32 h-32 rounded-full bg-white/5" />
-                <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/5" />
+                <PromoCard promo={promo} />
               </motion.div>
             ))}
           </div>

@@ -101,17 +101,37 @@ export interface Event {
 export interface TicketTierConfig {
   id: string;
   name: string;
-  tier: TicketTier;
   price: number;
   originalPrice?: number;
-  description: string;
-  available: number;
+  quantity: number;
   sold: number;
+  minPerOrder: number;
   maxPerOrder: number;
-  saleStartsAt?: string;
-  saleEndsAt?: string;
-  includesPerks: string[];
+  saleStartsAt: string;
+  saleEndsAt: string;
+  benefits: string[];
+}
+
+export interface EventTypeTicket {
+  id: string;
+  eventId: string;
+  name: string;
+  type: TicketTier;
+  description: string;
+  price: number;
+  originalPrice?: number;
+  currencyCode: string;
+  quantityAvailable: number;
+  quantitySold: number;
+  maxPerOrder: number;
+  minPerOrder: number;
+  saleStartsAt: string;
+  saleEndsAt: string;
+  includesGuestRegistration: boolean;
+  maxGuestsPerTicket: number;
+  benefits: string[];
   isActive: boolean;
+  sortOrder: number;
 }
 
 // ─── Registration & Tickets ───────────────────────────────────
@@ -372,3 +392,8 @@ export interface EventAnalytics {
 export const EVENT_DISCLAIMER = `AfriBook acts as a platform for event organizers and attendees. AfriBook is not responsible for any changes, cancellations, or modifications to events listed on our platform. Event organizers are solely responsible for the accuracy of their event information, the quality of their events, and compliance with all applicable laws and regulations. By registering for an event, you agree to the event organizer's terms and conditions. AfriBook does not guarantee refunds for event cancellations — refund policies are set by individual event organizers.`;
 
 export const TICKET_DISCLAIMER = `Tickets are non-transferable unless explicitly allowed by the event organizer. By purchasing a ticket, you acknowledge that the event organizer may change event details including date, time, venue, and program. AfriBook facilitates payment processing but is not a party to the event contract between you and the organizer.`;
+
+// ─── Subscription Plans Config ────────────────────────────────
+// Re-exported from dedicated module for bundler compatibility
+export type { SubscriptionPlanId, SubscriptionPlanConfig } from './subscription-plans';
+export { SUBSCRIPTION_PLANS } from './subscription-plans';

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Package,
@@ -95,6 +96,7 @@ const businessFeatures = [
 ];
 
 export default function DeliveriesPage() {
+  const router = useRouter();
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
 
@@ -119,14 +121,14 @@ export default function DeliveriesPage() {
               </motion.p>
               <motion.div variants={fadeIn} className="flex gap-4">
                 <Link
-                  href="#"
+                  href="/deliveries/new"
                   className="inline-flex items-center gap-2 bg-white text-amber-600 font-medium px-6 py-3 rounded-xl hover:bg-white/90 transition-colors"
                 >
                   Send a Package
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
-                  href="#"
+                  href="/business"
                   className="inline-flex items-center gap-2 border border-white/30 text-white font-medium px-6 py-3 rounded-xl hover:bg-white/10 transition-colors"
                 >
                   Business Solutions
@@ -182,7 +184,10 @@ export default function DeliveriesPage() {
                       <option>Large Package (up to 50 kg)</option>
                     </select>
                   </div>
-                  <button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors">
+                  <button
+                    onClick={() => router.push('/deliveries/new')}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors"
+                  >
                     Get Price Estimate
                   </button>
                 </div>

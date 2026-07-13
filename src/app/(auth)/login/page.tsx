@@ -1,16 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, Mail, Lock, Globe } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, ShoppingBag, Calendar, Truck } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
-import { COUNTRIES } from '@/lib/localization/countries'
 import OAuthButtons from '@/components/shared/OAuthButtons'
 
 const loginSchema = z.object({
@@ -20,36 +19,42 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
-type RoleTab = 'customer' | 'vendor'
-
-const countryList = Object.values(COUNTRIES)
+const floatingIcons = [
+  { Icon: ShoppingBag, delay: 0, x: '15%', y: '20%', size: 40, rotate: -12 },
+  { Icon: Calendar, delay: 0.3, x: '80%', y: '15%', size: 36, rotate: 8 },
+  { Icon: Truck, delay: 0.6, x: '70%', y: '75%', size: 44, rotate: -6 },
+  { Icon: ShoppingBag, delay: 0.9, x: '20%', y: '80%', size: 32, rotate: 15 },
+]
 
 export default function LoginPage() {
   const router = useRouter()
   const { setUser, setStatus } = useAuthStore()
   const [showPassword, setShowPassword] = useState(false)
-  const [selectedCountry, setSelectedCountry] = useState(countryList[0])
-  const [roleTab, setRoleTab] = useState<RoleTab>('customer')
+  const [rememberMe, setRememberMe] = useState(false)
   const [submitLoading, setSubmitLoading] = useState(false)
-
-  const detectedCountry = useMemo(() => {
-    if (typeof window === 'undefined') return null
-    const host = window.location.hostname
-    const subdomain = host.split('.')[0]
-    return countryList.find((c) => c.subdomain === subdomain) ?? null
-  }, [])
+  const [serverError, setServerError] = useState('')
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    getFieldState,
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: '', password: '' },
+    mode: 'onBlur',
   })
+
+  const redirectByRole = (role: string) => {
+    if (role === 'admin' || role === 'super_admin') router.push('/admin')
+    else if (role === 'vendor') router.push('/vendor')
+    else if (role === 'driver') router.push('/driver')
+    else router.push('/')
+  }
 
   const onSubmit = async (data: LoginForm) => {
     setSubmitLoading(true)
+    setServerError('')
     try {
       setStatus('loading')
       const supabase = (await import('@/lib/supabase/client')).createClient()
@@ -64,12 +69,22 @@ export default function LoginPage() {
           .select('*')
           .eq('id', authData.user.id)
           .single()
-        if (profile) setUser(profile as any)
+        if (profile) {
+          setUser(profile as any)
+          redirectByRole(profile.role)
+        } else {
+          router.push('/')
+        }
       }
-      router.push('/')
     } catch (err: any) {
       setStatus('error')
-      alert(err.message)
+      if (err.message?.includes('Invalid login')) {
+        setServerError('Invalid email or password. Please try again.')
+      } else if (err.message?.includes('Email not confirmed')) {
+        setServerError('Please confirm your email address before signing in.')
+      } else {
+        setServerError(err.message || 'Something went wrong. Please try again.')
+      }
     } finally {
       setSubmitLoading(false)
     }
@@ -87,58 +102,51 @@ export default function LoginPage() {
 
   return (
     <div className="space-y-6">
-      {/* Role tabs */}
+      {/* Floating icons - only visible on lg+ layouts in the left panel, mirrored via layout */}
+
+      {/* Welcome greeting */}
       <motion.div
-        initial={{ opacity: 0, y: -4 }}
+        initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex bg-surface-secondary rounded-xl p-1"
+        transition={{ duration: 0.4 }}
       >
-        {(['customer', 'vendor'] as RoleTab[]).map((role) => (
-          <button
-            key={role}
-            onClick={() => setRoleTab(role)}
-            className={cn(
-              'flex-1 py-2.5 rounded-lg text-sm font-medium transition-all capitalize',
-              roleTab === role
-                ? 'bg-surface text-text-primary shadow-sm'
-                : 'text-text-secondary hover:text-text-primary'
-            )}
-          >
-            {role === 'customer' ? 'Customer' : 'Vendor'}
-          </button>
-        ))}
+        <p className="text-sm text-text-secondary">
+          Welcome back to <span className="font-semibold text-amber-600">AfriBook</span>
+        </p>
       </motion.div>
 
-      {/* Country selector */}
-      <div className="relative">
-        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
-        <select
-          value={selectedCountry.code}
-          onChange={(e) => setSelectedCountry(countryList.find((c) => c.code === e.target.value)!)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-secondary border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all appearance-none cursor-pointer"
-        >
-          {countryList.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.flag} {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Server error */}
+      <AnimatePresence>
+        {serverError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
+            className="rounded-xl border border-red-300 bg-red-50 dark:bg-red-500/10 dark:border-red-500/30 p-3"
+          >
+            <p className="text-sm text-red-600 dark:text-red-400">{serverError}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Login form */}
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        {/* Email */}
         <div className="space-y-1.5">
           <label className="text-xs font-semibold text-text-secondary">Email</label>
           <div className="relative">
             <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
             <input
               type="email"
+              autoFocus
               {...register('email')}
               placeholder="you@example.com"
               className={cn(
                 'w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm text-text-primary placeholder-text-tertiary',
                 'bg-surface-secondary focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all',
-                errors.email ? 'border-red-400 focus:border-red-500' : 'border-border focus:border-amber-500'
+                getFieldState('email').invalid && getFieldState('email').isDirty
+                  ? 'border-red-400 focus:border-red-500'
+                  : 'border-border focus:border-amber-500'
               )}
             />
           </div>
@@ -147,8 +155,17 @@ export default function LoginPage() {
           )}
         </div>
 
+        {/* Password */}
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-text-secondary">Password</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-text-secondary">Password</label>
+            <Link
+              href="/forgot-password"
+              className="text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <div className="relative">
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none" />
             <input
@@ -174,15 +191,18 @@ export default function LoginPage() {
           )}
         </div>
 
-        <div className="flex items-center justify-end">
-          <Link
-            href="/forgot-password"
-            className="text-xs font-medium text-amber-600 hover:text-amber-700 transition-colors"
-          >
-            Forgot password?
-          </Link>
-        </div>
+        {/* Remember me */}
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={rememberMe}
+            onChange={(e) => setRememberMe(e.target.checked)}
+            className="w-4 h-4 rounded-md border-border text-amber-500 focus:ring-amber-500/30 focus:ring-2"
+          />
+          <span className="text-sm text-text-secondary">Remember me</span>
+        </label>
 
+        {/* Submit */}
         <button
           type="submit"
           disabled={submitLoading}
@@ -199,7 +219,7 @@ export default function LoginPage() {
               Signing in...
             </div>
           ) : (
-            'Sign in'
+            'Sign In'
           )}
         </button>
       </form>
@@ -207,11 +227,21 @@ export default function LoginPage() {
       {/* OAuth */}
       <OAuthButtons onGoogleSignIn={handleGoogleSignIn} onAppleSignIn={handleAppleSignIn} loading={submitLoading} />
 
+      {/* Social proof */}
+      <motion.p
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+        className="text-center text-xs text-text-tertiary"
+      >
+        Join 500,000+ users across 16 countries
+      </motion.p>
+
       {/* Register link */}
       <p className="text-center text-sm text-text-secondary">
-        Don&apos;t have an account?{' '}
+        New to AfriBook?{' '}
         <Link href="/register" className="font-semibold text-amber-600 hover:text-amber-700 transition-colors">
-          Create one
+          Create account
         </Link>
       </p>
     </div>

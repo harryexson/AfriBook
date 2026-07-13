@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 const COUNTRY_CODES = ['us', 'ca', 'gb', 'fr', 'de', 'ae', 'in', 'ng', 'gh', 'ke', 'tz', 'ug', 'mw', 'za', 'eg', 'ar', 'am'] as const;
+type CountryCode = typeof COUNTRY_CODES[number];
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/api', '/_next', '/favicon.ico', '/images'];
 const AUTH_PROTECTED_ROUTES = ['/vendor', '/admin', '/driver', '/checkout', '/bookings', '/orders', '/profile', '/payments'];
 const VENDOR_ROUTES = ['/vendor'];
@@ -32,6 +33,16 @@ function detectCountry(hostname: string): string {
   };
 
   return knownDomains[hostname] ?? 'us';
+}
+
+function countryFromIpHeaders(headers: Headers): string | null {
+  const cfCountry = headers.get('cf-ipcountry')
+  if (cfCountry) return cfCountry.toLowerCase()
+
+  const vercelCountry = headers.get('x-vercel-ip-country')
+  if (vercelCountry) return vercelCountry.toLowerCase()
+
+  return null
 }
 
 function parseCountryFromAcceptLanguage(acceptLanguage: string): string | null {
@@ -69,11 +80,18 @@ export async function proxy(req: NextRequest) {
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   // ─── Country Detection ──────────────────────────────────────
-  const detectedCountry = detectCountry(hostname);
+  const detectedFromHost = detectCountry(hostname);
   const languageCountry = parseCountryFromAcceptLanguage(acceptLanguage);
-  const resolvedCountry = (countryCookie as typeof COUNTRY_CODES[number] | undefined)
-    ?? (COUNTRY_CODES.includes(detectedCountry as typeof COUNTRY_CODES[number]) ? detectedCountry as typeof COUNTRY_CODES[number] : undefined)
-    ?? (languageCountry && COUNTRY_CODES.includes(languageCountry as typeof COUNTRY_CODES[number]) ? languageCountry as typeof COUNTRY_CODES[number] : undefined)
+  const ipCountry = countryFromIpHeaders(req.headers);
+
+  const isValid = (c: string): c is CountryCode =>
+    COUNTRY_CODES.includes(c as CountryCode);
+
+  const resolvedCountry: CountryCode =
+    (countryCookie && isValid(countryCookie) ? countryCookie as CountryCode : undefined)
+    ?? (isValid(detectedFromHost) ? detectedFromHost as CountryCode : undefined)
+    ?? (ipCountry && isValid(ipCountry) ? ipCountry as CountryCode : undefined)
+    ?? (languageCountry && isValid(languageCountry) ? languageCountry as CountryCode : undefined)
     ?? 'us';
 
   // Set country cookie if not present or different
@@ -85,6 +103,8 @@ export async function proxy(req: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
     });
   }
+
+  response.headers.set('X-Detected-Country', resolvedCountry);
 
   // ─── Country-based redirect for homepage ────────────────────
   if (pathname === '/' && !isStaticPath && !isApiPath) {

@@ -4,6 +4,7 @@ import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
 import Footer from '@/components/shared/Footer'
+import ClientProviders from '@/components/providers/ClientProviders'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -80,9 +81,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col antialiased">
-        <Header />
-        <main className="flex-1">{children}</main>
-        <Footer />
+        <ClientProviders>
+          <Header />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </ClientProviders>
       </body>
     </html>
   )

@@ -1,5 +1,5 @@
-import type { SubscriptionPlan } from '@/types/events';
-import { SUBSCRIPTION_PLANS } from '@/types/events';
+import type { SubscriptionPlanId } from '@/types/subscription-plans';
+import { SUBSCRIPTION_PLANS } from '@/types/subscription-plans';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ export interface PricingBreakdown {
 }
 
 export interface SubscriptionPlanInfo {
-  id: SubscriptionPlan;
+  id: SubscriptionPlanId;
   name: string;
   monthlyPrice: number;
   yearlyPrice: number;
@@ -121,7 +121,7 @@ const PROCESSING_FEES: Record<string, { percent: number; fixed: number }> = {
 export function calculatePlatformFee(
   subtotal: number,
   quantity: number,
-  organizerPlan: SubscriptionPlan = 'free',
+  organizerPlan: SubscriptionPlanId = 'free',
 ): PlatformFeeResult {
   const plan = SUBSCRIPTION_PLANS[organizerPlan];
   const percentFee = subtotal * (plan.feePercent / 100);
@@ -178,7 +178,7 @@ export interface PromoCodeDiscount {
 export function calculateTotalPricing(
   ticketPrice: number,
   quantity: number,
-  organizerPlan: SubscriptionPlan = 'free',
+  organizerPlan: SubscriptionPlanId = 'free',
   countryCode: string = 'US',
   paymentMethod: string = 'card',
   promoCode?: PromoCodeDiscount,
@@ -238,7 +238,7 @@ export function calculateFreeEventPricing(quantity: number): PricingBreakdown {
 
 export function getSubscriptionPlans(): SubscriptionPlanInfo[] {
   return Object.entries(SUBSCRIPTION_PLANS).map(([key, plan]) => ({
-    id: key as SubscriptionPlan,
+    id: key as SubscriptionPlanId,
     name: plan.name,
     monthlyPrice: plan.monthlyPrice,
     yearlyPrice: plan.yearlyPrice,
@@ -253,7 +253,7 @@ export function getSubscriptionPlans(): SubscriptionPlanInfo[] {
 // ─── Subscription Savings ─────────────────────────────────────
 
 export interface SubscriptionSavings {
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlanId;
   monthlySubscriptionCost: number;
   feesOnFreePlan: number;
   feesOnPlan: number;
@@ -262,7 +262,7 @@ export interface SubscriptionSavings {
 }
 
 export function calculateSubscriptionSavings(
-  plan: SubscriptionPlan,
+  plan: SubscriptionPlanId,
   ticketVolume: number,
   averageTicketPrice: number = 50,
 ): SubscriptionSavings {
