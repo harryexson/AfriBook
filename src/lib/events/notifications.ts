@@ -1,43 +1,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { TicketPurchase } from '@/types/events';
+import type {
+  TicketPurchase,
+  NotificationPayload,
+  NotificationChannel,
+  NotificationType,
+} from '@/types/events';
 
 // ─── Types ────────────────────────────────────────────────────
 
-export type NotificationChannel = 'email' | 'sms' | 'whatsapp';
-export type NotificationType =
-  | 'registration_confirmation'
-  | 'event_reminder_24h'
-  | 'event_reminder_1h'
-  | 'event_update'
-  | 'refund_confirmation'
-  | 'check_in_confirmation'
-  | 'invitation_email'
-  | 'invitation_sms'
-  | 'host_notification';
-
-export interface NotificationPayload {
-  channel: NotificationChannel;
-  type: NotificationType;
-  recipientEmail?: string;
-  recipientPhone?: string;
-  subject?: string;
-  body: string;
-  htmlBody?: string;
-  metadata: Record<string, unknown>;
-}
-
-export interface NotificationLog {
-  id: string;
-  eventId?: string;
-  registrationId?: string;
-  recipientEmail?: string;
-  recipientPhone?: string;
-  channel: NotificationChannel;
-  type: NotificationType;
-  status: 'queued' | 'sent' | 'delivered' | 'failed';
-  payload: NotificationPayload;
-  createdAt: string;
-}
+export type { NotificationPayload, NotificationChannel, NotificationType };
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -47,17 +18,18 @@ function formatCurrency(amount: number, currency: string = 'USD'): string {
 
 async function logNotification(
   sb: SupabaseClient,
-  entry: Omit<NotificationLog, 'id' | 'createdAt'>,
+  payload: NotificationPayload,
+  refs: { eventId?: string; registrationId?: string; status?: 'queued' | 'sent' | 'delivered' | 'failed' },
 ): Promise<void> {
   await sb.from('notification_logs').insert({
-    event_id: entry.eventId ?? null,
-    registration_id: entry.registrationId ?? null,
-    recipient_email: entry.recipientEmail ?? null,
-    recipient_phone: entry.recipientPhone ?? null,
-    channel: entry.channel,
-    type: entry.type,
-    status: entry.status,
-    payload: entry.payload,
+    event_id: refs.eventId ?? null,
+    registration_id: refs.registrationId ?? null,
+    recipient_email: payload.recipientEmail ?? null,
+    recipient_phone: payload.recipientPhone ?? null,
+    channel: payload.channel,
+    type: payload.type,
+    status: refs.status ?? 'queued',
+    payload,
     created_at: new Date().toISOString(),
   });
 }
@@ -96,7 +68,7 @@ export async function sendRegistrationConfirmation(
   };
 
   notifications.push(emailPayload);
-  await logNotification(sb, { ...emailPayload, eventId: registration.eventId, registrationId: registration.id, status: 'queued' });
+  await logNotification(sb, emailPayload, { eventId: registration.eventId, registrationId: registration.id });
 
   // SMS notification
   if (registration.buyerPhone) {
@@ -117,7 +89,7 @@ export async function sendRegistrationConfirmation(
     };
 
     notifications.push(smsPayload);
-    await logNotification(sb, { ...smsPayload, eventId: registration.eventId, registrationId: registration.id, status: 'queued' });
+    await logNotification(sb, smsPayload, { eventId: registration.eventId, registrationId: registration.id });
   }
 
   // WhatsApp notification
@@ -139,7 +111,7 @@ export async function sendRegistrationConfirmation(
     };
 
     notifications.push(whatsappPayload);
-    await logNotification(sb, { ...whatsappPayload, eventId: registration.eventId, registrationId: registration.id, status: 'queued' });
+    await logNotification(sb, whatsappPayload, { eventId: registration.eventId, registrationId: registration.id });
   }
 
   return notifications;
@@ -178,12 +150,7 @@ export async function sendEventReminder(
     },
   };
 
-  await logNotification(sb, {
-    ...payload,
-    eventId: registration.eventId,
-    registrationId: registration.id,
-    status: 'queued',
-  });
+  await logNotification(sb, payload, { eventId: registration.eventId, registrationId: registration.id });
 
   return payload;
 }
@@ -220,11 +187,7 @@ export async function sendEventUpdate(
       metadata: { eventId: event.id },
     };
 
-    await logNotification(sb, {
-      ...payload,
-      eventId: event.id,
-      status: 'queued',
-    });
+    await logNotification(sb, payload, { eventId: event.id });
 
     count++;
   }
@@ -260,12 +223,7 @@ export async function sendRefundConfirmation(
     },
   };
 
-  await logNotification(sb, {
-    ...payload,
-    eventId: registration.eventId,
-    registrationId: registration.id,
-    status: 'queued',
-  });
+  await logNotification(sb, payload, { eventId: registration.eventId, registrationId: registration.id });
 
   return payload;
 }
@@ -294,11 +252,7 @@ export async function sendCheckInConfirmation(
     },
   };
 
-  await logNotification(sb, {
-    ...payload,
-    eventId: event.id,
-    status: 'queued',
-  });
+  await logNotification(sb, payload, { eventId: event.id });
 
   return payload;
 }
@@ -345,11 +299,7 @@ export async function sendInvitationEmail(
     },
   };
 
-  await logNotification(sb, {
-    ...payload,
-    eventId: invitation.eventId,
-    status: 'queued',
-  });
+  await logNotification(sb, payload, { eventId: invitation.eventId });
 
   return payload;
 }
@@ -389,11 +339,7 @@ export async function sendInvitationSMS(
     },
   };
 
-  await logNotification(sb, {
-    ...payload,
-    eventId: invitation.eventId,
-    status: 'queued',
-  });
+  await logNotification(sb, payload, { eventId: invitation.eventId });
 
   return payload;
 }
@@ -459,11 +405,7 @@ export async function sendHostNotification(
     },
   };
 
-  await logNotification(sb, {
-    ...payload,
-    eventId: event.id,
-    status: 'queued',
-  });
+  await logNotification(sb, payload, { eventId: event.id });
 
   return payload;
 }

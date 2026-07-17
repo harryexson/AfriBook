@@ -4,7 +4,8 @@
 // Supports Mapbox/Google as paid upgrade paths.
 // ──────────────────────────────────────────────────────────────
 
-import type { GeoLocation, GeoPoint, RouteResult, RouteStep, TrafficLevel } from '@/types/ridely';
+import type { GeoPoint } from '@/types';
+import type { GeoLocation, RouteResult, RouteStep, TrafficLevel } from '@/types/ridely';
 
 // ─── Constants ───────────────────────────────────────────────
 

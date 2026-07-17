@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import type { Order } from '@/types';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -71,18 +72,18 @@ export async function POST(req: NextRequest) {
   const { data: order, error } = await supabase
     .from('orders')
     .insert({
-      business_id: businessId,
-      customer_id: user.id,
+      businessId,
+      customerId: user.id,
       items: orderItems,
       status: 'pending',
       subtotal,
       tax,
-      delivery_fee: deliveryFee,
+      deliveryFee,
       tip: 0,
       total,
-      currency_code: business.currency_code,
-      payment_status: 'pending',
-      delivery_address: deliveryAddress,
+      currencyCode: business.currency_code,
+      paymentStatus: 'pending',
+      deliveryAddress,
       notes: notes ?? null,
     })
     .select()
@@ -129,17 +130,17 @@ export async function GET(req: NextRequest) {
     const { data: businesses } = await supabase
       .from('businesses')
       .select('id')
-      .eq('owner_id', user.id) as unknown as { data: { id: string }[] };
+      .eq('ownerId', user.id) as unknown as { data: { id: string }[] };
     const ids = businesses?.map((b) => b.id) ?? [];
     query = query.in('business_id', ids);
   } else if (profile?.role === 'driver') {
-    query = query.eq('driver_id', user.id);
+    query = query.eq('driverId', user.id);
   } else {
-    query = query.eq('customer_id', user.id);
+    query = query.eq('customerId', user.id);
   }
 
-  if (status) query = query.eq('status', status);
-  if (businessId) query = query.eq('business_id', businessId);
+  if (status) query = query.eq('status', status as Order['status']);
+  if (businessId) query = query.eq('businessId', businessId);
 
   const { data, count, error } = await query
     .order('created_at', { ascending: false })
@@ -201,7 +202,7 @@ export async function PUT(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('orders')
-    .update(updateData)
+    .update(updateData as never)
     .eq('id', orderId)
     .select()
     .single();

@@ -257,7 +257,7 @@ export async function DELETE(
         user_id: r.buyer_id ?? '',
         type: 'event_cancelled',
         title: 'Event Cancelled',
-        body: `The event has been cancelled. A refund of ${event.total > 0 ? 'your purchase' : 'N/A'} will be processed.`,
+        body: `The event has been cancelled. A refund of ${(r.total ?? 0) > 0 ? 'your purchase' : 'N/A'} will be processed.`,
         data: { event_id: id, registration_id: r.id },
       })).filter((n) => n.user_id);
 

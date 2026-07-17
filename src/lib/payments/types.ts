@@ -29,7 +29,8 @@ export type OrchestratorPaymentMethod =
   | 'fawry'
   | 'paypal'
   | 'ussd'
-  | 'net_banking';
+  | 'net_banking'
+  | 'konbini';
 
 export type WebhookEvent =
   | 'payment.succeeded'
@@ -271,22 +272,70 @@ export interface PaystackRecipient {
 // ─── Helpers ─────────────────────────────────────────────────
 
 export const COUNTRY_PROVIDER_MAP: Record<string, string[]> = {
-  US: ['stripe'],
-  CA: ['stripe'],
-  GB: ['stripe'],
-  FR: ['stripe'],
-  DE: ['stripe'],
-  AE: ['stripe'],
-  IN: ['razorpay'],
-  NG: ['paystack', 'flutterwave'],
-  GH: ['paystack', 'flutterwave'],
-  KE: ['mpesa'],
-  TZ: ['mpesa'],
-  UG: ['mpesa'],
-  MW: ['paychangu'],
-  ZA: ['flutterwave'],
-  EG: ['paychangu'],
+  // ── North America & Europe ──────────────────────────────────
+  US: ['stripe', 'airwallex', 'adyen'],
+  CA: ['stripe', 'airwallex', 'adyen'],
+  GB: ['stripe', 'airwallex', 'adyen'],
+  FR: ['stripe', 'airwallex', 'adyen'],
+  DE: ['stripe', 'airwallex', 'adyen'],
+  ES: ['stripe', 'airwallex', 'adyen'],
+  IT: ['stripe', 'airwallex', 'adyen'],
+  NL: ['stripe', 'airwallex', 'adyen'],
+  PT: ['stripe', 'airwallex', 'adyen'],
+  IE: ['stripe', 'airwallex', 'adyen'],
+  SE: ['stripe', 'airwallex', 'adyen'],
+  CH: ['stripe', 'airwallex', 'adyen'],
+  AE: ['stripe', 'airwallex', 'adyen'],
+  SA: ['airwallex', 'stripe', 'adyen'],
+  // ── Asia Pacific ─────────────────────────────────────────────
+  IN: ['razorpay', 'airwallex', 'stripe'],
+  SG: ['airwallex', 'stripe', 'adyen'],
+  HK: ['airwallex', 'stripe', 'adyen'],
+  AU: ['airwallex', 'stripe', 'adyen'],
+  JP: ['airwallex', 'stripe', 'adyen'],
+  CN: ['airwallex', 'adyen'],
+  MY: ['airwallex', 'stripe', 'adyen'],
+  ID: ['airwallex', 'stripe', 'adyen'],
+  PH: ['airwallex', 'stripe', 'adyen'],
+  TH: ['airwallex', 'stripe', 'adyen'],
+  VN: ['airwallex', 'stripe', 'adyen'],
+  KR: ['airwallex', 'stripe', 'adyen'],
+  // ── Latin America (dLocal / Adyen) ──────────────────────────
+  BR: ['dlocal', 'adyen', 'airwallex'],
+  MX: ['dlocal', 'adyen', 'airwallex'],
+  AR: ['dlocal', 'adyen', 'airwallex'],
+  CL: ['dlocal', 'adyen'],
+  CO: ['dlocal', 'adyen'],
+  PE: ['dlocal', 'adyen'],
+  UY: ['dlocal', 'adyen'],
+  // ── Africa ───────────────────────────────────────────────────
+  NG: ['paystack', 'flutterwave', 'pawapay'],
+  GH: ['paystack', 'flutterwave', 'pawapay'],
+  KE: ['mpesa', 'pawapay', 'airwallex'],
+  TZ: ['mpesa', 'pawapay'],
+  UG: ['mpesa', 'pawapay'],
+  MW: ['paychangu', 'pawapay'],
+  ZA: ['flutterwave', 'airwallex', 'pawapay'],
+  EG: ['paychangu', 'airwallex', 'pawapay'],
+  RW: ['pawapay', 'airwallex'],
+  ZM: ['pawapay', 'airwallex'],
+  SN: ['pawapay', 'airwallex'],
+  CI: ['pawapay', 'airwallex'],
+  CM: ['pawapay', 'airwallex'],
 };
+
+// Global fallback used for any country not explicitly mapped above.
+// Ensures customers can ALWAYS pay (and vendors can ALWAYS be paid)
+// no matter which country/region they select.
+export const GLOBAL_FALLBACK_PROVIDERS: string[] = [
+  'airwallex',
+  'stripe',
+  'adyen',
+];
+
+export function getProvidersForCountry(countryCode: string): string[] {
+  return COUNTRY_PROVIDER_MAP[countryCode] ?? GLOBAL_FALLBACK_PROVIDERS;
+}
 
 export const COUNTRY_CURRENCY_MAP: Record<string, string> = {
   US: 'USD',
@@ -294,8 +343,25 @@ export const COUNTRY_CURRENCY_MAP: Record<string, string> = {
   GB: 'GBP',
   FR: 'EUR',
   DE: 'EUR',
+  ES: 'EUR',
+  IT: 'EUR',
+  NL: 'EUR',
+  PT: 'EUR',
+  IE: 'EUR',
   AE: 'AED',
+  SA: 'SAR',
   IN: 'INR',
+  SG: 'SGD',
+  HK: 'HKD',
+  AU: 'AUD',
+  JP: 'JPY',
+  CN: 'CNY',
+  MY: 'MYR',
+  ID: 'IDR',
+  PH: 'PHP',
+  TH: 'THB',
+  VN: 'VND',
+  KR: 'KRW',
   NG: 'NGN',
   GH: 'GHS',
   KE: 'KES',
@@ -304,7 +370,23 @@ export const COUNTRY_CURRENCY_MAP: Record<string, string> = {
   MW: 'MWK',
   ZA: 'ZAR',
   EG: 'EGP',
+  RW: 'RWF',
+  ZM: 'ZMW',
+  SN: 'XOF',
+  CI: 'XOF',
+  CM: 'XAF',
+  BR: 'BRL',
+  MX: 'MXN',
+  AR: 'ARS',
+  CL: 'CLP',
+  CO: 'COP',
+  PE: 'PEN',
+  UY: 'UYU',
 };
+
+export function getCurrencyForCountry(countryCode: string): string {
+  return COUNTRY_CURRENCY_MAP[countryCode] ?? 'USD';
+}
 
 export const COUNTRY_METHODS_MAP: Record<
   string,
@@ -315,8 +397,25 @@ export const COUNTRY_METHODS_MAP: Record<
   GB: ['card', 'bank_transfer'],
   FR: ['card', 'sepa'],
   DE: ['card', 'sepa'],
+  ES: ['card', 'sepa'],
+  IT: ['card', 'sepa'],
+  NL: ['card', 'sepa'],
+  PT: ['card', 'sepa'],
+  IE: ['card', 'sepa'],
   AE: ['card'],
+  SA: ['card', 'wallet'],
   IN: ['card', 'upi', 'wallet', 'net_banking'],
+  SG: ['card', 'wallet', 'bank_transfer'],
+  HK: ['card', 'wallet'],
+  AU: ['card', 'bank_transfer'],
+  JP: ['card', 'konbini'],
+  CN: ['card', 'wallet'],
+  MY: ['card', 'bank_transfer', 'wallet'],
+  ID: ['card', 'wallet', 'bank_transfer'],
+  PH: ['card', 'wallet', 'bank_transfer'],
+  TH: ['card', 'wallet', 'bank_transfer'],
+  VN: ['card', 'wallet', 'bank_transfer'],
+  KR: ['card', 'wallet'],
   NG: ['card', 'bank_transfer', 'ussd', 'mobile_money'],
   GH: ['card', 'bank_transfer', 'mobile_money'],
   KE: ['mpesa', 'card'],
@@ -325,7 +424,30 @@ export const COUNTRY_METHODS_MAP: Record<
   MW: ['mobile_money', 'bank_transfer'],
   ZA: ['card', 'bank_transfer'],
   EG: ['card', 'fawry', 'wallet'],
+  RW: ['mobile_money'],
+  ZM: ['mobile_money'],
+  SN: ['mobile_money', 'card'],
+  CI: ['mobile_money', 'card'],
+  CM: ['mobile_money', 'card'],
+  BR: ['card', 'bank_transfer', 'cash'],
+  MX: ['card', 'bank_transfer', 'cash'],
+  AR: ['card', 'bank_transfer', 'cash'],
+  CL: ['card', 'bank_transfer', 'cash'],
+  CO: ['card', 'bank_transfer', 'cash'],
+  PE: ['card', 'bank_transfer', 'cash'],
+  UY: ['card', 'bank_transfer'],
 };
+
+// Default methods when a country is not explicitly mapped.
+export const GLOBAL_FALLBACK_METHODS: OrchestratorPaymentMethod[] = [
+  'card',
+  'bank_transfer',
+  'wallet',
+];
+
+export function getMethodsForCountry(countryCode: string): OrchestratorPaymentMethod[] {
+  return COUNTRY_METHODS_MAP[countryCode] ?? GLOBAL_FALLBACK_METHODS;
+}
 
 export const COUNTRY_MINIMUM_FEE_FLOOR: Record<string, number> = {
   US: 0.5,

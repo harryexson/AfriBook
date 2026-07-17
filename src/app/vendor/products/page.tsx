@@ -9,6 +9,7 @@ import {
   Edit3, Trash2, Package,
 } from 'lucide-react'
 import ProductForm from '@/components/vendor/ProductForm'
+import ImportWizard, { type ImportItem } from '@/components/vendor/ImportWizard'
 import type { Product } from '@/types'
 
 const MOCK_PRODUCTS: Product[] = [
@@ -32,6 +33,11 @@ export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [showImport, setShowImport] = useState(false)
+
+  const handleImport = async (items: ImportItem[]) => {
+    console.log('Importing products:', items)
+  }
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -48,7 +54,10 @@ export default function ProductsPage() {
           <p className="text-sm text-text-secondary mt-1">{products.length} products total</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-secondary transition-colors">
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-secondary transition-colors"
+          >
             <Upload className="w-4 h-4" /> Import
           </button>
           <button className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-secondary transition-colors">
@@ -195,6 +204,13 @@ export default function ProductsPage() {
           />
         )}
       </AnimatePresence>
+
+      <ImportWizard
+        type="product"
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onImport={handleImport}
+      />
     </motion.div>
   )
 }

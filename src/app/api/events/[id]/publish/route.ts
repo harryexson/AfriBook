@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { moderateEvent } from '@/lib/moderation';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,7 +18,7 @@ export async function POST(
 
     const { data: event, error: fetchError } = await supabase
       .from('events')
-      .select('id, organizer_id, status, title, start_date, ticket_types: event_ticket_types(id, name, price, quantity_available)')
+      .select('id, organizer_id, status, title, description, category, start_date, ticket_types: event_ticket_types(id, name, price, quantity_available)')
       .eq('id', id)
       .single();
 
@@ -25,6 +26,38 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: 'Event not found' },
         { status: 404 }
+      );
+    }
+
+    // ── Trust & safety gate: block / flag prohibited events immediately ──
+    const screening = moderateEvent({
+      title: event.title,
+      description: event.description,
+      category: event.category,
+    });
+    if (screening.blocked) {
+      // Best-effort audit log (table created by migration 007). Never throws.
+      try {
+        await supabase.from('content_moderation_flags').insert({
+          entity_type: 'event',
+          entity_id: id,
+          field: 'publish',
+          matched_categories: screening.categories,
+          matched_terms: screening.matches.map((m) => m.term),
+          severity: 'high',
+          action: 'blocked',
+          created_at: new Date().toISOString(),
+        });
+      } catch {
+        /* logging is best-effort */
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'This event violates AfriBook prohibited-content policy and cannot be published.',
+          reasons: screening.reasons,
+        },
+        { status: 422 },
       );
     }
 

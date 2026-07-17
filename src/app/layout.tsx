@@ -1,10 +1,11 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { Inter, Poppins } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
 import Footer from '@/components/shared/Footer'
 import ClientProviders from '@/components/providers/ClientProviders'
+import ServiceWorkerRegister from '@/components/shared/ServiceWorkerRegister'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -45,6 +46,25 @@ export const metadata: Metadata = {
       'Book services, order products, request rides, and get deliveries across 16+ countries.',
   },
   robots: { index: true, follow: true },
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'AfriBook',
+  },
+  applicationName: 'AfriBook',
+  formatDetection: { telephone: false, email: false, address: false },
+}
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+  ],
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({
@@ -86,6 +106,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </ClientProviders>
+        <ServiceWorkerRegister />
       </body>
     </html>
   )

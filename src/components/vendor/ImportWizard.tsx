@@ -189,7 +189,7 @@ export default function ImportWizard({ type, isOpen, onClose, onImport }: Import
                   <div key={s} className="flex items-center gap-1 flex-1">
                     <div className={cn(
                       'h-1 rounded-full flex-1 transition-colors',
-                      i === 0 || (i === 1 && step !== 'method') || (i === 2 && step === 'review')
+                      i === 0 || i === 1 || (i === 2 && step === 'review')
                         ? 'bg-amber-500' : 'bg-surface-secondary'
                     )} />
                   </div>
@@ -427,7 +427,7 @@ function ManualStep({
       initial="enter"
       animate="center"
       exit="exit"
-      custom={direction}
+      custom={1}
       transition={{ duration: 0.25, ease: 'easeInOut' }}
       className="p-6 space-y-4"
     >

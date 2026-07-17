@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
       .eq('id', userId)
       .single();
 
-    let customerId = existing?.stripe_customer_id ?? null;
+    let customerId = (existing as { stripe_customer_id?: string } | null)?.stripe_customer_id ?? null;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -261,8 +261,8 @@ export async function POST(req: NextRequest) {
         data: {
           subscription: newSub,
           payment: {
-            clientSecret: (stripeSubscription.latest_invoice as Record<string, unknown>)?.payment_intent
-              ? ((stripeSubscription.latest_invoice as Record<string, unknown>).payment_intent as Record<string, unknown>)?.client_secret
+            clientSecret: (stripeSubscription.latest_invoice as unknown as Record<string, unknown>)?.payment_intent
+              ? ((stripeSubscription.latest_invoice as unknown as Record<string, unknown>).payment_intent as unknown as Record<string, unknown>)?.client_secret
               : null,
             subscriptionId: stripeSubscription.id,
           },

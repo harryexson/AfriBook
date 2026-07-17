@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       const { data: biz } = await supabase
         .from('businesses')
         .select('id')
-        .eq('owner_id', user.id)
+        .eq('ownerId', user.id)
         .single() as unknown as { data: { id: string } | null };
       if (!biz) {
         return NextResponse.json({ error: 'No business found' }, { status: 404 });

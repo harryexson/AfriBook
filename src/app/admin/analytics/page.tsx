@@ -13,6 +13,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line,
   PieChart, Pie, Cell,
 } from 'recharts'
+import type { TooltipValueType as ValueType } from 'recharts'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const ITEM = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } } }
@@ -122,7 +123,7 @@ export default function AdminAnalyticsPage() {
               <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
               <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
-                formatter={(value: number) => [formatCurrency(value, 'XAF'), '']} />
+                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), 'XAF'), ''] as [string, string]} />
               <Legend />
               <Area type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2.5} fill="url(#revGrad)" name="Revenue" />
               <Area type="monotone" dataKey="profit" stroke="#10B981" strokeWidth={2.5} fill="url(#profitGrad)" name="Profit" />
@@ -141,7 +142,7 @@ export default function AdminAnalyticsPage() {
               <XAxis dataKey="country" tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
               <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
-                formatter={(value: number) => [formatCurrency(value, 'XAF'), 'Revenue']} />
+                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), 'XAF'), 'Revenue'] as [string, string]} />
               <Legend />
               <Bar dataKey="revenue" fill="#F59E0B" radius={[6, 6, 0, 0]} name="Revenue" />
             </BarChart>

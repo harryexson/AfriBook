@@ -2,13 +2,13 @@
 
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import type { LucideIcon } from 'lucide-react'
+import type { ComponentType } from 'react'
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 interface StatCardProps {
   label: string
   value: string | number
-  icon: LucideIcon
+  icon: ComponentType<{ className?: string }>
   change?: number
   changeLabel?: string
   accent?: string

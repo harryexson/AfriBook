@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const { data: driver } = await supabase
     .from('drivers')
     .select('id')
-    .eq('profile_id', user.id)
+    .eq('userId', user.id)
     .single() as unknown as { data: { id: string } | null };
 
   if (!driver) {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
   const { data: driver } = await supabase
     .from('drivers')
     .select('id')
-    .eq('profile_id', user.id)
+    .eq('userId', user.id)
     .single() as unknown as { data: { id: string } | null };
 
   if (!driver) {

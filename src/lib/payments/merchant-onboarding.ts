@@ -9,6 +9,8 @@ import { COUNTRY_PROVIDER_MAP } from './types';
 import { StripeProvider } from './providers/stripe-provider';
 import { RazorpayProvider } from './providers/razorpay-provider';
 import { PaystackProvider } from './providers/paystack-provider';
+import { AirwallexProvider } from './providers/airwallex-provider';
+import { PawaPayProvider } from './providers/pawapay-provider';
 
 // ─── Merchant / Vendor Onboarding ─────────────────────────────
 // Handles Stripe Connect, Razorpay, and Paystack vendor onboarding
@@ -235,6 +237,32 @@ export async function getVendorOnboardingStatus(
   }
 
   return status;
+}
+
+// ─── Airwallex Onboarding (Global payouts) ───────────────────
+
+/**
+ * Create an Airwallex beneficiary for a vendor so they can receive payouts.
+ */
+export async function createAirwallexBeneficiary(
+  vendorId: string,
+  destination: Parameters<AirwallexProvider['createBeneficiary']>[1],
+): Promise<string> {
+  const airwallex = new AirwallexProvider();
+  return airwallex.createBeneficiary(vendorId, destination);
+}
+
+// ─── PawaPay Onboarding (Africa mobile-money payouts) ─────────
+
+/**
+ * Persist a vendor's mobile-money payout destination for PawaPay.
+ */
+export async function createPawaPayRecipient(
+  vendorId: string,
+  destination: Parameters<PawaPayProvider['createRecipient']>[1],
+): Promise<string> {
+  const pawapay = new PawaPayProvider();
+  return pawapay.createRecipient(vendorId, destination);
 }
 
 /**

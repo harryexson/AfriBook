@@ -14,6 +14,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip,
 } from 'recharts'
+import type { TooltipValueType as ValueType } from 'recharts'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const ITEM = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } } }
@@ -92,7 +93,7 @@ export default function AdminDisputesPage() {
                 <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
-                  formatter={(value: number) => [`${value}h`, 'Avg Time']}
+                  formatter={(value?: ValueType) => [`${Number(value ?? 0)}h`, 'Avg Time'] as [string, string]}
                 />
                 <Bar dataKey="avgHours" fill="#F59E0B" radius={[6, 6, 0, 0]} />
               </BarChart>

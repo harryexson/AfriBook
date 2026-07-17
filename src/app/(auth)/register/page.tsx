@@ -14,6 +14,7 @@ import {
   Eye, EyeOff,
 } from 'lucide-react'
 import { COUNTRIES } from '@/lib/localization/countries'
+import { moderateRegistration, getBlockMessage } from '@/lib/moderation'
 import PhoneVerification from '@/components/shared/PhoneVerification'
 
 type AccountType = 'customer' | 'vendor' | 'driver' | 'restaurant'
@@ -108,6 +109,20 @@ export default function RegisterPage() {
     setSubmitLoading(true)
     setServerError('')
     try {
+      // ── Trust & safety gate: block prohibited registrations immediately ──
+      const screening = moderateRegistration({
+        fullName: data.name,
+        email: data.email,
+        phone: data.phone,
+        businessName: showBusinessFields ? data.businessName : undefined,
+        businessCategory: showBusinessFields ? data.businessCategory : undefined,
+      })
+      if (screening.blocked) {
+        setServerError(getBlockMessage(screening))
+        setSubmitLoading(false)
+        return
+      }
+
       const supabase = (await import('@/lib/supabase/client')).createClient()
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,

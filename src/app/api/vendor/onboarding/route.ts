@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         await db
           .from('vendor_wallets')
           .update({
-            metadata: { paystack_recipient_code: recipient.recipient_code },
+            metadata: { paystack_recipient_code: (recipient as { recipient_code?: string }).recipient_code },
           })
           .eq('vendor_id', user.id);
 
@@ -125,7 +125,7 @@ export async function GET(req: NextRequest) {
   const provider = searchParams.get('provider') ?? 'stripe';
 
   try {
-    let status;
+    let status: { provider?: string; onboarded: boolean; details: Record<string, unknown> };
 
     switch (provider) {
       case 'stripe': {
@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
         status = {
           provider: 'stripe',
           onboarded: stripeStatus.detailsSubmitted && stripeStatus.chargesEnabled && stripeStatus.payoutsEnabled,
-          details: stripeStatus,
+          details: stripeStatus as unknown as Record<string, unknown>,
         };
         break;
       }

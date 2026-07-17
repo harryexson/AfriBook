@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
+import type { Booking, Order } from '@/types';
 
 function verifySignature(signature: string, secret: string): boolean {
   const expected = crypto.createHash('sha256').update(secret).digest('hex');
@@ -47,14 +48,14 @@ async function handleChargeCompleted(data: FlutterwaveChargeData) {
       status: 'succeeded',
       provider_transaction_id: data.flw_ref,
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('provider_transaction_id', data.tx_ref);
 
   const bookingId = data.meta?.afribook_booking_id;
   if (bookingId) {
     await supabase
       .from('bookings')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', bookingId);
   }
 
@@ -62,19 +63,19 @@ async function handleChargeCompleted(data: FlutterwaveChargeData) {
   if (orderId) {
     await supabase
       .from('orders')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', orderId);
   }
 
   const customerId = data.meta?.afribook_customer_id;
   if (customerId) {
     await supabase.from('notifications').insert({
-      user_id: customerId,
+      userId: customerId,
       type: 'payment',
       title: 'Payment Successful',
       body: `Payment of ${data.charged_amount.toFixed(2)} ${data.currency} was successful.`,
       data: { flw_ref: data.flw_ref, tx_ref: data.tx_ref, amount: data.charged_amount },
-    });
+    } as never);
   }
 }
 
@@ -91,7 +92,7 @@ async function handleChargeFailed(data: FlutterwaveChargeData) {
         failed_at: new Date().toISOString(),
       },
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('provider_transaction_id', data.tx_ref);
 }
 
@@ -110,7 +111,7 @@ async function handleTransferCompleted(data: FlutterwaveTransferData) {
         failure_reason: data.failure_reason,
       },
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('metadata->>flutterwave_transfer_reference', data.reference);
 }
 
@@ -154,3 +155,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ received: true });
 }
+

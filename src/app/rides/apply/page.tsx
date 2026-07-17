@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowLeft, CheckCircle, AlertCircle, Loader2, Car, Shield, Clock } from 'lucide-react'
-import OnboardingWizard from '@/components/driver/OnboardingWizard'
+import OnboardingWizard, { type OnboardingData } from '@/components/driver/OnboardingWizard'
 import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 
@@ -35,7 +35,7 @@ export default function DriverApplyPage() {
           setStep('existing')
         }
       } catch {
-        // Ignore errors — let user try to apply
+        // Ignore errors; let user try to apply
       } finally {
         setCheckingStatus(false)
       }
@@ -45,7 +45,7 @@ export default function DriverApplyPage() {
   }, [user, authStatus])
 
   // -- Handle onboarding completion --------------------------
-  const handleComplete = useCallback(async (formData: Record<string, unknown>) => {
+  const handleComplete = useCallback(async (formData: OnboardingData) => {
     if (!user) {
       setSubmitError('You must be logged in to apply')
       setStep('error')

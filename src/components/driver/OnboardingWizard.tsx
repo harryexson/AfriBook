@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 // ─── Types ───────────────────────────────────────────────────
 
-interface OnboardingData {
+export interface OnboardingData {
   // Step 1: Personal
   fullName: string
   phone: string

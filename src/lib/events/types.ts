@@ -4,6 +4,12 @@
 // ───────────────────────────────────────────────────────────────
 
 export * from '@/types/events';
+import type {
+  EventCategory,
+  EventTypeTicket,
+  EventGuest,
+  EventStatus,
+} from '@/types/events';
 
 // ─── Event Management ─────────────────────────────────────────
 

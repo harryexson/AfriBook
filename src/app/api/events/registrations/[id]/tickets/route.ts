@@ -49,7 +49,7 @@ export async function GET(
       registrationId: registration.id,
       eventId: registration.event_id,
       ticketCode: `${ticketCode}${registration.quantity > 1 ? `-${i + 1}` : ''}`,
-      tierName: (registration.event_ticket_types as Record<string, unknown>)?.name ?? registration.ticket_tier_name,
+      tierName: (registration.event_ticket_types as unknown as Record<string, unknown>)?.name ?? registration.ticket_tier_name,
       attendeeName: registration.buyer_name,
       attendeeEmail: registration.buyer_email,
       status: registration.order_status,
@@ -57,15 +57,15 @@ export async function GET(
       checkedIn: registration.check_in_status === 'checked_in',
       checkedInAt: registration.check_in_at,
       event: {
-        title: (registration.events as Record<string, unknown>)?.title,
-        startDate: (registration.events as Record<string, unknown>)?.start_date,
-        endDate: (registration.events as Record<string, unknown>)?.end_date,
-        venue: (registration.events as Record<string, unknown>)?.venue_name,
-        address: (registration.events as Record<string, unknown>)?.venue_address,
-        city: (registration.events as Record<string, unknown>)?.venue_city,
-        timezone: (registration.events as Record<string, unknown>)?.timezone,
+        title: (registration.events as unknown as Record<string, unknown>)?.title,
+        startDate: (registration.events as unknown as Record<string, unknown>)?.start_date,
+        endDate: (registration.events as unknown as Record<string, unknown>)?.end_date,
+        venue: (registration.events as unknown as Record<string, unknown>)?.venue_name,
+        address: (registration.events as unknown as Record<string, unknown>)?.venue_address,
+        city: (registration.events as unknown as Record<string, unknown>)?.venue_city,
+        timezone: (registration.events as unknown as Record<string, unknown>)?.timezone,
       },
-      benefits: (registration.event_ticket_types as Record<string, unknown>)?.benefits ?? [],
+      benefits: (registration.event_ticket_types as unknown as Record<string, unknown>)?.benefits ?? [],
     }));
 
     return NextResponse.json({

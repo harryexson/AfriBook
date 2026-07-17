@@ -57,19 +57,19 @@ export async function createGroupOrder(
 
   const inviteCode = generateInviteCode();
 
-  const { data: restaurant } = await supabase
+  const { data: restaurant } = await (supabase
     .from('businesses')
     .select('id, name')
     .eq('id', restaurantId)
-    .single();
+    .single() as any);
 
-  const { data: user } = await supabase
+  const { data: user } = await (supabase
     .from('users')
     .select('id, name')
     .eq('id', creatorId)
-    .single();
+    .single() as any);
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase
     .from('group_orders')
     .insert({
       restaurant_id: restaurantId,
@@ -82,19 +82,19 @@ export async function createGroupOrder(
       deadline: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min deadline
     } as any)
     .select()
-    .single();
+    .single() as any);
 
   if (error || !data) return null;
 
   // Add creator as first member
-  await supabase.from('group_order_members').insert({
+  await (supabase.from('group_order_members').insert({
     group_order_id: data.id,
     user_id: creatorId,
     name: user?.name ?? 'Creator',
     items: [],
     subtotal: 0,
     is_ready: false,
-  } as any);
+  } as any) as any);
 
   return rowToGroupOrder(data);
 }
@@ -107,47 +107,47 @@ export async function joinGroupOrder(
 ): Promise<GroupOrder | null> {
   const supabase = await createClient();
 
-  const { data: groupOrder } = await supabase
+  const { data: groupOrder } = await (supabase
     .from('group_orders')
     .select('*')
     .eq('invite_code', inviteCode)
     .eq('status', 'collecting')
-    .single();
+    .single() as any);
 
   if (!groupOrder) return null;
 
   // Check member limit
-  const { count } = await supabase
+  const { count } = await (supabase
     .from('group_order_members')
     .select('*', { count: 'exact', head: true })
-    .eq('group_order_id', groupOrder.id);
+    .eq('group_order_id', groupOrder.id) as any);
 
   if ((count ?? 0) >= groupOrder.max_members) return null;
 
   // Check if already a member
-  const { data: existing } = await supabase
+  const { data: existing } = await (supabase
     .from('group_order_members')
     .select('id')
     .eq('group_order_id', groupOrder.id)
     .eq('user_id', userId)
-    .single();
+    .single() as any);
 
   if (existing) return rowToGroupOrder(groupOrder);
 
-  const { data: user } = await supabase
+  const { data: user } = await (supabase
     .from('users')
     .select('name')
     .eq('id', userId)
-    .single();
+    .single() as any);
 
-  await supabase.from('group_order_members').insert({
+  await (supabase.from('group_order_members').insert({
     group_order_id: groupOrder.id,
     user_id: userId,
     name: user?.name ?? 'Member',
     items: [],
     subtotal: 0,
     is_ready: false,
-  } as any);
+  } as any) as any);
 
   return rowToGroupOrder(groupOrder);
 }
@@ -161,12 +161,12 @@ export async function addGroupOrderItem(
 ): Promise<boolean> {
   const supabase = await createClient();
 
-  const { data: member } = await supabase
+  const { data: member } = await (supabase
     .from('group_order_members')
     .select('id, items')
     .eq('group_order_id', groupOrderId)
     .eq('user_id', userId)
-    .single();
+    .single() as any);
 
   if (!member) return false;
 
@@ -174,8 +174,7 @@ export async function addGroupOrderItem(
   const newItems = [...currentItems, { ...item, quantity: item.quantity || 1 }];
   const newSubtotal = newItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  await supabase
-    .from('group_order_members')
+  await (supabase.from('group_order_members') as any)
     .update({
       items: newItems,
       subtotal: newSubtotal,
@@ -197,12 +196,12 @@ export async function removeGroupOrderItem(
 ): Promise<boolean> {
   const supabase = await createClient();
 
-  const { data: member } = await supabase
+  const { data: member } = await (supabase
     .from('group_order_members')
     .select('id, items')
     .eq('group_order_id', groupOrderId)
     .eq('user_id', userId)
-    .single();
+    .single() as any);
 
   if (!member) return false;
 
@@ -210,8 +209,7 @@ export async function removeGroupOrderItem(
   const newItems = currentItems.filter((_, i) => i !== itemIndex);
   const newSubtotal = newItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  await supabase
-    .from('group_order_members')
+  await (supabase.from('group_order_members') as any)
     .update({
       items: newItems,
       subtotal: newSubtotal,
@@ -231,8 +229,7 @@ export async function markMemberReady(
 ): Promise<boolean> {
   const supabase = await createClient();
 
-  const { error } = await supabase
-    .from('group_order_members')
+  const { error } = await (supabase.from('group_order_members') as any)
     .update({ is_ready: true })
     .eq('group_order_id', groupOrderId)
     .eq('user_id', userId);
@@ -248,16 +245,15 @@ export async function lockGroupOrder(
 ): Promise<boolean> {
   const supabase = await createClient();
 
-  const { data: groupOrder } = await supabase
+  const { data: groupOrder } = await (supabase
     .from('group_orders')
     .select('creator_id')
     .eq('id', groupOrderId)
-    .single();
+    .single() as any);
 
   if (!groupOrder || groupOrder.creator_id !== creatorId) return false;
 
-  const { error } = await supabase
-    .from('group_orders')
+  const { error } = await (supabase.from('group_orders') as any)
     .update({ status: 'locked' })
     .eq('id', groupOrderId);
 
@@ -271,22 +267,20 @@ export async function getGroupOrder(
 ): Promise<GroupOrder | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from('group_orders')
+  const { data, error } = await (supabase.from('group_orders') as any)
     .select('*')
     .eq('id', groupOrderId)
     .single();
 
   if (error || !data) return null;
 
-  const { data: members } = await supabase
-    .from('group_order_members')
+  const { data: members } = await (supabase.from('group_order_members') as any)
     .select('*')
     .eq('group_order_id', groupOrderId);
 
   const order = rowToGroupOrder(data);
   if (order && members) {
-    order.members = members.map((m) => ({
+    order.members = members.map((m: Record<string, unknown>) => ({
       userId: m.user_id,
       name: m.name,
       items: (m.items as GroupOrderItem[]) ?? [],
@@ -304,20 +298,18 @@ export async function getGroupOrder(
 async function recalculateGroupOrderTotal(groupOrderId: string): Promise<void> {
   const supabase = await createClient();
 
-  const { data: members } = await supabase
-    .from('group_order_members')
+  const { data: members } = await (supabase.from('group_order_members') as any)
     .select('subtotal')
     .eq('group_order_id', groupOrderId);
 
   if (!members) return;
 
-  const subtotal = members.reduce((sum, m) => sum + ((m.subtotal as number) ?? 0), 0);
+  const subtotal = members.reduce((sum: number, m: Record<string, unknown>) => sum + ((m.subtotal as number) ?? 0), 0);
   const tax = Math.round(subtotal * 0.08); // 8% default tax
   const deliveryFee = subtotal > 0 ? 500 : 0; // NGN 500 delivery fee
   const total = subtotal + tax + deliveryFee;
 
-  await supabase
-    .from('group_orders')
+  await (supabase.from('group_orders') as any)
     .update({
       subtotal: Math.round(subtotal),
       tax: Math.round(tax),

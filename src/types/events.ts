@@ -16,6 +16,11 @@ export type TicketTier = 'general' | 'vip' | 'early_bird' | 'group' | 'student' 
 export type RegistrationStatus = 'pending' | 'confirmed' | 'cancelled' | 'checked_in';
 export type CheckInMethod = 'qr_scan' | 'manual' | 'nfc';
 
+export type CheckInStatus = 'not_checked_in' | 'checked_in' | 'cancelled';
+export type OrderStatus = 'pending' | 'confirmed' | 'cancelled' | 'refunded';
+export type ShareChannel =
+  | 'facebook' | 'twitter' | 'instagram' | 'whatsapp' | 'email' | 'sms' | 'linkedin' | 'copy_link';
+
 export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded';
 export type RefundStatus = 'pending' | 'approved' | 'rejected' | 'processed';
 
@@ -42,6 +47,12 @@ export interface Event {
 
   // Location
   venue: string;
+  venueName?: string;
+  venueAddress?: string;
+  venueCity?: string;
+  venueCountry?: string;
+  venueLat?: number;
+  venueLng?: number;
   address: string;
   city: string;
   country: string;
@@ -64,6 +75,7 @@ export interface Event {
 
   // Tickets
   ticketType: TicketType;
+  ticketTypes?: EventCategory[];
   ticketTiers: TicketTierConfig[];
   totalCapacity: number;
   ticketsSold: number;
@@ -71,6 +83,9 @@ export interface Event {
 
   // Pricing
   currencyCode: string;
+  minPrice?: number;
+  maxPrice?: number;
+  isFree?: boolean;
   platformFeePercent: number;   // default 5%
   platformFeeFixed: number;     // default 1
   taxRate: number;
@@ -81,19 +96,85 @@ export interface Event {
   allowRefunds: boolean;
   refundDeadlineDays: number;
   maxGuestsPerRegistration: number;
+  allowGuestRegistration?: boolean;
+  maxGuestsPerTicket?: number;
 
   // SEO & Sharing
   metaTitle?: string;
   metaDescription?: string;
   shareImageUrl?: string;
+  shareUrl?: string;
+  tags?: string[];
+  referralCode?: string;
+  referralDiscountPercent?: number;
+  enableReferrals?: boolean;
 
   // Stats
   viewCount: number;
   shareCount: number;
   favoriteCount: number;
+  publishedAt?: string;
 
   createdAt: string;
   updatedAt: string;
+}
+
+// ─── Ticket Purchase (canonical) ──────────────────────────────
+
+export interface TicketPurchase {
+  id: string;
+  eventId: string;
+  ticketTypeId: string;
+  buyerId: string;
+  buyerName: string;
+  buyerEmail: string;
+  buyerPhone?: string;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  platformFee: number;
+  processingFee: number;
+  total: number;
+  currencyCode: string;
+  paymentStatus: PaymentStatus;
+  paymentMethod?: string;
+  paymentIntentId?: string;
+  orderStatus: OrderStatus;
+  ticketCode: string;
+  qrCodeUrl: string;
+  promoCode?: string;
+  referralCode?: string;
+  checkedInAt?: string;
+  checkInStatus: CheckInStatus;
+  transferredTo?: string;
+  cancelledAt?: string;
+  refundAmount?: number;
+  refundedAt?: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Event Guest (canonical) ──────────────────────────────────
+
+export interface EventGuest {
+  id: string;
+  eventId: string;
+  ticketPurchaseId: string;
+  hostId: string;
+  guestName: string;
+  guestEmail: string;
+  guestPhone?: string;
+  ticketCode: string;
+  qrCodeUrl: string;
+  checkInStatus: CheckInStatus;
+  checkedInAt?: string;
+  checkedInBy?: string;
+  photoUrl?: string;
+  photoPageUrl?: string;
+  dietaryRestrictions?: string;
+  specialRequirements?: string;
+  createdAt: string;
 }
 
 // ─── Ticket Tiers ─────────────────────────────────────────────
@@ -216,16 +297,15 @@ export interface Ticket {
 export interface EventPhoto {
   id: string;
   eventId: string;
-  userId: string;
-  userName: string;
-  imageUrl: string;
+  uploadedBy: string;
+  uploaderName: string;
+  uploaderAvatar?: string;
+  url: string;
   thumbnailUrl: string;
   caption?: string;
-  status: PhotoUploadStatus;
-  isCover: boolean;
-  uploadedBeforeEvent: boolean;
-  downloadCount: number;
-  shareCount: number;
+  tags: string[];
+  likes: number;
+  isApproved: boolean;
   createdAt: string;
 }
 
@@ -239,6 +319,44 @@ export interface PhotoShareLink {
   expiresAt?: string;
 }
 
+// ─── Notifications (canonical) ────────────────────────────────
+
+export type NotificationChannel = 'email' | 'sms' | 'whatsapp';
+export type NotificationType =
+  | 'registration_confirmation'
+  | 'event_reminder_24h'
+  | 'event_reminder_1h'
+  | 'event_update'
+  | 'refund_confirmation'
+  | 'check_in_confirmation'
+  | 'invitation_email'
+  | 'invitation_sms'
+  | 'host_notification';
+
+export interface NotificationPayload {
+  channel: NotificationChannel;
+  type: NotificationType;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  subject?: string;
+  body: string;
+  htmlBody?: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface NotificationLog {
+  id: string;
+  eventId?: string;
+  registrationId?: string;
+  recipientEmail?: string;
+  recipientPhone?: string;
+  channel: NotificationChannel;
+  type: NotificationType;
+  status: 'queued' | 'sent' | 'delivered' | 'failed';
+  payload: NotificationPayload;
+  createdAt: string;
+}
+
 // ─── Invitations & Sharing ────────────────────────────────────
 
 export interface EventInvitation {
@@ -249,13 +367,21 @@ export interface EventInvitation {
   recipientEmail?: string;
   recipientPhone?: string;
   recipientName?: string;
-  platform: SharePlatform;
+  inviteeEmail?: string;
+  inviteePhone?: string;
+  channel?: ShareChannel;
+  platform?: SharePlatform;
   status: 'sent' | 'delivered' | 'opened' | 'registered';
   customMessage?: string;
-  referralCode: string;
-  referralDiscount: number;
+  personalMessage?: string;
+  referralCode?: string;
+  referralDiscount?: number;
   clickedAt?: string;
   registeredAt?: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  openedAt?: string;
+  acceptedAt?: string;
   createdAt: string;
 }
 

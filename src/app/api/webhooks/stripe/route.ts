@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import type { Booking, Order } from '@/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -15,7 +16,7 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
 
   await supabase
     .from('payment_transactions')
-    .update({ status: 'succeeded', updated_at: new Date().toISOString() })
+    .update({ status: 'succeeded', updated_at: new Date().toISOString() } as never)
     .eq('provider_transaction_id', intent.id);
 
   if (transactionId) {
@@ -27,14 +28,14 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
   if (intent.metadata.afribook_booking_id) {
     await supabase
       .from('bookings')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', intent.metadata.afribook_booking_id);
   }
 
   if (intent.metadata.afribook_order_id) {
     await supabase
       .from('orders')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', intent.metadata.afribook_order_id);
   }
 }
@@ -49,7 +50,7 @@ async function handlePaymentIntentFailed(intent: Stripe.PaymentIntent) {
       status: 'failed',
       metadata: { failure_message: failureMessage, failed_at: new Date().toISOString() },
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('provider_transaction_id', intent.id);
 }
 
@@ -69,27 +70,27 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         status: 'succeeded',
         provider_transaction_id: session.payment_intent as string ?? session.id,
         updated_at: new Date().toISOString(),
-      })
+      } as never)
       .eq('id', transactionId);
   }
 
   if (metadata.afribook_booking_id) {
     await supabase
       .from('bookings')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', metadata.afribook_booking_id);
   }
 
   if (metadata.afribook_order_id) {
     await supabase
       .from('orders')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', metadata.afribook_order_id);
   }
 
   if (session.customer_details?.email) {
     await supabase.from('notifications').insert({
-      user_id: metadata.afribook_customer_id ?? '',
+      userId: metadata.afribook_customer_id ?? '',
       type: 'payment',
       title: 'Payment Successful',
       body: `Payment of ${(amount).toFixed(2)} ${session.currency?.toUpperCase()} was successful.`,
@@ -102,7 +103,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
           quantity: i.quantity,
         })),
       },
-    });
+    } as never);
   }
 }
 
@@ -123,7 +124,7 @@ async function handleAccountUpdated(account: Stripe.Account) {
         updated_at: new Date().toISOString(),
       },
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('vendor_id', vendorId);
 }
 
@@ -136,7 +137,7 @@ async function handlePayoutPaid(payout: Stripe.Payout) {
       status: 'completed',
       paid_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('metadata->>stripe_payout_id', payout.id);
 }
 
@@ -150,7 +151,7 @@ async function handlePayoutFailed(payout: Stripe.Payout) {
       status: 'failed',
       metadata: { failure_message: failureMessage, failed_at: new Date().toISOString() },
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('metadata->>stripe_payout_id', payout.id);
 }
 
@@ -191,7 +192,7 @@ export async function POST(req: NextRequest) {
       idempotency_key: idempotencyKey,
       raw_event: event as unknown as Record<string, unknown>,
       processed_at: new Date().toISOString(),
-    });
+    } as never);
   }
 
   try {

@@ -29,14 +29,16 @@ export async function findNearbyDrivers(
   const supabase = await createClient();
 
   // Use the PostGIS-powered RPC function for spatial search
-  const { data: nearbyRows, error: rpcError } = await supabase
-    .rpc('find_nearby_drivers_h3', {
+  const { data: nearbyRows, error: rpcError } = await (supabase.rpc as any)(
+    'find_nearby_drivers_h3',
+    {
       p_pickup_lat: location.lat,
       p_pickup_lng: location.lng,
       p_radius_km: radiusKm,
       p_h3_res: H3_RESOLUTION,
       p_vehicle_type: vehicleType ?? null,
-    });
+    },
+  ) as { data: any[]; error: any };
 
   if (rpcError) {
     console.error('[geospatial] find_nearby_drivers_h3 RPC error:', rpcError);
@@ -53,7 +55,9 @@ export async function findNearbyDrivers(
       .from('drivers')
       .select('*')
       .in('id', driverIds),
-    supabase.rpc('get_driver_stats_batch', { p_driver_ids: driverIds }),
+    (supabase.rpc as any)('get_driver_stats_batch', {
+      p_driver_ids: driverIds,
+    }) as { data: any[]; error: any },
   ]);
 
   if (driverRows.error) {
@@ -120,10 +124,13 @@ async function findNearbyDriversFallback(
 ): Promise<DriverCandidate[]> {
   const supabase = await createClient();
 
-  const { data: locationRows, error: locError } = await supabase
-    .from('driver_locations')
+  const { data: locationRows, error: locError } = (await (supabase
+    .from('driver_locations') as any)
     .select('driver_id, location, heading, speed, accuracy, last_seen_at')
-    .gte('last_seen_at', new Date(Date.now() - 5 * 60 * 1000).toISOString());
+    .gte('last_seen_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())) as {
+    data: any[];
+    error: any;
+  };
 
   if (locError || !locationRows?.length) return [];
 
@@ -135,7 +142,9 @@ async function findNearbyDriversFallback(
       .select('*')
       .in('id', driverIds)
       .eq('status', 'available'),
-    supabase.rpc('get_driver_stats_batch', { p_driver_ids: driverIds }),
+    (supabase.rpc as any)('get_driver_stats_batch', {
+      p_driver_ids: driverIds,
+    }) as { data: any[]; error: any },
   ]);
 
   if (!driverRows.data?.length) return [];
@@ -275,7 +284,7 @@ export async function updateDriverLocation(
 
   // Use the PL/pgSQL function which handles PostGIS geography construction
   // and automatically computes the H3 index via trigger
-  const { error } = await supabase.rpc('update_driver_location', {
+  const { error } = await (supabase.rpc as any)('update_driver_location', {
     p_driver_id: driverId,
     p_lat: location.lat,
     p_lng: location.lng,

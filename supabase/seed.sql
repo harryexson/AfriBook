@@ -48,6 +48,115 @@ VALUES
   ('AR', 'Argentina', 'Argentina', '🇦🇷', 'ar.afribook.com', 'America/Argentina/Buenos_Aires', '+54 XX XXXX-XXXX', 10, 'dd/MM/yyyy', '24h', 1, 50.00, 0.21, 'IVA', 'https://ar.afribook.com/legal/terms', 'https://ar.afribook.com/legal/privacy', false, 'ar')
 ON CONFLICT (code) DO NOTHING;
 
+-- ─── Additional Global Countries (worldwide activation) ───────
+INSERT INTO public.countries (code, name, native_name, flag, domain, timezone, phone_format, phone_length, date_format, time_format, week_starts_on, minimum_fee_floor, tax_rate, tax_name, legal_terms_url, privacy_url, is_rtl, subdomain)
+VALUES
+  ('ES', 'Spain', 'España', '🇪🇸', 'es.afribook.com', 'Europe/Madrid', '+34 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 0.50, 0.21, 'IVA', 'https://es.afribook.com/legal/terms', 'https://es.afribook.com/legal/privacy', false, 'es'),
+  ('IT', 'Italy', 'Italia', '🇮🇹', 'it.afribook.com', 'Europe/Rome', '+39 XXX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 0.50, 0.22, 'IVA', 'https://it.afribook.com/legal/terms', 'https://it.afribook.com/legal/privacy', false, 'it'),
+  ('NL', 'Netherlands', 'Nederland', '🇳🇱', 'nl.afribook.com', 'Europe/Amsterdam', '+31 X XXXXXXXX', 9, 'dd-MM-yyyy', '24h', 1, 0.50, 0.21, 'BTW', 'https://nl.afribook.com/legal/terms', 'https://nl.afribook.com/legal/privacy', false, 'nl'),
+  ('PT', 'Portugal', 'Portugal', '🇵🇹', 'pt.afribook.com', 'Europe/Lisbon', '+351 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 0.50, 0.23, 'IVA', 'https://pt.afribook.com/legal/terms', 'https://pt.afribook.com/legal/privacy', false, 'pt'),
+  ('IE', 'Ireland', 'Ireland', '🇮🇪', 'ie.afribook.com', 'Europe/Dublin', '+353 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 0.50, 0.23, 'VAT', 'https://ie.afribook.com/legal/terms', 'https://ie.afribook.com/legal/privacy', false, 'ie'),
+  ('SE', 'Sweden', 'Sverige', '🇸🇪', 'se.afribook.com', 'Europe/Stockholm', '+46 XX XXX XX XX', 9, 'yyyy-MM-dd', '24h', 1, 5.00, 0.25, 'Moms', 'https://se.afribook.com/legal/terms', 'https://se.afribook.com/legal/privacy', false, 'se'),
+  ('PL', 'Poland', 'Polska', '🇵🇱', 'pl.afribook.com', 'Europe/Warsaw', '+48 XXX XXX XXX', 9, 'dd.MM.yyyy', '24h', 1, 2.00, 0.23, 'VAT', 'https://pl.afribook.com/legal/terms', 'https://pl.afribook.com/legal/privacy', false, 'pl'),
+  ('BE', 'Belgium', 'Belgique', '🇧🇪', 'be.afribook.com', 'Europe/Brussels', '+32 XXX XX XX XX', 9, 'dd/MM/yyyy', '24h', 1, 0.50, 0.21, 'TVA', 'https://be.afribook.com/legal/terms', 'https://be.afribook.com/legal/privacy', false, 'be'),
+  ('CH', 'Switzerland', 'Schweiz', '🇨🇭', 'ch.afribook.com', 'Europe/Zurich', '+41 XX XXX XX XX', 9, 'dd.MM.yyyy', '24h', 1, 0.50, 0.077, 'MWST', 'https://ch.afribook.com/legal/terms', 'https://ch.afribook.com/legal/privacy', false, 'ch'),
+  ('AT', 'Austria', 'Österreich', '🇦🇹', 'at.afribook.com', 'Europe/Vienna', '+43 XXX XXXXXXX', 10, 'dd.MM.yyyy', '24h', 1, 0.50, 0.20, 'USt', 'https://at.afribook.com/legal/terms', 'https://at.afribook.com/legal/privacy', false, 'at'),
+  ('GR', 'Greece', 'Ελλάδα', '🇬🇷', 'gr.afribook.com', 'Europe/Athens', '+30 XXX XXX XXXX', 10, 'dd/MM/yyyy', '24h', 1, 0.50, 0.24, 'ΦΠΑ', 'https://gr.afribook.com/legal/terms', 'https://gr.afribook.com/legal/privacy', false, 'gr'),
+  ('TR', 'Turkey', 'Türkiye', '🇹🇷', 'tr.afribook.com', 'Europe/Istanbul', '+90 XXX XXX XXXX', 10, 'dd.MM.yyyy', '24h', 1, 5.00, 0.20, 'KDV', 'https://tr.afribook.com/legal/terms', 'https://tr.afribook.com/legal/privacy', false, 'tr'),
+  ('SA', 'Saudi Arabia', 'السعودية', '🇸🇦', 'sa.afribook.com', 'Asia/Riyadh', '+966 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 0, 2.00, 0.15, 'VAT', 'https://sa.afribook.com/legal/terms', 'https://sa.afribook.com/legal/privacy', true, 'sa'),
+  ('MA', 'Morocco', 'المغرب', '🇲🇦', 'ma.afribook.com', 'Africa/Casablanca', '+212 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 5.00, 0.20, 'TVA', 'https://ma.afribook.com/legal/terms', 'https://ma.afribook.com/legal/privacy', true, 'ma'),
+  ('DZ', 'Algeria', 'الجزائر', '🇩🇿', 'dz.afribook.com', 'Africa/Algiers', '+213 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 50.00, 0.19, 'TVA', 'https://dz.afribook.com/legal/terms', 'https://dz.afribook.com/legal/privacy', true, 'dz'),
+  ('TN', 'Tunisia', 'تونس', '🇹🇳', 'tn.afribook.com', 'Africa/Tunis', '+216 XX XXX XXX', 8, 'dd/MM/yyyy', '24h', 1, 1.00, 0.19, 'TVA', 'https://tn.afribook.com/legal/terms', 'https://tn.afribook.com/legal/privacy', true, 'tn'),
+  ('ET', 'Ethiopia', 'ኢትዮጵያ', '🇪🇹', 'et.afribook.com', 'Africa/Addis_Ababa', '+251 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 20.00, 0.15, 'VAT', 'https://et.afribook.com/legal/terms', 'https://et.afribook.com/legal/privacy', false, 'et'),
+  ('AO', 'Angola', 'Angola', '🇦🇴', 'ao.afribook.com', 'Africa/Luanda', '+244 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 200.00, 0.14, 'IVA', 'https://ao.afribook.com/legal/terms', 'https://ao.afribook.com/legal/privacy', false, 'ao'),
+  ('MZ', 'Mozambique', 'Moçambique', '🇲🇿', 'mz.afribook.com', 'Africa/Maputo', '+258 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 20.00, 0.17, 'IVA', 'https://mz.afribook.com/legal/terms', 'https://mz.afribook.com/legal/privacy', false, 'mz'),
+  ('NA', 'Namibia', 'Namibia', '🇳🇦', 'na.afribook.com', 'Africa/Windhoek', '+264 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 5.00, 0.15, 'VAT', 'https://na.afribook.com/legal/terms', 'https://na.afribook.com/legal/privacy', false, 'na'),
+  ('RW', 'Rwanda', 'Rwanda', '🇷🇼', 'rw.afribook.com', 'Africa/Kigali', '+250 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 200.00, 0.18, 'VAT', 'https://rw.afribook.com/legal/terms', 'https://rw.afribook.com/legal/privacy', false, 'rw'),
+  ('ZM', 'Zambia', 'Zambia', '🇿🇲', 'zm.afribook.com', 'Africa/Lusaka', '+260 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 5.00, 0.16, 'VAT', 'https://zm.afribook.com/legal/terms', 'https://zm.afribook.com/legal/privacy', false, 'zm'),
+  ('ZW', 'Zimbabwe', 'Zimbabwe', '🇿🇼', 'zw.afribook.com', 'Africa/Harare', '+263 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 5.00, 0.15, 'VAT', 'https://zw.afribook.com/legal/terms', 'https://zw.afribook.com/legal/privacy', false, 'zw'),
+  ('SN', 'Senegal', 'Sénégal', '🇸🇳', 'sn.afribook.com', 'Africa/Dakar', '+221 XX XXX XX XX', 9, 'dd/MM/yyyy', '24h', 1, 200.00, 0.18, 'TVA', 'https://sn.afribook.com/legal/terms', 'https://sn.afribook.com/legal/privacy', false, 'sn'),
+  ('CI', 'Ivory Coast', "Côte d'Ivoire", '🇨🇮', 'ci.afribook.com', 'Africa/Abidjan', '+225 XX XX XXX XXX', 10, 'dd/MM/yyyy', '24h', 1, 200.00, 0.18, 'TVA', 'https://ci.afribook.com/legal/terms', 'https://ci.afribook.com/legal/privacy', false, 'ci'),
+  ('CM', 'Cameroon', 'Cameroun', '🇨🇲', 'cm.afribook.com', 'Africa/Douala', '+237 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 100.00, 0.192, 'TVA', 'https://cm.afribook.com/legal/terms', 'https://cm.afribook.com/legal/privacy', false, 'cm'),
+  ('AU', 'Australia', 'Australia', '🇦🇺', 'au.afribook.com', 'Australia/Sydney', '+61 X XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 0, 0.50, 0.10, 'GST', 'https://au.afribook.com/legal/terms', 'https://au.afribook.com/legal/privacy', false, 'au'),
+  ('NZ', 'New Zealand', 'New Zealand', '🇳🇿', 'nz.afribook.com', 'Pacific/Auckland', '+64 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 0.50, 0.15, 'GST', 'https://nz.afribook.com/legal/terms', 'https://nz.afribook.com/legal/privacy', false, 'nz'),
+  ('SG', 'Singapore', 'Singapore', '🇸🇬', 'sg.afribook.com', 'Asia/Singapore', '+65 XXXX XXXX', 8, 'dd/MM/yyyy', '24h', 0, 0.50, 0.09, 'GST', 'https://sg.afribook.com/legal/terms', 'https://sg.afribook.com/legal/privacy', false, 'sg'),
+  ('HK', 'Hong Kong', '香港', '🇭🇰', 'hk.afribook.com', 'Asia/Hong_Kong', '+852 XXXX XXXX', 8, 'dd/MM/yyyy', '24h', 0, 4.00, 0.00, 'No Tax', 'https://hk.afribook.com/legal/terms', 'https://hk.afribook.com/legal/privacy', false, 'hk'),
+  ('JP', 'Japan', '日本', '🇯🇵', 'jp.afribook.com', 'Asia/Tokyo', '+81 XX XXXX XXXX', 10, 'yyyy/MM/dd', '24h', 0, 50.00, 0.10, '消費税', 'https://jp.afribook.com/legal/terms', 'https://jp.afribook.com/legal/privacy', false, 'jp'),
+  ('CN', 'China', '中国', '🇨🇳', 'cn.afribook.com', 'Asia/Shanghai', '+86 XXX XXXX XXXX', 11, 'yyyy/MM/dd', '24h', 1, 2.00, 0.13, 'VAT', 'https://cn.afribook.com/legal/terms', 'https://cn.afribook.com/legal/privacy', false, 'cn'),
+  ('MY', 'Malaysia', 'Malaysia', '🇲🇾', 'my.afribook.com', 'Asia/Kuala_Lumpur', '+60 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 2.00, 0.06, 'GST', 'https://my.afribook.com/legal/terms', 'https://my.afribook.com/legal/privacy', false, 'my'),
+  ('ID', 'Indonesia', 'Indonesia', '🇮🇩', 'id.afribook.com', 'Asia/Jakarta', '+62 XXX XXX XXXX', 10, 'dd/MM/yyyy', '24h', 1, 2000.00, 0.11, 'PPN', 'https://id.afribook.com/legal/terms', 'https://id.afribook.com/legal/privacy', false, 'id'),
+  ('PH', 'Philippines', 'Pilipinas', '🇵🇭', 'ph.afribook.com', 'Asia/Manila', '+63 XXX XXX XXXX', 10, 'MM/dd/yyyy', '24h', 0, 10.00, 0.12, 'VAT', 'https://ph.afribook.com/legal/terms', 'https://ph.afribook.com/legal/privacy', false, 'ph'),
+  ('TH', 'Thailand', 'ไทย', '🇹🇭', 'th.afribook.com', 'Asia/Bangkok', '+66 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 5.00, 0.07, 'VAT', 'https://th.afribook.com/legal/terms', 'https://th.afribook.com/legal/privacy', false, 'th'),
+  ('VN', 'Vietnam', 'Việt Nam', '🇻🇳', 'vn.afribook.com', 'Asia/Ho_Chi_Minh', '+84 XX X XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 5000.00, 0.10, 'VAT', 'https://vn.afribook.com/legal/terms', 'https://vn.afribook.com/legal/privacy', false, 'vn'),
+  ('KR', 'South Korea', '대한민국', '🇰🇷', 'kr.afribook.com', 'Asia/Seoul', '+82 XX XXXX XXXX', 10, 'yyyy.MM.dd', '24h', 0, 500.00, 0.10, 'VAT', 'https://kr.afribook.com/legal/terms', 'https://kr.afribook.com/legal/privacy', false, 'kr'),
+  ('LK', 'Sri Lanka', 'ශ්‍රී ලංකාව', '🇱🇰', 'lk.afribook.com', 'Asia/Colombo', '+94 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 50.00, 0.15, 'VAT', 'https://lk.afribook.com/legal/terms', 'https://lk.afribook.com/legal/privacy', false, 'lk'),
+  ('PK', 'Pakistan', 'پاکستان', '🇵🇰', 'pk.afribook.com', 'Asia/Karachi', '+92 XXX XXXXXXXX', 10, 'dd/MM/yyyy', '24h', 1, 50.00, 0.17, 'GST', 'https://pk.afribook.com/legal/terms', 'https://pk.afribook.com/legal/privacy', false, 'pk'),
+  ('BD', 'Bangladesh', 'বাংলাদেশ', '🇧🇩', 'bd.afribook.com', 'Asia/Dhaka', '+880 XXX XXX XXXX', 10, 'dd/MM/yyyy', '24h', 1, 50.00, 0.15, 'VAT', 'https://bd.afribook.com/legal/terms', 'https://bd.afribook.com/legal/privacy', false, 'bd'),
+  ('BR', 'Brazil', 'Brasil', '🇧🇷', 'br.afribook.com', 'America/Sao_Paulo', '+55 XX XXXXX XXXX', 11, 'dd/MM/yyyy', '24h', 0, 2.00, 0.17, 'ICMS', 'https://br.afribook.com/legal/terms', 'https://br.afribook.com/legal/privacy', false, 'br'),
+  ('MX', 'Mexico', 'México', '🇲🇽', 'mx.afribook.com', 'America/Mexico_City', '+52 XX XXXX XXXX', 10, 'dd/MM/yyyy', '24h', 0, 10.00, 0.16, 'IVA', 'https://mx.afribook.com/legal/terms', 'https://mx.afribook.com/legal/privacy', false, 'mx'),
+  ('CL', 'Chile', 'Chile', '🇨🇱', 'cl.afribook.com', 'America/Santiago', '+56 X XXXX XXXX', 9, 'dd-MM-yyyy', '24h', 1, 500.00, 0.19, 'IVA', 'https://cl.afribook.com/legal/terms', 'https://cl.afribook.com/legal/privacy', false, 'cl'),
+  ('CO', 'Colombia', 'Colombia', '🇨🇴', 'co.afribook.com', 'America/Bogota', '+57 XXX XXX XXXX', 10, 'dd/MM/yyyy', '24h', 1, 2000.00, 0.19, 'IVA', 'https://co.afribook.com/legal/terms', 'https://co.afribook.com/legal/privacy', false, 'co'),
+  ('PE', 'Peru', 'Perú', '🇵🇪', 'pe.afribook.com', 'America/Lima', '+51 XXX XXX XXX', 9, 'dd/MM/yyyy', '24h', 1, 2.00, 0.18, 'IGV', 'https://pe.afribook.com/legal/terms', 'https://pe.afribook.com/legal/privacy', false, 'pe'),
+  ('UY', 'Uruguay', 'Uruguay', '🇺🇾', 'uy.afribook.com', 'America/Montevideo', '+598 X XXX XX XX', 8, 'dd/MM/yyyy', '24h', 1, 20.00, 0.22, 'IVA', 'https://uy.afribook.com/legal/terms', 'https://uy.afribook.com/legal/privacy', false, 'uy'),
+  ('EC', 'Ecuador', 'Ecuador', '🇪🇨', 'ec.afribook.com', 'America/Guayaquil', '+593 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 1, 2.00, 0.12, 'IVA', 'https://ec.afribook.com/legal/terms', 'https://ec.afribook.com/legal/privacy', false, 'ec'),
+  ('CR', 'Costa Rica', 'Costa Rica', '🇨🇷', 'cr.afribook.com', 'America/Costa_Rica', '+506 X XXX XXXX', 8, 'dd/MM/yyyy', '24h', 1, 500.00, 0.13, 'IVA', 'https://cr.afribook.com/legal/terms', 'https://cr.afribook.com/legal/privacy', false, 'cr'),
+  ('PA', 'Panama', 'Panamá', '🇵🇦', 'pa.afribook.com', 'America/Panama', '+507 XXX XXXX', 8, 'dd/MM/yyyy', '24h', 0, 1.00, 0.07, 'ITBMS', 'https://pa.afribook.com/legal/terms', 'https://pa.afribook.com/legal/privacy', false, 'pa'),
+  ('DO', 'Dominican Republic', 'República Dominicana', '🇩🇴', 'do.afribook.com', 'America/Santo_Domingo', '+1 XXX XXX XXXX', 10, 'dd/MM/yyyy', '24h', 1, 50.00, 0.18, 'ITBIS', 'https://do.afribook.com/legal/terms', 'https://do.afribook.com/legal/privacy', false, 'do'),
+  ('RU', 'Russia', 'Россия', '🇷🇺', 'ru.afribook.com', 'Europe/Moscow', '+7 XXX XXX XX XX', 10, 'dd.MM.yyyy', '24h', 1, 30.00, 0.20, 'НДС', 'https://ru.afribook.com/legal/terms', 'https://ru.afribook.com/legal/privacy', false, 'ru'),
+  ('UA', 'Ukraine', 'Україна', '🇺🇦', 'ua.afribook.com', 'Europe/Kyiv', '+380 XX XXX XX XX', 9, 'dd.MM.yyyy', '24h', 1, 10.00, 0.20, 'ПДВ', 'https://ua.afribook.com/legal/terms', 'https://ua.afribook.com/legal/privacy', false, 'ua'),
+  ('IL', 'Israel', 'ישראל', '🇮🇱', 'il.afribook.com', 'Asia/Jerusalem', '+972 XX XXX XXXX', 9, 'dd/MM/yyyy', '24h', 0, 2.00, 0.17, 'Ma''am', 'https://il.afribook.com/legal/terms', 'https://il.afribook.com/legal/privacy', true, 'il')
+ON CONFLICT (code) DO NOTHING;
+
+-- ─── Additional Global Currencies ────────────────────────────
+INSERT INTO public.currencies (code, symbol, name, native_name, decimal_places, format, exchange_rate)
+VALUES
+  ('EUR', '€', 'Euro', 'Euro', 2, 'symbol amount', 0.92),
+  ('SEK', 'kr', 'Swedish Krona', 'Svensk krona', 2, 'amount symbol', 10.5),
+  ('PLN', 'zł', 'Polish Zloty', 'Złoty', 2, 'amount symbol', 4.0),
+  ('CHF', 'CHF', 'Swiss Franc', 'Franken', 2, 'symbol amount', 0.88),
+  ('TRY', '₺', 'Turkish Lira', 'Türk lirası', 2, 'symbol amount', 32.0),
+  ('SAR', '﷼', 'Saudi Riyal', 'ريال سعودي', 2, 'symbol amount', 3.75),
+  ('MAD', 'DH', 'Moroccan Dirham', 'درهم مغربي', 2, 'amount symbol', 10.0),
+  ('DZD', 'DA', 'Algerian Dinar', 'دينار جزائري', 2, 'amount symbol', 135.0),
+  ('TND', 'د.ت', 'Tunisian Dinar', 'دينار تونسي', 3, 'amount symbol', 3.1),
+  ('ETB', 'Br', 'Ethiopian Birr', 'ብር', 2, 'amount symbol', 57.0),
+  ('AOA', 'Kz', 'Angolan Kwanza', 'Kwanza', 2, 'amount symbol', 880.0),
+  ('MZN', 'MT', 'Mozambican Metical', 'Metical', 2, 'amount symbol', 64.0),
+  ('NAD', 'N$', 'Namibian Dollar', 'Dollar', 2, 'symbol amount', 18.5),
+  ('RWF', 'FRw', 'Rwandan Franc', 'Farangi', 0, 'amount symbol', 1300.0),
+  ('ZMW', 'ZK', 'Zambian Kwacha', 'Kwacha', 2, 'amount symbol', 25.0),
+  ('ZWL', 'Z$', 'Zimbabwean Dollar', 'Dollar', 2, 'amount symbol', 3200.0),
+  ('XOF', 'CFA', 'West African CFA', 'Franc CFA', 0, 'amount symbol', 600.0),
+  ('XAF', 'FCFA', 'Central African CFA', 'Franc CFA', 0, 'amount symbol', 600.0),
+  ('AUD', 'A$', 'Australian Dollar', 'Dollar', 2, 'symbol amount', 1.52),
+  ('NZD', 'NZ$', 'New Zealand Dollar', 'Dollar', 2, 'symbol amount', 1.66),
+  ('SGD', 'S$', 'Singapore Dollar', 'Dollar', 2, 'symbol amount', 1.35),
+  ('HKD', 'HK$', 'Hong Kong Dollar', '港幣', 2, 'symbol amount', 7.8),
+  ('JPY', '¥', 'Japanese Yen', '円', 0, 'symbol amount', 156.0),
+  ('CNY', '¥', 'Chinese Yuan', '元', 2, 'symbol amount', 7.2),
+  ('MYR', 'RM', 'Malaysian Ringgit', 'Ringgit', 2, 'symbol amount', 4.7),
+  ('IDR', 'Rp', 'Indonesian Rupiah', 'Rupiah', 0, 'amount symbol', 16000.0),
+  ('PHP', '₱', 'Philippine Peso', 'Piso', 2, 'symbol amount', 58.0),
+  ('THB', '฿', 'Thai Baht', 'บาท', 2, 'symbol amount', 36.0),
+  ('VND', '₫', 'Vietnamese Dong', 'Đồng', 0, 'amount symbol', 25000.0),
+  ('KRW', '₩', 'South Korean Won', '원', 0, 'amount symbol', 1350.0),
+  ('LKR', 'Rs', 'Sri Lankan Rupee', 'රුපියල්', 2, 'amount symbol', 320.0),
+  ('PKR', '₨', 'Pakistani Rupee', 'روپیہ', 2, 'amount symbol', 278.0),
+  ('BDT', '৳', 'Bangladeshi Taka', 'টাকা', 2, 'amount symbol', 118.0),
+  ('BRL', 'R$', 'Brazilian Real', 'Real', 2, 'symbol amount', 5.4),
+  ('MXN', '$', 'Mexican Peso', 'Peso', 2, 'symbol amount', 18.0),
+  ('CLP', '$', 'Chilean Peso', 'Peso', 0, 'amount symbol', 950.0),
+  ('COP', '$', 'Colombian Peso', 'Peso', 0, 'amount symbol', 4000.0),
+  ('PEN', 'S/', 'Peruvian Sol', 'Sol', 2, 'symbol amount', 3.7),
+  ('UYU', '$U', 'Uruguayan Peso', 'Peso', 2, 'symbol amount', 39.0),
+  ('CRC', '₡', 'Costa Rican Colón', 'Colón', 2, 'amount symbol', 520.0),
+  ('PAB', 'B/.', 'Panamanian Balboa', 'Balboa', 2, 'symbol amount', 1.0),
+  ('DOP', 'RD$', 'Dominican Peso', 'Peso', 2, 'symbol amount', 58.0),
+  ('RUB', '₽', 'Russian Ruble', 'рубль', 2, 'amount symbol', 92.0),
+  ('UAH', '₴', 'Ukrainian Hryvnia', 'гривня', 2, 'amount symbol', 40.0),
+  ('ILS', '₪', 'Israeli Shekel', 'שקל', 2, 'symbol amount', 3.7)
+ON CONFLICT (code) DO NOTHING;
+
 -- ─── Currencies ──────────────────────────────────────────────
 INSERT INTO public.currencies (code, symbol, name, native_name, decimal_places, format, exchange_rate)
 VALUES
@@ -111,12 +220,16 @@ ON CONFLICT (name) DO NOTHING;
 -- ─── Payment Providers Configuration ─────────────────────────
 INSERT INTO public.payment_providers (code, name, active, supported_countries, supported_currencies, fee_percent, fee_fixed, min_amount, max_amount)
 VALUES
-  ('stripe', 'Stripe', true, '{US,CA,GB,FR,DE,AE}', '{USD,CAD,GBP,EUR,AED}', 2.9, 0.30, 0.50, 999999.99),
+  ('stripe', 'Stripe', true, '{US,CA,GB,FR,DE,AE,AU,SG,HK,JP}', '{USD,CAD,GBP,EUR,AED,AUD,SGD,HKD,JPY}', 2.9, 0.30, 0.50, 999999.99),
   ('razorpay', 'Razorpay', true, '{IN}', '{INR}', 2.0, 0.00, 5.00, 999999.99),
   ('paystack', 'Paystack', true, '{NG,GH}', '{NGN,GHS}', 1.5, 0.00, 100.00, 999999.99),
   ('flutterwave', 'Flutterwave', true, '{NG,GH,ZA}', '{NGN,GHS,ZAR,USD,EUR,GBP}', 1.4, 0.00, 5.00, 999999.99),
   ('paychangu', 'PayChangu', true, '{MW,EG}', '{MWK,EGP}', 1.0, 0.00, 200.00, 999999.99),
-  ('mpesa', 'M-Pesa', true, '{KE,TZ,UG}', '{KES,TZS,UGX}', 1.0, 0.00, 20.00, 999999.99)
+  ('mpesa', 'M-Pesa', true, '{KE,TZ,UG}', '{KES,TZS,UGX}', 1.0, 0.00, 20.00, 999999.99),
+  ('airwallex', 'Airwallex', true, '{US,CA,GB,FR,DE,AE,AU,SG,HK,JP,CN,IN,NG,GH,KE,ZA,EG,RW,ZM,SN}', '{USD,CAD,GBP,EUR,AED,AUD,SGD,HKD,JPY,CNY,INR,NGN,GHS,KES,ZAR,EGP,RWF,ZMW,XOF}', 2.9, 0.30, 0.50, 999999.99),
+  ('pawapay', 'PawaPay', true, '{KE,UG,TZ,GH,NG,ZM,ZW,RW,SN,CI,CM}', '{KES,UGX,TZS,GHS,NGN,ZMW,ZWL,RWF,XOF}', 1.5, 0.00, 20.00, 999999.99),
+  ('adyen', 'Adyen', true, '{US,CA,GB,FR,DE,AE,AU,SG,HK,JP,BR,MX,AR,CL,CO,PE,UY,NG,GH,ZA,EG}', '{USD,CAD,GBP,EUR,AED,AUD,SGD,HKD,JPY,BRL,MXN,ARS,CLP,COP,PEN,UYU,NGN,GHS,ZAR,EGP}', 2.9, 0.30, 0.50, 999999.99),
+  ('dlocal', 'dLocal', true, '{AR,BR,MX,CL,CO,PE,UY,PY,BO,EC,CR,PA,DO,GT,HN,NI,SV}', '{ARS,BRL,MXN,CLP,COP,PEN,UYU,PYG,BOB,USD,CRC,DOP,GTQ,HNL,NIO}', 3.9, 0.00, 5.00, 999999.99)
 ON CONFLICT (code) DO NOTHING;
 
 -- ─── Sample Businesses ───────────────────────────────────────

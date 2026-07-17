@@ -187,10 +187,11 @@ export async function generateShareLink(
 
   if (!photo) throw new Error('Photo not found');
 
+  const relatedEvent = Array.isArray(photo.events) ? photo.events[0] : photo.events;
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://afribook.app';
-  const eventUrl = `${origin}/events/${photo.events.slug}/gallery`;
+  const eventUrl = `${origin}/events/${relatedEvent.slug}/gallery`;
   const photoUrl = `${eventUrl}#photo-${photoId}`;
-  const text = `Check out this photo from "${photo.events.title}" on AfriBook`;
+  const text = `Check out this photo from "${relatedEvent.title}" on AfriBook`;
 
   // Track the share
   await trackPhotoShare(sb, photoId, platform);

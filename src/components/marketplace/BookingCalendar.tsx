@@ -144,7 +144,7 @@ export default function BookingCalendar({
               day_selected: '!bg-amber-500 !text-white hover:!bg-amber-600',
               day_disabled: '!text-text-tertiary !opacity-30 !cursor-not-allowed !hover:bg-transparent',
               day_today: 'font-bold text-amber-500',
-            }}
+            } as any}
             components={{
               Chevron: ({ orientation }) => (
                 orientation === 'left' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />

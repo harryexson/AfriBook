@@ -401,7 +401,7 @@ export async function DELETE(
       );
     }
 
-    if (guest.check_in_status === 'checked_in') {
+    if ((guest as { check_in_status?: string }).check_in_status === 'checked_in') {
       return NextResponse.json(
         { success: false, error: 'Cannot remove a guest who has already checked in' },
         { status: 400 }

@@ -4,7 +4,8 @@
 // ──────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server';
-import type { GeoLocation, GeoPoint } from '@/types/ridely';
+import type { GeoPoint } from '@/types';
+import type { GeoLocation } from '@/types/ridely';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -88,17 +89,15 @@ export async function getH3DemandSupply(
   const supplySince = new Date(Date.now() - SUPPLY_WINDOW_MS).toISOString();
 
   // Get demand: ride requests in the area
-  const { data: demandRows } = await supabase
-    .from('ride_requests')
+  const { data: demandRows } = (await (supabase.from('ride_requests') as any)
     .select('pickup_location, h3_index')
     .in('status', ['requesting', 'searching'])
-    .gte('created_at', since);
+    .gte('created_at', since)) as { data: any[] | null };
 
   // Get supply: available drivers in the area
-  const { data: supplyRows } = await supabase
-    .from('driver_locations')
+  const { data: supplyRows } = (await (supabase.from('driver_locations') as any)
     .select('driver_id, h3_index')
-    .gte('timestamp', supplySince);
+    .gte('timestamp', supplySince)) as { data: any[] | null };
 
   // Build H3 cell map
   const cellMap = new Map<string, H3DemandCell>();

@@ -52,7 +52,7 @@ export async function POST(
         data: {
           ticketId: ticket.id,
           attendeeName: ticket.buyer_name,
-          tierName: (ticket.event_ticket_types as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
+          tierName: (ticket.event_ticket_types as unknown as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
           status: 'cancelled',
           message: 'This ticket has been cancelled',
         },
@@ -66,14 +66,14 @@ export async function POST(
         data: {
           ticketId: ticket.id,
           attendeeName: ticket.buyer_name,
-          tierName: (ticket.event_ticket_types as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
+          tierName: (ticket.event_ticket_types as unknown as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
           status: 'pending_payment',
           message: 'This ticket has not been paid for yet',
         },
       });
     }
 
-    const eventStatus = (ticket.events as Record<string, unknown>)?.status;
+    const eventStatus = (ticket.events as unknown as Record<string, unknown>)?.status;
     if (eventStatus === 'cancelled') {
       return NextResponse.json({
         success: true,
@@ -95,7 +95,7 @@ export async function POST(
           ticketId: ticket.id,
           attendeeName: ticket.buyer_name,
           attendeeEmail: ticket.buyer_email,
-          tierName: (ticket.event_ticket_types as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
+          tierName: (ticket.event_ticket_types as unknown as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
           quantity: ticket.quantity,
           checkedInAt: ticket.check_in_at,
           status: 'already_checked_in',
@@ -113,16 +113,16 @@ export async function POST(
         attendeeName: ticket.buyer_name,
         attendeeEmail: ticket.buyer_email,
         attendeePhone: ticket.buyer_phone,
-        tierName: (ticket.event_ticket_types as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
-        tier: (ticket.event_ticket_types as Record<string, unknown>)?.tier,
+        tierName: (ticket.event_ticket_types as unknown as Record<string, unknown>)?.name ?? ticket.ticket_tier_name,
+        tier: (ticket.event_ticket_types as unknown as Record<string, unknown>)?.tier,
         quantity: ticket.quantity,
-        benefits: (ticket.event_ticket_types as Record<string, unknown>)?.benefits ?? [],
+        benefits: (ticket.event_ticket_types as unknown as Record<string, unknown>)?.benefits ?? [],
         event: {
-          title: (ticket.events as Record<string, unknown>)?.title,
-          startDate: (ticket.events as Record<string, unknown>)?.start_date,
-          endDate: (ticket.events as Record<string, unknown>)?.end_date,
-          venue: (ticket.events as Record<string, unknown>)?.venue_name,
-          city: (ticket.events as Record<string, unknown>)?.venue_city,
+          title: (ticket.events as unknown as Record<string, unknown>)?.title,
+          startDate: (ticket.events as unknown as Record<string, unknown>)?.start_date,
+          endDate: (ticket.events as unknown as Record<string, unknown>)?.end_date,
+          venue: (ticket.events as unknown as Record<string, unknown>)?.venue_name,
+          city: (ticket.events as unknown as Record<string, unknown>)?.venue_city,
         },
         status: 'valid',
         message: 'Ticket is valid and ready for check-in',

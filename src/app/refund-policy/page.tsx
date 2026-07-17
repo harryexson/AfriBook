@@ -15,6 +15,7 @@ import {
   XCircle,
   Calendar,
   HelpCircle,
+  Package,
 } from 'lucide-react'
 
 const sectionVariants = {

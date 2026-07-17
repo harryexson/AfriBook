@@ -48,11 +48,11 @@ export async function getLoyaltyAccount(userId: string): Promise<LoyaltyAccount>
   const supabase = await createClient();
 
   // Get or create loyalty record
-  let { data: loyalty } = await supabase
+  let { data: loyalty } = (await supabase
     .from('loyalty_members')
     .select('*')
     .eq('user_id', userId)
-    .single();
+    .single()) as { data: any };
 
   if (!loyalty) {
     // Create new loyalty account with signup bonus
@@ -86,14 +86,14 @@ export async function getLoyaltyAccount(userId: string): Promise<LoyaltyAccount>
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const { data: monthlyTx } = await supabase
+  const { data: monthlyTx } = (await supabase
     .from('points_transactions')
     .select('points')
     .eq('user_id', userId)
     .eq('type', 'earned')
-    .gte('created_at', startOfMonth.toISOString());
+    .gte('created_at', startOfMonth.toISOString())) as { data: any };
 
-  const monthlyEarnings = (monthlyTx ?? []).reduce((sum, tx) => sum + ((tx.points as number) ?? 0), 0);
+  const monthlyEarnings = (monthlyTx ?? []).reduce((sum: number, tx: any) => sum + ((tx.points as number) ?? 0), 0);
 
   return {
     userId,
@@ -111,7 +111,7 @@ export async function getLoyaltyAccount(userId: string): Promise<LoyaltyAccount>
 export async function earnPoints(
   userId: string,
   amount: number,
-  source: 'ride' | 'food_order' | 'marketplace',
+  source: 'ride' | 'food_order' | 'marketplace' | 'referral' | 'bonus',
   description: string,
 ): Promise<PointsTransaction | null> {
   const supabase = await createClient();
@@ -123,11 +123,11 @@ export async function earnPoints(
   const totalPoints = Math.round(basePoints * multiplier);
 
   // Update loyalty account
-  const { data: loyalty } = await supabase
+  const { data: loyalty } = (await supabase
     .from('loyalty_members')
     .select('total_points, available_points')
     .eq('user_id', userId)
-    .single();
+    .single()) as { data: any };
 
   const previousTotal = loyalty?.total_points ?? 0;
   const previousAvailable = loyalty?.available_points ?? 0;
@@ -136,15 +136,14 @@ export async function earnPoints(
   const newTier = getTierForPoints(newTotal);
   const pointsToNextTier = getNextTierPoints(newTier, newTotal);
 
-  await supabase
-    .from('loyalty_members')
+  await (supabase.from('loyalty_members') as any)
     .update({
       total_points: newTotal,
       available_points: newAvailable,
       tier: newTier.name,
       points_to_next_tier: pointsToNextTier,
       updated_at: new Date().toISOString(),
-    } as any)
+    })
     .eq('user_id', userId);
 
   // Record transaction
@@ -178,18 +177,17 @@ export async function redeemPoints(
 
   const newAvailable = account.availablePoints - points;
 
-  await supabase
-    .from('loyalty_members')
+  await (supabase.from('loyalty_members') as any)
     .update({
       available_points: newAvailable,
       updated_at: new Date().toISOString(),
-    } as any)
+    })
     .eq('user_id', userId);
 
   await recordPointsTransaction(
     userId,
     -points,
-    'redemed',
+    'redeemed',
     'redemption',
     description,
     newAvailable,
@@ -207,16 +205,16 @@ export async function getTransactionHistory(
 ): Promise<PointsTransaction[]> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from('points_transactions')
     .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .range(offset, offset + limit - 1)) as { data: any; error: any };
 
   if (error || !data) return [];
 
-  return data.map((row) => ({
+  return data.map((row: any) => ({
     id: row.id as string,
     userId: row.user_id as string,
     points: row.points as number,
@@ -250,9 +248,9 @@ async function recordPointsTransaction(
 ): Promise<PointsTransaction | null> {
   const supabase = await createClient();
 
-  const { data, error } = await supabase
+  const { data, error } = (await supabase
     .from('points_transactions')
-    .insert({
+      .insert({
       user_id: userId,
       points,
       type,
@@ -261,7 +259,7 @@ async function recordPointsTransaction(
       balance_after: balanceAfter,
     } as any)
     .select()
-    .single();
+    .single()) as { data: any; error: any };
 
   if (error || !data) return null;
 

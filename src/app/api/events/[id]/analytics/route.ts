@@ -79,7 +79,7 @@ export async function GET(
 
     (revenueData ?? []).forEach((r) => {
       totalRevenue += r.total ?? 0;
-      const tierName = (r.event_ticket_types as Record<string, unknown>)?.name as string ?? 'Unknown';
+      const tierName = (r.event_ticket_types as unknown as Record<string, unknown>)?.name as string ?? 'Unknown';
       if (!tierBreakdown[tierName]) {
         tierBreakdown[tierName] = { count: 0, revenue: 0 };
       }
@@ -173,7 +173,7 @@ export async function GET(
         recentRegistrations: (revenueData ?? []).slice(-10).map((r) => ({
           date: r.created_at,
           total: r.total,
-          tier: (r.event_ticket_types as Record<string, unknown>)?.name,
+          tier: (r.event_ticket_types as unknown as Record<string, unknown>)?.name,
         })),
       },
     });

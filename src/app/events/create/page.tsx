@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
+import { EVENT_CATEGORIES, isProhibitedEventCategory } from '@/lib/localization/categories';
+import { moderateEvent } from '@/lib/moderation';
 import {
   ArrowLeft,
   ArrowRight,
@@ -50,28 +52,7 @@ const steps = [
   { id: 6, label: 'Preview', icon: Eye },
 ];
 
-const categories = [
-  'Conference',
-  'Concert',
-  'Festival',
-  'Workshop',
-  'Seminar',
-  'Wedding',
-  'Birthday',
-  'Party',
-  'Corporate',
-  'Charity',
-  'Sports',
-  'Networking',
-  'Food & Drink',
-  'Arts',
-  'Technology',
-  'Music',
-  'Fashion',
-  'Health',
-  'Education',
-  'Other',
-];
+const categories = EVENT_CATEGORIES;
 
 const timezones = [
   'Africa/Lagos (WAT)',
@@ -153,6 +134,19 @@ export default function CreateEventPage() {
       if (!form.category) newErrors.category = 'Select a category';
       if (!form.startDate) newErrors.startDate = 'Start date is required';
       if (!form.endDate) newErrors.endDate = 'End date is required';
+
+      // Trust & safety gate — prohibited categories & content are blocked.
+      if (form.category && isProhibitedEventCategory(form.category)) {
+        newErrors.category = `"${form.category}" events are not permitted on AfriBook`;
+      }
+      const screening = moderateEvent({
+        title: form.title,
+        description: form.description,
+        category: form.category,
+      });
+      if (screening.blocked) {
+        newErrors.title = 'This event contains prohibited content and cannot be created.';
+      }
     } else if (step === 2) {
       if (!form.isVirtual) {
         if (!form.venue.trim()) newErrors.venue = 'Venue name is required';

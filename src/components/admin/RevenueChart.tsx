@@ -8,6 +8,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, BarChart, Bar, Legend,
 } from 'recharts'
+import type { TooltipValueType as ValueType } from 'recharts'
 
 type Period = '7d' | '30d' | '90d' | '1y'
 type ChartType = 'area' | 'bar'
@@ -137,7 +138,7 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading, titl
               <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
-                formatter={(value: number, name: string) => [formatCurrency(value, currencyCode), name === 'revenue' ? 'Revenue' : 'Volume']}
+                formatter={(value?: ValueType, name?: unknown) => [formatCurrency(Number(value ?? 0), currencyCode), String(name) === 'revenue' ? 'Revenue' : 'Volume'] as [string, string]}
               />
               <Legend />
               <Area type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2.5} fill="url(#adminRevenueGrad)" name="Revenue" />
@@ -150,7 +151,7 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading, titl
               <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
-                formatter={(value: number) => [formatCurrency(value, currencyCode), 'Revenue']}
+                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), currencyCode), 'Revenue'] as [string, string]}
               />
               <Legend />
               <Bar dataKey="revenue" fill="#F59E0B" radius={[6, 6, 0, 0]} name="Revenue" />

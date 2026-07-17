@@ -4,21 +4,45 @@ import type {
   PayoutRequest,
   PayoutResult,
   FeeBreakdown,
+  PaymentProvider,
 } from './types';
 import {
   COUNTRY_PROVIDER_MAP,
   COUNTRY_CURRENCY_MAP,
   COUNTRY_METHODS_MAP,
+  COUNTRY_MINIMUM_FEE_FLOOR,
+  COUNTRY_TAX_RATES,
+  PLATFORM_FEE_PERCENT,
+  GLOBAL_FALLBACK_PROVIDERS,
+  GLOBAL_FALLBACK_METHODS,
+  getProvidersForCountry,
+  getMethodsForCountry,
 } from './types';
+import { StripeProvider } from './providers/stripe-provider';
+import { RazorpayProvider } from './providers/razorpay-provider';
+import { PaystackProvider } from './providers/paystack-provider';
+import { FlutterwaveProvider } from './providers/flutterwave-provider';
+import { PayChanguProvider } from './providers/paychangu-provider';
+import { MpesaProvider } from './providers/mpesa-provider';
+import { AirwallexProvider } from './providers/airwallex-provider';
+import { PawaPayProvider } from './providers/pawapay-provider';
+import { AdyenProvider } from './providers/adyen-provider';
+import { DLocalProvider } from './providers/dlocal-provider';
 
 // ─── Re-export all providers ──────────────────────────────────
 
-export { StripeProvider } from './providers/stripe-provider';
-export { RazorpayProvider } from './providers/razorpay-provider';
-export { PaystackProvider } from './providers/paystack-provider';
-export { FlutterwaveProvider } from './providers/flutterwave-provider';
-export { PayChanguProvider } from './providers/paychangu-provider';
-export { MpesaProvider } from './providers/mpesa-provider';
+export {
+  StripeProvider,
+  RazorpayProvider,
+  PaystackProvider,
+  FlutterwaveProvider,
+  PayChanguProvider,
+  MpesaProvider,
+  AirwallexProvider,
+  PawaPayProvider,
+  AdyenProvider,
+  DLocalProvider,
+};
 
 // ─── Re-export types ──────────────────────────────────────────
 
@@ -56,7 +80,11 @@ export {
   COUNTRY_MINIMUM_FEE_FLOOR,
   COUNTRY_TAX_RATES,
   PLATFORM_FEE_PERCENT,
-} from './types';
+  GLOBAL_FALLBACK_PROVIDERS,
+  GLOBAL_FALLBACK_METHODS,
+  getProvidersForCountry,
+  getMethodsForCountry,
+};
 
 // ─── Singleton Orchestrator ───────────────────────────────────
 
@@ -66,11 +94,50 @@ export function getPaymentOrchestrator(): PaymentOrchestrator {
   return paymentOrchestrator.current;
 }
 
+/**
+ * Register every available provider into the orchestrator. Each provider is
+ * constructed lazily inside a try/catch so that a missing API key for one
+ * provider never prevents the others (or the app) from working. The
+ * orchestrator then routes per-country to the first *registered* provider.
+ */
+function registerDefaultProviders(orchestrator: PaymentOrchestrator): void {
+  const providers: Array<[string, () => PaymentProvider]> = [
+    ['stripe', () => new StripeProvider()],
+    ['razorpay', () => new RazorpayProvider()],
+    ['paystack', () => new PaystackProvider()],
+    ['flutterwave', () => new FlutterwaveProvider()],
+    ['paychangu', () => new PayChanguProvider()],
+    ['mpesa', () => new MpesaProvider()],
+    ['airwallex', () => new AirwallexProvider()],
+    ['pawapay', () => new PawaPayProvider()],
+    ['adyen', () => new AdyenProvider()],
+    ['dlocal', () => new DLocalProvider()],
+  ];
+
+  for (const [code, factory] of providers) {
+    try {
+      orchestrator.registerProvider(code, factory());
+    } catch (err) {
+      // Provider not configured (missing credentials) — skip gracefully.
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          `[payments] Provider "${code}" not registered: ${
+            err instanceof Error ? err.message : 'unknown error'
+          }`,
+        );
+      }
+    }
+  }
+}
+
 export const paymentOrchestrator = (() => {
   let instance: PaymentOrchestrator | null = null;
   return {
     get current(): PaymentOrchestrator {
-      if (!instance) instance = new PaymentOrchestrator();
+      if (!instance) {
+        instance = new PaymentOrchestrator();
+        registerDefaultProviders(instance);
+      }
       return instance;
     },
   };
@@ -151,13 +218,13 @@ export function verifyPaymentWebhook(
 export function getPaymentMethodsForCountry(
   countryCode: string,
 ): string[] {
-  return COUNTRY_METHODS_MAP[countryCode] ?? ['card'];
+  return getMethodsForCountry(countryCode);
 }
 
 /**
  * Get the default (primary) provider for a country.
  */
 export function getDefaultProviderForCountry(countryCode: string): string {
-  const providers = COUNTRY_PROVIDER_MAP[countryCode];
-  return providers?.[0] ?? 'stripe';
+  const providers = getProvidersForCountry(countryCode);
+  return providers?.[0] ?? 'airwallex';
 }

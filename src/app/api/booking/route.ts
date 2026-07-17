@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import type { Booking } from '@/types';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -35,18 +36,18 @@ export async function POST(req: NextRequest) {
   const { data: booking, error } = await supabase
     .from('bookings')
     .insert({
-      business_id: businessId,
-      service_id: serviceId,
-      customer_id: user.id,
-      staff_id: staffId ?? null,
-      start_time: startTime,
-      end_time: endTime,
+      businessId,
+      serviceId,
+      customerId: user.id,
+      staffId: staffId ?? null,
+      startTime,
+      endTime,
       status: 'pending',
       amount: service.price,
-      currency_code: service.currency_code,
-      payment_status: 'pending',
+      currencyCode: service.currency_code,
+      paymentStatus: 'pending',
       notes: notes ?? null,
-    })
+    } as never)
     .select()
     .single() as unknown as { data: unknown; error: unknown };
 
@@ -55,12 +56,12 @@ export async function POST(req: NextRequest) {
   }
 
   await supabase.from('notifications').insert({
-    user_id: user.id,
+    userId: user.id,
     type: 'booking',
     title: 'Booking Created',
     body: `Your booking for ${service.name} has been created.`,
     data: { booking_id: (booking as Record<string, unknown>).id },
-  });
+  } as never);
 
   return NextResponse.json(booking, { status: 201 });
 }
@@ -95,18 +96,18 @@ export async function GET(req: NextRequest) {
     const { data: businesses } = await supabase
       .from('businesses')
       .select('id')
-      .eq('owner_id', user.id) as unknown as { data: { id: string }[] };
+      .eq('ownerId', user.id) as unknown as { data: { id: string }[] };
     const ids = businesses?.map((b) => b.id) ?? [];
     query = query.in('business_id', ids);
   } else {
-    query = query.eq('customer_id', user.id);
+    query = query.eq('customerId', user.id);
   }
 
-  if (status) query = query.eq('status', status);
-  if (businessId) query = query.eq('business_id', businessId);
-  if (serviceId) query = query.eq('service_id', serviceId);
-  if (fromDate) query = query.gte('start_time', fromDate);
-  if (toDate) query = query.lte('end_time', toDate);
+  if (status) query = query.eq('status', status as Booking['status']);
+  if (businessId) query = query.eq('businessId', businessId);
+  if (serviceId) query = query.eq('serviceId', serviceId);
+  if (fromDate) query = query.gte('startTime', fromDate);
+  if (toDate) query = query.lte('endTime', toDate);
 
   const { data, count, error } = await query
     .order('start_time', { ascending: false })
@@ -166,7 +167,7 @@ export async function PUT(req: NextRequest) {
 
   const { data, error } = await supabase
     .from('bookings')
-    .update(updateData)
+    .update(updateData as never)
     .eq('id', bookingId)
     .select()
     .single();
@@ -218,7 +219,7 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await supabase
     .from('bookings')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .update({ status: 'cancelled', updatedAt: new Date().toISOString() } as never)
     .eq('id', bookingId);
 
   if (error) {

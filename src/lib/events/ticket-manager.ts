@@ -220,7 +220,7 @@ export async function createRegistration(
   if (params.promoCode) {
     await sb
       .from('promo_codes')
-      .update({ used_count: sb.rpc ? undefined : undefined }) // will use RPC
+      .update({ used_count: undefined }) // will use RPC
       .eq('event_id', params.eventId)
       .eq('code', params.promoCode.toUpperCase());
   }
@@ -283,9 +283,7 @@ export async function confirmRegistration(
   await sb
     .from('event_tickets')
     .update({
-      quantity_sold: sb.rpc
-        ? undefined
-        : undefined, // Use RPC for atomic decrement
+      quantity_sold: undefined, // Use RPC for atomic decrement
     })
     .eq('id', registration.ticket_type_id);
 

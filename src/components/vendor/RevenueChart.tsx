@@ -8,6 +8,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, BarChart, Bar,
 } from 'recharts'
+import type { TooltipValueType as ValueType } from 'recharts'
 
 type Period = '7d' | '30d' | '90d'
 type ChartType = 'area' | 'bar'
@@ -149,7 +150,7 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading }: Re
                   padding: '12px',
                   fontSize: '13px',
                 }}
-                formatter={(value: number) => [formatCurrency(value, currencyCode), 'Revenue']}
+                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), currencyCode), 'Revenue'] as [string, string]}
               />
               <Area
                 type="monotone"
@@ -182,7 +183,7 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading }: Re
                   padding: '12px',
                   fontSize: '13px',
                 }}
-                formatter={(value: number) => [formatCurrency(value, currencyCode), 'Revenue']}
+                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), currencyCode), 'Revenue'] as [string, string]}
               />
               <Bar dataKey="revenue" fill="#F59E0B" radius={[6, 6, 0, 0]} />
             </BarChart>

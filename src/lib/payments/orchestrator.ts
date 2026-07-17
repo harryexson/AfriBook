@@ -17,6 +17,9 @@ import {
   COUNTRY_MINIMUM_FEE_FLOOR,
   COUNTRY_TAX_RATES,
   PLATFORM_FEE_PERCENT,
+  getProvidersForCountry,
+  getCurrencyForCountry,
+  getMethodsForCountry,
 } from './types';
 
 // ─── Payment Orchestrator ─────────────────────────────────────
@@ -41,25 +44,24 @@ export class PaymentOrchestrator {
   }
 
   getProvider(countryCode: string, _method?: string): PaymentProvider {
-    const providerCodes = COUNTRY_PROVIDER_MAP[countryCode];
+    const providerCodes = getProvidersForCountry(countryCode);
     if (!providerCodes?.length) {
       throw new Error(
         `No payment provider configured for country: ${countryCode}`,
       );
     }
 
-    // Use the first available provider unless a specific method is requested
-    // In the future, this could route based on method availability
-    const primaryCode = providerCodes[0];
-    const provider = this.providers.get(primaryCode);
-
-    if (!provider) {
-      throw new Error(
-        `Provider "${primaryCode}" is not registered for country: ${countryCode}`,
-      );
+    // Use the first *registered* provider for this country, falling back
+    // through the ordered list so a missing API key never blocks payments.
+    for (const code of providerCodes) {
+      const provider = this.providers.get(code);
+      if (provider) return provider;
     }
 
-    return provider;
+    throw new Error(
+      `No registered payment provider available for country: ${countryCode}. ` +
+        `Ensure at least one of [${providerCodes.join(', ')}] is configured.`,
+    );
   }
 
   getProviderByCode(code: string): PaymentProvider {
@@ -538,12 +540,18 @@ export class PaymentOrchestrator {
   }
 
   private buildCountryConfigs(): void {
-    for (const [code, providerCodes] of Object.entries(COUNTRY_PROVIDER_MAP)) {
+    const allCodes = new Set<string>([
+      ...Object.keys(COUNTRY_PROVIDER_MAP),
+      ...Object.keys(COUNTRY_CURRENCY_MAP),
+      ...Object.keys(COUNTRY_METHODS_MAP),
+    ]);
+    for (const code of allCodes) {
+      const providerCodes = getProvidersForCountry(code);
       this.countryConfigs.set(code, {
         countryCode: code,
         providerCode: providerCodes[0],
-        methods: COUNTRY_METHODS_MAP[code] ?? ['card'],
-        currency: COUNTRY_CURRENCY_MAP[code] ?? 'USD',
+        methods: getMethodsForCountry(code),
+        currency: getCurrencyForCountry(code),
         minimumFeeFloor: COUNTRY_MINIMUM_FEE_FLOOR[code] ?? 0.5,
         taxRate: COUNTRY_TAX_RATES[code] ?? 0.16,
       });
@@ -554,7 +562,14 @@ export class PaymentOrchestrator {
     for (const [code, cur] of Object.entries(COUNTRY_CURRENCY_MAP)) {
       if (cur === currency) return code;
     }
-    return 'US';
+    // Common global currencies → sensible defaults
+    const map: Record<string, string> = {
+      USD: 'US', EUR: 'FR', GBP: 'GB', CAD: 'CA', AUD: 'AU',
+      JPY: 'JP', CNY: 'CN', INR: 'IN', AED: 'AE', SGD: 'SG',
+      HKD: 'HK', BRL: 'BR', MXN: 'MX', ARS: 'AR', ZAR: 'ZA',
+      NGN: 'NG', GHS: 'GH', KES: 'KE', EGP: 'EG', SAR: 'SA',
+    };
+    return map[currency.toUpperCase()] ?? 'US';
   }
 }
 

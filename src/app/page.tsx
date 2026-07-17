@@ -3,11 +3,12 @@
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, Variants } from 'framer-motion'
 import { ArrowRight, Truck, ShoppingBag, Calendar } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import CategoryGrid from '@/components/marketplace/CategoryGrid'
 import FeaturedBusinesses from '@/components/marketplace/FeaturedBusinesses'
+import DiscoverFeed from '@/components/marketplace/DiscoverFeed'
 import HowItWorks from '@/components/marketplace/HowItWorks'
 import StatsSection from '@/components/marketplace/StatsSection'
 import DownloadApp from '@/components/marketplace/DownloadApp'
@@ -22,7 +23,7 @@ const TRUSTED_FLAGS = Object.values(COUNTRIES)
   .filter((_, i) => i < 12)
   .map((c) => ({ code: c.code, name: c.name, flag: c.flag }))
 
-const trustedVariants = {
+const trustedVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -30,13 +31,13 @@ const trustedVariants = {
   },
 }
 
-const flagItemVariants = {
+const flagItemVariants: Variants = {
   hidden: { opacity: 0, y: 10, scale: 0.9 },
   visible: {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const as const },
+    transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
   },
 }
 
@@ -81,6 +82,9 @@ export default function HomePage() {
 
       {/* Featured Businesses */}
       <FeaturedBusinesses />
+
+      {/* Social discovery feed */}
+      <DiscoverFeed />
 
       {/* Trusted by countries */}
       <section className="py-16 sm:py-20 border-b border-border">

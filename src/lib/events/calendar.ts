@@ -73,6 +73,14 @@ function escapeIcsText(text: string): string {
     .replace(/\n/g, '\\n');
 }
 
+function utf8ToBase64(str: string): string {
+  const utf8 = encodeURIComponent(str).replace(
+    /%([0-9A-F]{2})/g,
+    (_, p1) => String.fromCharCode(parseInt(p1, 16))
+  );
+  return btoa(utf8);
+}
+
 function foldIcsLine(line: string): string {
   if (line.length <= 75) return line;
 
@@ -147,9 +155,7 @@ export function generateAppleCalendarUrl(event: CalendarEvent): string {
     'END:VCALENDAR',
   ].join('\r\n');
 
-  const encoded = btoa(
-    icsContent.replace(/\r\n/g, '\n').replace(/\n/g, '\r\n')
-  );
+  const encoded = utf8ToBase64(icsContent);
 
   return `webcal://afribook.app/api/calendar.ics?data=${encodeURIComponent(encoded)}`;
 }

@@ -12,6 +12,7 @@ import type {
   FoodOrder,
   DispatchResult,
   DriverCandidate,
+  DriverScore,
   SurgeZone,
 } from '@/types/ridely';
 import {
@@ -262,7 +263,7 @@ export async function dispatchFoodDelivery(
 
 async function offerWithRealtime(
   rideId: string,
-  topDrivers: DriverCandidate[],
+  topDrivers: DriverScore[],
   timeoutMs: number,
 ): Promise<string | null> {
   const supabase = await createClient();
@@ -482,8 +483,7 @@ async function updateRideStatus(
   rideId: string,
   status: string,
 ): Promise<void> {
-  await supabase
-    .from('ridely_rides')
+  await (supabase.from('ridely_rides') as any)
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', rideId);
 }
@@ -493,8 +493,7 @@ async function updateDeliveryStatus(
   deliveryId: string,
   status: string,
 ): Promise<void> {
-  await supabase
-    .from('ridely_deliveries')
+  await (supabase.from('ridely_deliveries') as any)
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', deliveryId);
 }
@@ -504,8 +503,7 @@ async function assignDriverToRide(
   rideId: string,
   driverId: string,
 ): Promise<void> {
-  await supabase
-    .from('ridely_rides')
+  await (supabase.from('ridely_rides') as any)
     .update({
       driver_id: driverId,
       status: 'matched',
@@ -514,9 +512,8 @@ async function assignDriverToRide(
     })
     .eq('id', rideId);
 
-  await supabase
-    .from('drivers')
-    .update({ status: 'on_trip' } as any)
+  await (supabase.from('drivers') as any)
+    .update({ status: 'on_trip' })
     .eq('id', driverId);
 }
 
@@ -525,8 +522,7 @@ async function assignDriverToDelivery(
   deliveryId: string,
   driverId: string,
 ): Promise<void> {
-  await supabase
-    .from('ridely_deliveries')
+  await (supabase.from('ridely_deliveries') as any)
     .update({
       driver_id: driverId,
       status: 'matched',
@@ -535,9 +531,8 @@ async function assignDriverToDelivery(
     })
     .eq('id', deliveryId);
 
-  await supabase
-    .from('drivers')
-    .update({ status: 'on_trip' } as any)
+  await (supabase.from('drivers') as any)
+    .update({ status: 'on_trip' })
     .eq('id', driverId);
 }
 
@@ -546,8 +541,7 @@ async function assignDriverToFoodOrder(
   orderId: string,
   driverId: string,
 ): Promise<void> {
-  await supabase
-    .from('ridely_food_deliveries')
+  await (supabase.from('ridely_food_deliveries') as any)
     .update({
       driver_id: driverId,
       status: 'matched',
@@ -555,9 +549,8 @@ async function assignDriverToFoodOrder(
     })
     .eq('id', orderId);
 
-  await supabase
-    .from('drivers')
-    .update({ status: 'on_trip' } as any)
+  await (supabase.from('drivers') as any)
+    .update({ status: 'on_trip' })
     .eq('id', driverId);
 }
 
@@ -610,15 +603,14 @@ async function sendPushNotification(
 
   // Send push notification via Expo Push / FCM
   try {
-    const { data: tokens } = await supabase
-      .from('push_tokens')
+    const { data: tokens } = await (supabase.from('push_tokens') as any)
       .select('token, platform')
       .eq('user_id', driver.userId)
       .eq('is_active', true);
 
     if (tokens?.length) {
       await Promise.all(
-        tokens.map(async (t) => {
+        tokens.map(async (t: { token: string; platform: string }) => {
           await fetch('https://exp.host/--/api/v2/push/send', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

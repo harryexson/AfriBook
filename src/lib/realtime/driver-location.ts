@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────────────────────
 
 import { createClient } from '@/lib/supabase/server';
-import { createBrowserClient } from '@/lib/supabase/client';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import type { GeoLocation, LocationUpdateEvent } from '@/types/ridely';
 
 // ─── Server: Record Driver Location ──────────────────────────
@@ -106,7 +106,7 @@ export function subscribeToDriverLocation(
         table: 'driver_locations',
         filter: `driver_id=eq.${driverId}`,
       },
-      (payload) => {
+      (payload: { new: Record<string, any> }) => {
         const row = payload.new as any;
         const coordinates = row.location?.coordinates;
         if (!coordinates) return;
@@ -146,7 +146,7 @@ export function subscribeToNearbyDrivers(
         schema: 'public',
         table: 'driver_locations',
       },
-      (payload) => {
+      (payload: { new: Record<string, any> }) => {
         const row = payload.new as any;
         if (!driverIds.includes(row.driver_id)) return;
 

@@ -48,10 +48,9 @@ interface DriverBalance {
 export async function getDriverBalance(driverId: string): Promise<DriverBalance> {
   const supabase = await createClient();
 
-  const { data: earnings } = await supabase
-    .from('driver_earnings')
+  const { data: earnings } = (await (supabase.from('driver_earnings') as any)
     .select('total_amount, status')
-    .eq('driver_id', driverId);
+    .eq('driver_id', driverId)) as { data: any[] | null };
 
   if (!earnings) {
     return { available: 0, pending: 0, totalEarned: 0, currencyCode: 'NGN' };
@@ -94,8 +93,7 @@ export async function getDriverEarnings(
 ): Promise<DriverEarning[]> {
   const supabase = await createClient();
 
-  let query = supabase
-    .from('driver_earnings')
+  let query = (supabase.from('driver_earnings') as any)
     .select('*')
     .eq('driver_id', driverId)
     .order('created_at', { ascending: false });
@@ -158,11 +156,10 @@ export async function getEarningsSummary(
       since = '2000-01-01T00:00:00Z';
   }
 
-  const { data: earnings } = await supabase
-    .from('driver_earnings')
+  const { data: earnings } = (await (supabase.from('driver_earnings') as any)
     .select('*')
     .eq('driver_id', driverId)
-    .gte('created_at', since);
+    .gte('created_at', since)) as { data: any[] | null };
 
   if (!earnings?.length) {
     return {
@@ -240,8 +237,7 @@ export async function requestInstantPayout(
     return { success: false, error: 'Driver not found' };
   }
 
-  const { data: payoutMethod } = await supabase
-    .from('driver_payout_methods')
+  const { data: payoutMethod } = await (supabase.from('driver_payout_methods') as any)
     .select('*')
     .eq('user_id', driver.userId)
     .eq('is_primary', true)
@@ -252,8 +248,7 @@ export async function requestInstantPayout(
   }
 
   // Create payout record
-  const { data: payout, error } = await supabase
-    .from('driver_payouts')
+  const { data: payout, error } = await (supabase.from('driver_payouts') as any)
     .insert({
       driver_id: driverId,
       amount,
@@ -261,7 +256,7 @@ export async function requestInstantPayout(
       method: 'instant',
       status: 'processing',
       reference: `INST-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    } as any)
+    })
     .select()
     .single();
 
@@ -270,31 +265,28 @@ export async function requestInstantPayout(
   }
 
   // Mark related earnings as paid
-  const { data: earningsToPay } = await supabase
-    .from('driver_earnings')
+  const { data: earningsToPay } = await (supabase.from('driver_earnings') as any)
     .select('id')
     .eq('driver_id', driverId)
     .eq('status', 'cleared')
     .order('created_at', { ascending: true });
 
   if (earningsToPay?.length) {
-    const earningIds = earningsToPay.map((e) => e.id).slice(0, 100);
+    const earningIds = earningsToPay.map((e: any) => e.id).slice(0, 100);
 
-    await supabase
-      .from('driver_earnings')
-      .update({ status: 'paid', paid_at: new Date().toISOString() } as any)
+    await (supabase.from('driver_earnings') as any)
+      .update({ status: 'paid', paid_at: new Date().toISOString() })
       .in('id', earningIds);
   }
 
   // Process via payment provider (simplified)
   // In production, this would call Flutterwave/M-Pesa/Stripe payout API
   setTimeout(async () => {
-    await supabase
-      .from('driver_payouts')
+    await (supabase.from('driver_payouts') as any)
       .update({
         status: 'completed',
         processed_at: new Date().toISOString(),
-      } as any)
+      })
       .eq('id', payout.id);
   }, 5000);
 
@@ -316,8 +308,7 @@ export async function recordEarning(
 
   const totalAmount = baseAmount + tips + surgeBonus + promotionBonus;
 
-  const { data, error } = await supabase
-    .from('driver_earnings')
+  const { data, error } = await (supabase.from('driver_earnings') as any)
     .insert({
       driver_id: driverId,
       trip_id: tripId,
@@ -329,7 +320,7 @@ export async function recordEarning(
       total_amount: totalAmount,
       currency_code: 'NGN',
       status: 'pending',
-    } as any)
+    })
     .select()
     .single();
 

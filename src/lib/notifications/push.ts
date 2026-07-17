@@ -33,11 +33,11 @@ export async function sendPushToUser(
 ): Promise<{ sent: number; failed: number }> {
   const supabase = await createClient();
 
-  const { data: tokens } = await supabase
+  const { data: tokens } = (await supabase
     .from('push_tokens')
     .select('token, platform')
     .eq('user_id', userId)
-    .eq('is_active', true);
+    .eq('is_active', true)) as { data: { token: string; platform?: string }[] | null };
 
   if (!tokens?.length) return { sent: 0, failed: 0 };
 
@@ -103,11 +103,11 @@ export async function sendPushToUsers(
 ): Promise<{ sent: number; failed: number }> {
   const supabase = await createClient();
 
-  const { data: tokens } = await supabase
+  const { data: tokens } = (await supabase
     .from('push_tokens')
     .select('token, platform, user_id')
     .in('user_id', userIds)
-    .eq('is_active', true);
+    .eq('is_active', true)) as { data: { token: string; platform?: string; user_id?: string }[] | null };
 
   if (!tokens?.length) return { sent: 0, failed: 0 };
 

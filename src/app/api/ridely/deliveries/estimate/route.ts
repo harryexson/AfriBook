@@ -78,7 +78,6 @@ function estimateDistanceFee(pickupAddress: string, dropoffAddress: string): { d
 
 function determineDeliveryZone(countryCode: string, deliverySpeed: DeliverySpeed): DeliveryZone {
   if (deliverySpeed === 'cross_border') return 'cross_border';
-  if (deliverySpeed === 'pan_african') return 'pan_african';
   if (PAN_AFRICAN_COUNTRIES.has(countryCode.toUpperCase())) {
     return deliverySpeed === 'next_day' ? 'same_country' : 'same_city';
   }

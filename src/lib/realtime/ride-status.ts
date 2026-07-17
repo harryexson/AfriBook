@@ -3,7 +3,7 @@
 // Broadcasts status transitions to rider and driver clients.
 // ──────────────────────────────────────────────────────────────
 
-import { createBrowserClient } from '@/lib/supabase/client';
+import { createClient as createBrowserClient } from '@/lib/supabase/client';
 import type { RideStatusEvent, RideStatus, DeliveryStatus } from '@/types/ridely';
 
 // ─── Client: Subscribe to Ride Status Changes ────────────────
@@ -24,7 +24,7 @@ export function subscribeToRideStatus(
         table: 'ridely_rides',
         filter: `id=eq.${rideId}`,
       },
-      (payload) => {
+      (payload: { new: Record<string, any> }) => {
         const row = payload.new as any;
 
         onStatusChange({
@@ -65,12 +65,12 @@ export function subscribeToDeliveryStatus(
         table: 'ridely_deliveries',
         filter: `id=eq.${deliveryId}`,
       },
-      (payload) => {
+      (payload: { new: Record<string, any> }) => {
         const row = payload.new as any;
 
         onStatusChange({
           rideId: row.id,
-          status: row.status as DeliveryStatus,
+          status: row.status as unknown as RideStatus,
           driverId: row.driver_id ?? undefined,
           timestamp: row.updated_at,
           metadata: {
@@ -106,12 +106,12 @@ export function subscribeToFoodDeliveryStatus(
         table: 'ridely_food_deliveries',
         filter: `id=eq.${orderId}`,
       },
-      (payload) => {
+      (payload: { new: Record<string, any> }) => {
         const row = payload.new as any;
 
         onStatusChange({
           rideId: row.id,
-          status: row.status as DeliveryStatus,
+          status: row.status as unknown as RideStatus,
           driverId: row.driver_id ?? undefined,
           timestamp: row.updated_at,
           metadata: {
@@ -148,7 +148,7 @@ export function subscribeToOfferResponse(
         table: 'driver_offers',
         filter: `ride_id=eq.${rideId}`,
       },
-      (payload) => {
+      (payload: { new: Record<string, any> }) => {
         const row = payload.new as any;
         onOfferUpdate(row.driver_id, row.status);
       },

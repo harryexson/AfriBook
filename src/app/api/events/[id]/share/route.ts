@@ -76,7 +76,7 @@ export async function POST(
 
     await supabase
       .from('events')
-      .update({ share_count: (event.share_count ?? 0) + platforms.length })
+      .update({ share_count: ((event as { share_count?: number }).share_count ?? 0) + platforms.length })
       .eq('id', eventId);
 
     return NextResponse.json({

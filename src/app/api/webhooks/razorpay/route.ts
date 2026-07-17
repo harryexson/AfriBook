@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
+import type { Booking, Order } from '@/types';
 
 function verifySignature(body: string, signature: string, secret: string): boolean {
   const expected = crypto
@@ -49,7 +50,7 @@ async function handlePaymentAuthorized(payment: RazorpayPayment) {
       status: 'processing',
       provider_transaction_id: payment.id,
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('provider_transaction_id', payment.order_id);
 }
 
@@ -61,14 +62,14 @@ async function handlePaymentCaptured(payment: RazorpayPayment) {
     .update({
       status: 'succeeded',
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('provider_transaction_id', payment.id);
 
   const bookingId = payment.notes?.afribook_booking_id;
   if (bookingId) {
     await supabase
       .from('bookings')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', bookingId);
   }
 
@@ -76,19 +77,19 @@ async function handlePaymentCaptured(payment: RazorpayPayment) {
   if (orderId) {
     await supabase
       .from('orders')
-      .update({ payment_status: 'completed', updated_at: new Date().toISOString() })
+      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', orderId);
   }
 
   const customerId = payment.notes?.afribook_customer_id;
   if (customerId) {
     await supabase.from('notifications').insert({
-      user_id: customerId,
+      userId: customerId,
       type: 'payment',
       title: 'Payment Successful',
       body: `Payment of ${(payment.amount / 100).toFixed(2)} ${payment.currency} via Razorpay was successful.`,
       data: { razorpay_payment_id: payment.id, order_id: payment.order_id },
-    });
+    } as never);
   }
 }
 
@@ -106,7 +107,7 @@ async function handlePaymentFailed(payment: RazorpayPayment) {
         failed_at: new Date().toISOString(),
       },
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('provider_transaction_id', payment.id);
 }
 
@@ -124,7 +125,7 @@ async function handlePayoutProcessed(payout: RazorpayPayout) {
         failure_reason: payout.failure_reason,
       },
       updated_at: new Date().toISOString(),
-    })
+    } as never)
     .eq('metadata->>razorpay_payout_id', payout.id);
 }
 
@@ -181,3 +182,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ received: true });
 }
+

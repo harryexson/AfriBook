@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   const { data: order } = await supabase
     .from('orders')
-    .select('id, customer_id')
+    .select('id, customerId')
     .eq('id', orderId)
     .single();
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  if (order.customer_id !== user.id) {
+  if (order.customerId !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   await supabase
     .from('orders')
-    .update({ fulfillment_method: 'pickup', updated_at: new Date().toISOString() })
+    .update({ fulfillment_method: 'pickup', updated_at: new Date().toISOString() } as any)
     .eq('id', orderId);
 
   return NextResponse.json(pickupOrder, { status: 201 });

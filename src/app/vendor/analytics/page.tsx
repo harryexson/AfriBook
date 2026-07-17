@@ -12,6 +12,7 @@ import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip, PieChart as RPieChart, Pie, Cell,
 } from 'recharts'
+import type { TooltipValueType as ValueType } from 'recharts'
 import StatCard from '@/components/vendor/StatCard'
 
 const CONTAINER = {
@@ -126,7 +127,7 @@ export default function AnalyticsPage() {
               <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
-                formatter={(value: number) => [formatCurrency(value, 'XAF'), 'Revenue']}
+                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), 'XAF'), 'Revenue'] as [string, string]}
               />
               <Area type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2.5} fill="url(#revGrad)" />
             </AreaChart>

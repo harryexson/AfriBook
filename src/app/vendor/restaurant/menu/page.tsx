@@ -9,8 +9,7 @@ import {
   CheckSquare, Square, Tag, ArrowUpDown, Package,
 } from 'lucide-react'
 import MenuItemForm from '@/components/vendor/MenuItemForm'
-import MenuPhotoScanner from '@/components/vendor/MenuPhotoScanner'
-import type { ImportItem } from '@/components/vendor/MenuPhotoScanner'
+import ImportWizard, { type ImportItem } from '@/components/vendor/ImportWizard'
 import type { MenuItem } from '@/types'
 
 const MOCK_MENU_ITEMS: MenuItem[] = [
@@ -143,7 +142,7 @@ export default function MenuPage() {
     setSelectedIds(new Set())
   }, [selectedIds])
 
-  const handleImport = useCallback((importItems: ImportItem[]) => {
+  const handleImport = useCallback(async (importItems: ImportItem[]) => {
     const newItems: MenuItem[] = importItems.map((imp, i) => ({
       id: randomId(),
       businessId: 'b1',
@@ -161,7 +160,6 @@ export default function MenuPage() {
       sortOrder: menuItems.length + i,
     }))
     setMenuItems((prev) => [...prev, ...newItems])
-    setShowScanner(false)
   }, [menuItems.length])
 
   const exportCSV = useCallback(() => {
@@ -529,15 +527,13 @@ export default function MenuPage() {
         )}
       </AnimatePresence>
 
-      {/* Photo Scanner */}
-      <AnimatePresence>
-        {showScanner && (
-          <MenuPhotoScanner
-            onImport={handleImport}
-            onCancel={() => setShowScanner(false)}
-          />
-        )}
-      </AnimatePresence>
+      {/* Import Wizard (manual / CSV / link / photo) */}
+      <ImportWizard
+        type="menu"
+        isOpen={showScanner}
+        onClose={() => setShowScanner(false)}
+        onImport={handleImport}
+      />
 
       {/* Bulk Price Modal */}
       <AnimatePresence>

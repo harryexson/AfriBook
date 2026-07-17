@@ -6,9 +6,10 @@ import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import {
   Plus, Search, Filter, Edit3, Trash2, Eye, EyeOff,
-  Clock, CheckSquare,
+  Clock, CheckSquare, Upload,
 } from 'lucide-react'
 import ServiceForm from '@/components/vendor/ServiceForm'
+import ImportWizard, { type ImportItem } from '@/components/vendor/ImportWizard'
 import type { Service } from '@/types'
 
 const MOCK_SERVICES: Service[] = [
@@ -33,6 +34,11 @@ export default function ServicesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editService, setEditService] = useState<Service | null>(null)
   const [selected, setSelected] = useState<string[]>([])
+  const [showImport, setShowImport] = useState(false)
+
+  const handleImport = async (items: ImportItem[]) => {
+    console.log('Importing services:', items)
+  }
 
   const filtered = services.filter((s) =>
     s.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -56,12 +62,20 @@ export default function ServicesPage() {
           <h1 className="text-2xl font-bold text-text-primary font-heading">Services</h1>
           <p className="text-sm text-text-secondary mt-1">{services.length} services total</p>
         </div>
-        <button
-          onClick={() => { setEditService(null); setShowForm(true) }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Add Service
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-border text-sm font-medium text-text-secondary hover:bg-surface-secondary transition-colors"
+          >
+            <Upload className="w-4 h-4" /> Import
+          </button>
+          <button
+            onClick={() => { setEditService(null); setShowForm(true) }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors"
+          >
+            <Plus className="w-4 h-4" /> Add Service
+          </button>
+        </div>
       </motion.div>
 
       {/* Toolbar */}
@@ -170,6 +184,13 @@ export default function ServicesPage() {
           />
         )}
       </AnimatePresence>
+
+      <ImportWizard
+        type="service"
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onImport={handleImport}
+      />
     </motion.div>
   )
 }
