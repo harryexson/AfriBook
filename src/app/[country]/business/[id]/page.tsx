@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star, MapPin, Clock, Phone, Mail, Globe, ChevronLeft, ChevronRight,
-  Share2, Heart, ThumbsUp, MessageCircle, Calendar, Users, Scissors,
-  ShoppingBag, Timer, Map, X, Check, Image, Video,
+  Share2, Heart, ThumbsUp, MessageCircle, Users, Scissors,
+  ShoppingBag, Timer, Map, Check, Image, Video,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -15,72 +15,160 @@ import type { CountryConfig } from '@/lib/localization/countries'
 import ServiceCard from '@/components/marketplace/ServiceCard'
 import ReviewForm from '@/components/marketplace/ReviewForm'
 import type { Business, Service, Review, Staff } from '@/types'
+import { getCountryBusinesses, getCountryServices } from '@/lib/countries-data'
+import { getWeekdayKey, formatInTimezone } from '@/lib/time'
 
-const MOCK_BUSINESS: Business = {
-  id: 'b1', name: 'Lagos Fresh Market', description: 'Premium fresh produce delivered to your doorstep. We source directly from local farmers across Nigeria to bring you the freshest fruits, vegetables, and organic goods. Established in 2020, we have served over 10,000 happy customers across Lagos.', category: 'Food & Dining', countryCode: 'NG', ownerId: '',
-  address: { street: '12 Ahmadu Bello Way', city: 'Lagos', state: 'Lagos', postalCode: '100001', countryCode: 'NG', formatted: '12 Ahmadu Bello Way, Victoria Island, Lagos', geoPoint: { latitude: 6.5244, longitude: 3.3792 } },
-  location: { latitude: 6.5244, longitude: 3.3792 },
-  contact: { phone: '+234 800 123 4567', email: 'hello@lagosfreshmarket.ng', website: 'https://lagosfreshmarket.ng', socialLinks: { instagram: '@lagosfreshmarket' } },
-  media: { logoUrl: '', coverUrl: '', galleryUrls: [] },
-  hours: [
-    { day: 'mon', open: '07:00', close: '20:00', isClosed: false }, { day: 'tue', open: '07:00', close: '20:00', isClosed: false },
-    { day: 'wed', open: '07:00', close: '20:00', isClosed: false }, { day: 'thu', open: '07:00', close: '20:00', isClosed: false },
-    { day: 'fri', open: '07:00', close: '21:00', isClosed: false }, { day: 'sat', open: '08:00', close: '21:00', isClosed: false },
-    { day: 'sun', open: '09:00', close: '18:00', isClosed: false },
+const CATEGORY_IMAGES: Record<string, string[]> = {
+  'Food & Dining': [
+    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
+    'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800',
+    'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800',
+    'https://images.unsplash.com/photo-1590779033100-9f8a05c1b5e6?w=800',
   ],
-  status: 'active', rating: 4.8, reviewCount: 234, qrBookingUrl: '', tags: ['groceries', 'fresh', 'organic', 'delivery', 'farm'],
-  deliveryAvailable: true, deliveryRadiusKm: 15, minimumOrder: 2000, commissionRate: 0.08, createdAt: '', updatedAt: '',
+  'Beauty & Wellness': [
+    'https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=800',
+    'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800',
+    'https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=800',
+    'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800',
+  ],
+  Healthcare: [
+    'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?w=800',
+    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800',
+    'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?w=800',
+    'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=800',
+  ],
+  'Home Services': [
+    'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800',
+    'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=800',
+    'https://images.unsplash.com/photo-1558002038-1055907df827?w=800',
+    'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800',
+  ],
+  'Technology': [
+    'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800',
+    'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800',
+    'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800',
+    'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=800',
+  ],
+  'Education': [
+    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800',
+    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800',
+    'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800',
+    'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800',
+  ],
+  'Sports & Fitness': [
+    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
+    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800',
+    'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800',
+    'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=800',
+  ],
 }
 
-const MOCK_SERVICES: Service[] = [
-  { id: 's1', businessId: 'b1', name: 'Fresh Produce Box', description: 'Assorted seasonal fruits and vegetables - enough for a family of 4 for a week.', duration: 30, price: 3500, currencyCode: 'NGN', category: 'Food & Dining', available: true, maxCapacityPerSlot: 10, paddingMinutes: 0, createdAt: '', updatedAt: '' },
-  { id: 's2', businessId: 'b1', name: 'Premium Fruit Basket', description: 'Curated selection of premium imported and local fruits in a gift basket.', duration: 20, price: 8000, currencyCode: 'NGN', category: 'Food & Dining', available: true, maxCapacityPerSlot: 5, paddingMinutes: 0, createdAt: '', updatedAt: '' },
-  { id: 's3', businessId: 'b1', name: 'Weekly Meal Prep Pack', description: 'Pre-portioned ingredients for 7 days of healthy Nigerian meals.', duration: 45, price: 15000, currencyCode: 'NGN', category: 'Food & Dining', available: true, maxCapacityPerSlot: 3, paddingMinutes: 5, createdAt: '', updatedAt: '' },
-  { id: 's4', businessId: 'b1', name: 'Organic Vegetable Bundle', description: 'Fresh organic vegetables sourced from local farms.', duration: 15, price: 2500, currencyCode: 'NGN', category: 'Food & Dining', available: true, maxCapacityPerSlot: 20, paddingMinutes: 0, createdAt: '', updatedAt: '' },
-]
-
-const MOCK_STAFF: Staff[] = [
-  { id: 'st1', businessId: 'b1', userId: '', name: 'Adebayo Ola', role: 'Senior Farmer', email: 'ade@lagosfreshmarket.ng', phone: '+234 800 111 2222', avatarUrl: '', schedule: [{ day: 'mon', start: '07:00', end: '15:00', isAvailable: true }, { day: 'tue', start: '07:00', end: '15:00', isAvailable: true }, { day: 'wed', start: '07:00', end: '15:00', isAvailable: true }, { day: 'thu', start: '07:00', end: '15:00', isAvailable: true }, { day: 'fri', start: '07:00', end: '14:00', isAvailable: true }, { day: 'sat', start: '08:00', end: '13:00', isAvailable: true }, { day: 'sun', start: '00:00', end: '00:00', isAvailable: false }], serviceIds: ['s1', 's2'], isActive: true, bio: 'Over 15 years of experience in organic farming and produce selection.', rating: 4.9, createdAt: '', updatedAt: '' },
-  { id: 'st2', businessId: 'b1', userId: '', name: 'Chioma Eze', role: 'Produce Specialist', email: 'chioma@lagosfreshmarket.ng', phone: '+234 800 333 4444', avatarUrl: '', schedule: [{ day: 'mon', start: '09:00', close: '17:00', isAvailable: true }, { day: 'tue', start: '09:00', close: '17:00', isAvailable: true }, { day: 'wed', start: '09:00', close: '17:00', isAvailable: true }, { day: 'thu', start: '09:00', close: '17:00', isAvailable: true }, { day: 'fri', start: '09:00', close: '16:00', isAvailable: true }, { day: 'sat', start: '10:00', close: '15:00', isAvailable: true }, { day: 'sun', start: '00:00', close: '00:00', isAvailable: false }], serviceIds: ['s3', 's4'], isActive: true, bio: 'Expert in selecting the freshest produce and creating meal prep plans.', rating: 4.8, createdAt: '', updatedAt: '' },
-]
-
-const MOCK_REVIEWS: Review[] = [
-  { id: 'r1', businessId: 'b1', userId: 'u1', targetType: 'business', targetId: 'b1', rating: 5, title: 'Amazing quality!', body: 'The freshest vegetables I have found in Lagos. Delivery was prompt and the produce lasted over a week. Highly recommend the weekly meal prep pack!', images: [], isVerifiedPurchase: true, isApproved: true, createdAt: '2026-06-15T10:30:00Z', updatedAt: '' },
-  { id: 'r2', businessId: 'b1', userId: 'u2', targetType: 'business', targetId: 'b1', rating: 4, title: 'Great service', body: 'Good quality produce and friendly staff. A bit pricey but worth it for organic.', images: [], isVerifiedPurchase: true, isApproved: true, createdAt: '2026-06-10T14:20:00Z', updatedAt: '' },
-  { id: 'r3', businessId: 'b1', userId: 'u3', targetType: 'business', targetId: 'b1', rating: 5, title: 'Best in Lagos', body: 'I have been ordering from Lagos Fresh Market for 6 months now. Consistent quality and excellent customer service.', images: [], isVerifiedPurchase: true, isApproved: true, createdAt: '2026-06-05T09:15:00Z', updatedAt: '' },
-]
-
-const GALLERY_IMAGES = [
-  'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800', 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800',
-  'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800', 'https://images.unsplash.com/photo-1590779033100-9f8a05c1b5e6?w=800',
+const FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
+  'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800',
+  'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800',
+  'https://images.unsplash.com/photo-1590779033100-9f8a05c1b5e6?w=800',
 ]
 
 const DAY_LABELS: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+const NOW = Date.now()
+
+function defaultSchedule(): Staff['schedule'] {
+  return DAY_ORDER.map((day, d) => ({
+    day: day as Staff['schedule'][number]['day'],
+    start: d === 6 ? '10:00' : '08:00',
+    end: d === 6 ? '16:00' : '19:00',
+    isAvailable: d !== 6,
+  }))
+}
 
 export default function BusinessDetailPage() {
   const params = useParams()
   const router = useRouter()
   const countryCode = (params?.country as string)?.toUpperCase() ?? 'NG'
+  const businessId = (params?.id as string) ?? ''
   const country = getCountryConfig(countryCode) as CountryConfig | undefined
 
-  const business = MOCK_BUSINESS
+  const allBusinesses = getCountryBusinesses(countryCode)
+  const allServices = getCountryServices(countryCode)
+
+  const business: Business | undefined = allBusinesses.find((b) => b.id === businessId)
+  const services: Service[] = allServices.filter((s) => s.businessId === businessId)
+
   const [activeTab, setActiveTab] = useState('services')
   const [galleryIdx, setGalleryIdx] = useState(0)
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [isFav, setIsFav] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showAllHours, setShowAllHours] = useState(false)
-  const [showMobileBook, setShowMobileBook] = useState(false)
 
-  const services = MOCK_SERVICES
-  const staff = MOCK_STAFF
-  const reviews = MOCK_REVIEWS
-  const galleryImages = GALLERY_IMAGES
+  if (!business) {
+    return (
+      <div className="min-h-screen pt-24 pb-12">
+        <div className="max-w-lg mx-auto px-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-surface-secondary flex items-center justify-center mx-auto mb-4">
+            <Map className="w-8 h-8 text-text-tertiary" />
+          </div>
+          <h1 className="text-xl font-bold text-text-primary">Business not found</h1>
+          <p className="text-text-secondary mt-1">This business may have been removed or the link is incorrect.</p>
+          <Link
+            href={`/${countryCode}/search`}
+            className="mt-5 inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Browse businesses in {country?.name ?? 'this country'}
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
-  const todayLabel = DAY_LABELS[new Date().toLocaleDateString('en-US', { weekday: 'short' }).toLowerCase()]
+  const staff: Staff[] = [
+    {
+      id: 'st1', businessId: business.id, userId: '', name: `${business.name.split(' ')[0]} Team Lead`,
+      role: 'Lead Provider', email: '', phone: business.contact.phone, avatarUrl: '',
+      schedule: defaultSchedule(), serviceIds: services.slice(0, 2).map((s) => s.id),
+      isActive: true, bio: `Lead at ${business.name}, ensuring top quality service in ${business.address.city}.`,
+      rating: Math.min(5, business.rating + 0.1), createdAt: '', updatedAt: '',
+    },
+    {
+      id: 'st2', businessId: business.id, userId: '', name: `${business.address.city} Specialist`,
+      role: 'Service Specialist', email: '', phone: business.contact.phone, avatarUrl: '',
+      schedule: defaultSchedule(), serviceIds: services.slice(2).map((s) => s.id),
+      isActive: true, bio: `Focused on delivering ${business.category} excellence to every customer.`,
+      rating: business.rating, createdAt: '', updatedAt: '',
+    },
+  ]
+
+  const reviews: Review[] = [
+    {
+      id: 'r1', businessId: business.id, userId: 'u1', targetType: 'business', targetId: business.id,
+      rating: Math.min(5, Math.round(business.rating)), title: 'Excellent service', isVerifiedPurchase: true,
+      body: `Booked ${services[0]?.name ?? business.category} and the experience was fantastic. Prompt, professional and great value for money.`,
+      images: [], isApproved: true, createdAt: new Date(NOW - 3 * 86400000).toISOString(), updatedAt: '',
+    },
+    {
+      id: 'r2', businessId: business.id, userId: 'u2', targetType: 'business', targetId: business.id,
+      rating: Math.max(3, Math.round(business.rating) - 1), title: 'Great experience', isVerifiedPurchase: false,
+      body: `Really enjoyed the ${services[1]?.name ?? 'service'} — friendly team and smooth booking through AfriBook.`,
+      images: [], isApproved: true, createdAt: new Date(NOW - 6 * 86400000).toISOString(), updatedAt: '',
+    },
+    {
+      id: 'r3', businessId: business.id, userId: 'u3', targetType: 'business', targetId: business.id,
+      rating: Math.min(5, Math.round(business.rating)), title: 'Highly recommended', isVerifiedPurchase: true,
+      body: `I have used ${business.name} for months now. Consistent quality and excellent customer service every single time.`,
+      images: [], isApproved: true, createdAt: new Date(NOW - 9 * 86400000).toISOString(), updatedAt: '',
+    },
+  ]
+
+  const galleryImages = CATEGORY_IMAGES[business.category] ?? FALLBACK_IMAGES
+  const startingPrice = services.length > 0 ? Math.min(...services.map((s) => s.price)) : 0
+
+  const todayLabel = DAY_LABELS[getWeekdayKey(new Date(), country?.timezone)]
   const todayHours = business.hours.find((h) => DAY_LABELS[h.day] === todayLabel)
   const isOpen = todayHours && !todayHours.isClosed
+  const localTime = formatInTimezone(new Date(), country?.timezone)
 
   const tabs = [
     { id: 'services', label: 'Services', icon: Scissors },
@@ -170,11 +258,12 @@ export default function BusinessDetailPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <MapPin className="w-4 h-4" />
-                  {business.address.city}, {business.address.state}
+                  {business.address.city}, {business.address.state || country?.name}
                 </span>
                 <span className={cn('flex items-center gap-1', isOpen ? 'text-emerald-500' : 'text-red-500')}>
                   <span className={cn('w-2 h-2 rounded-full', isOpen ? 'bg-emerald-500' : 'bg-red-500')} />
                   {isOpen ? `Open - closes ${todayHours?.close}` : 'Closed'}
+                  <span className="text-text-tertiary">({localTime} {country?.name})</span>
                 </span>
               </div>
 
@@ -212,17 +301,24 @@ export default function BusinessDetailPage() {
                 {/* Services Tab */}
                 {activeTab === 'services' && (
                   <div className="space-y-4">
-                    {services.map((service, i) => (
-                      <ServiceCard
-                        key={service.id}
-                        service={service}
-                        countryCode={countryCode}
-                        businessSlug={business.id}
-                        staffCount={staff.filter((s) => s.serviceIds.includes(service.id)).length}
-                        index={i}
-                        onBook={(s) => router.push(`/${params?.country}/book/${business.id}/${s.id}`)}
-                      />
-                    ))}
+                    {services.length > 0 ? (
+                      services.map((service, i) => (
+                        <ServiceCard
+                          key={service.id}
+                          service={service}
+                          countryCode={countryCode}
+                          businessSlug={business.id}
+                          staffCount={staff.filter((s) => s.serviceIds.includes(service.id)).length}
+                          index={i}
+                          onBook={(s) => router.push(`/${params?.country}/book/${business.id}/${s.id}`)}
+                        />
+                      ))
+                    ) : (
+                      <div className="text-center py-12 text-text-secondary">
+                        <p className="font-medium">No services listed yet</p>
+                        <p className="text-sm mt-1">Check back soon for available services.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -234,14 +330,7 @@ export default function BusinessDetailPage() {
                       <p className="text-sm text-text-secondary mb-4">Browse through our latest projects, transformations, and deliveries.</p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {[
-                        'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1590779033100-9f8a05c1b5e6?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&h=400&fit=crop',
-                        'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=400&fit=crop',
-                      ].map((img, i) => (
+                      {galleryImages.map((img, i) => (
                         <div key={i} className="aspect-square rounded-xl overflow-hidden bg-surface-secondary border border-border group cursor-pointer">
                           <img src={img} alt={`Portfolio ${i + 1}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
                         </div>
@@ -254,8 +343,8 @@ export default function BusinessDetailPage() {
                       </h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         {[
-                          { title: 'Fresh Produce Selection Process', duration: '2:30' },
-                          { title: 'Farm to Table Journey', duration: '4:15' },
+                          { title: `${business.category} at ${business.name}`, duration: '2:30' },
+                          { title: `${business.name} Experience`, duration: '4:15' },
                         ].map((video, i) => (
                           <div key={i} className="rounded-xl overflow-hidden bg-surface-secondary border border-border group cursor-pointer">
                             <div className="aspect-video bg-gradient-to-br from-amber-500/10 to-orange-500/10 flex items-center justify-center relative">
@@ -433,7 +522,7 @@ export default function BusinessDetailPage() {
                 <div className="space-y-1.5">
                   {DAY_ORDER.slice(0, showAllHours ? 7 : 5).map((day) => {
                     const h = business.hours.find((bh) => bh.day === day)
-                    const isToday = DAY_LABELS[day] === new Date().toLocaleDateString('en-US', { weekday: 'short' })
+                    const isToday = DAY_LABELS[day] === todayLabel
                     return (
                       <div key={day} className={cn('flex items-center justify-between text-sm', isToday && 'font-semibold text-text-primary')}>
                         <span className={isToday ? 'text-text-primary' : 'text-text-secondary'}>{DAY_LABELS[day]}</span>
@@ -498,20 +587,22 @@ export default function BusinessDetailPage() {
       </div>
 
       {/* Sticky mobile booking CTA */}
-      <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-surface border-t border-border p-4 z-30">
-        <div className="flex items-center justify-between gap-4 max-w-lg mx-auto">
-          <div>
-            <p className="text-xs text-text-secondary">Starting from</p>
-            <p className="font-bold text-text-primary">{formatCurrency(3500, country?.currency.code ?? 'NGN')}</p>
+      {services.length > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 lg:hidden bg-surface border-t border-border p-4 z-30">
+          <div className="flex items-center justify-between gap-4 max-w-lg mx-auto">
+            <div>
+              <p className="text-xs text-text-secondary">Starting from</p>
+              <p className="font-bold text-text-primary">{formatCurrency(startingPrice, country?.currency.code ?? 'NGN')}</p>
+            </div>
+            <button
+              onClick={() => router.push(`/${params?.country}/book/${business.id}/${services[0].id}`)}
+              className="flex-1 py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors shadow-sm"
+            >
+              Book Now
+            </button>
           </div>
-          <button
-            onClick={() => { setShowMobileBook(true); router.push(`/${params?.country}/book/${business.id}/s1`) }}
-            className="flex-1 py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors shadow-sm"
-          >
-            Book Now
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Share toast */}
       <AnimatePresence>

@@ -1,11 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import { Globe, Mail, MapPin } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { COUNTRIES } from '@/lib/localization/countries'
 import { useState } from 'react'
+import { useCountry } from './CountryProvider'
 
 const FOOTER_LINKS = {
   Company: [
@@ -39,20 +38,16 @@ const FOOTER_LINKS = {
   ],
 }
 
-const PAYMENT_METHODS = [
-  { id: 'visa', label: 'Visa' },
-  { id: 'mastercard', label: 'Mastercard' },
-  { id: 'paypal', label: 'PayPal' },
-  { id: 'mpesa', label: 'M-Pesa' },
-  { id: 'paystack', label: 'Paystack' },
-  { id: 'flutterwave', label: 'Flutterwave' },
-  { id: 'stripe', label: 'Stripe' },
-  { id: 'razorpay', label: 'Razorpay' },
-]
-
 export default function Footer() {
   const [email, setEmail] = useState('')
-  const [selectedCountry, setSelectedCountry] = useState('NG')
+  const { countryCode, country, setCountry } = useCountry()
+  const paymentMethods = country.paymentMethods.length > 0
+    ? country.paymentMethods
+    : [
+        { id: 'visa', name: 'Visa', icon: 'credit-card' },
+        { id: 'mastercard', name: 'Mastercard', icon: 'credit-card' },
+        { id: 'paypal', name: 'PayPal', icon: 'credit-card' },
+      ]
 
   const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,8 +133,8 @@ export default function Footer() {
             <div className="flex items-center gap-2">
               <MapPin className="w-4 h-4 text-white/40" />
               <select
-                value={selectedCountry}
-                onChange={(e) => setSelectedCountry(e.target.value)}
+                value={countryCode}
+                onChange={(e) => setCountry(e.target.value)}
                 className="bg-white/10 border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500/50 cursor-pointer"
               >
                 {Object.values(COUNTRIES).map((c) => (
@@ -172,12 +167,12 @@ export default function Footer() {
           {/* Payment methods */}
           <div className="flex flex-wrap items-center justify-center gap-4 mt-8 pt-6 border-t border-white/10">
             <span className="text-xs text-white/40 uppercase tracking-wider">We Accept</span>
-            {PAYMENT_METHODS.map((pm) => (
+            {paymentMethods.map((pm) => (
               <span
                 key={pm.id}
                 className="px-3 py-1.5 rounded-md bg-white/5 text-xs text-white/50 font-medium"
               >
-                {pm.label}
+                {pm.name}
               </span>
             ))}
           </div>

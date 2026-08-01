@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     template: '%s | AfriBook',
   },
   description:
-    'Book services, order products, request rides, and get deliveries across 16+ countries. Africa\'s global marketplace.',
+    'Book services, order products, request rides, and get deliveries across 196 countries. Africa\'s global marketplace.',
   keywords: [
     'AfriBook', 'marketplace', 'Africa', 'services', 'booking',
     'food delivery', 'rides', 'ecommerce', 'M-Pesa', 'Paystack',
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'AfriBook — Africa\'s Global Marketplace',
     description:
-      'Book services, order products, request rides, and get deliveries across 16+ countries.',
+      'Book services, order products, request rides, and get deliveries across 196 countries.',
     type: 'website',
     locale: 'en_US',
     siteName: 'AfriBook',
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'AfriBook — Africa\'s Global Marketplace',
     description:
-      'Book services, order products, request rides, and get deliveries across 16+ countries.',
+      'Book services, order products, request rides, and get deliveries across 196 countries.',
   },
   robots: { index: true, follow: true },
   manifest: '/manifest.webmanifest',

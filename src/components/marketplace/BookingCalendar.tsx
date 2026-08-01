@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
 import { DayPicker } from 'react-day-picker'
-import { ChevronLeft, ChevronRight, Clock, Check, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Clock, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toTimezoneDate } from '@/lib/time'
 
 import 'react-day-picker/style.css'
 
@@ -30,16 +30,16 @@ interface BookingCalendarProps {
   staffSlots?: StaffSlot[]
   selectedStaffId?: string
   onStaffSelect?: (staffId: string) => void
+  timezone?: string
   className?: string
 }
 
-function generateTimeSlots(open: string, close: string, duration: number, bookedTimes?: string[]): TimeSlot[] {
+function generateTimeSlots(open: string, close: string, duration: number, now: Date, bookedTimes?: string[]): TimeSlot[] {
   const [openH, openM] = open.split(':').map(Number)
   const [closeH, closeM] = close.split(':').map(Number)
   const openMin = openH * 60 + openM
   const closeMin = closeH * 60 + closeM
   const slots: TimeSlot[] = []
-  const now = new Date()
   const currentMin = now.getHours() * 60 + now.getMinutes()
 
   for (let m = openMin; m + duration <= closeMin; m += duration + 15) {
@@ -58,9 +58,7 @@ function generateTimeSlots(open: string, close: string, duration: number, booked
   return slots
 }
 
-function getDisabledDays(date: Date): boolean {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+function getDisabledDays(date: Date, today: Date): boolean {
   const check = new Date(date)
   check.setHours(0, 0, 0, 0)
   const diffDays = Math.floor((check.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
@@ -77,14 +75,17 @@ export default function BookingCalendar({
   staffSlots,
   selectedStaffId,
   onStaffSelect,
+  timezone,
   className,
 }: BookingCalendarProps) {
-  const today = new Date()
+  const localNow = toTimezoneDate(new Date(), timezone)
+  const today = new Date(localNow)
+  today.setHours(0, 0, 0, 0)
   const [month, setMonth] = useState<Date>(today)
 
   const timeSlots = useMemo(
-    () => generateTimeSlots(businessHours.open, businessHours.close, duration),
-    [businessHours, duration],
+    () => generateTimeSlots(businessHours.open, businessHours.close, duration, localNow),
+    [businessHours, duration, localNow],
   )
 
   const handleDateSelect = (date: Date | undefined) => {
@@ -126,7 +127,7 @@ export default function BookingCalendar({
             onSelect={handleDateSelect}
             month={month}
             onMonthChange={setMonth}
-            disabled={getDisabledDays}
+            disabled={(date) => getDisabledDays(date, today)}
             showOutsideDays={false}
             classNames={{
               root: 'w-full',
@@ -144,7 +145,7 @@ export default function BookingCalendar({
               day_selected: '!bg-amber-500 !text-white hover:!bg-amber-600',
               day_disabled: '!text-text-tertiary !opacity-30 !cursor-not-allowed !hover:bg-transparent',
               day_today: 'font-bold text-amber-500',
-            } as any}
+            } as unknown as React.ComponentProps<typeof DayPicker>['classNames']}
             components={{
               Chevron: ({ orientation }) => (
                 orientation === 'left' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />

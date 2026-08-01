@@ -1,28 +1,24 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Globe, Search, X, Menu, ChevronDown, User, ShoppingBag,
+  Globe, Search, X, Menu, ChevronDown, ShoppingBag,
   Package, LogOut, Settings, Heart, Bell, Store, Truck, Utensils, Calendar,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/stores/auth-store'
-import { useUIStore } from '@/stores/ui-store'
-import { useIsMobile } from '@/hooks/useMediaQuery'
-import { COUNTRIES } from '@/lib/localization/countries'
 import { useAuth } from '@/hooks/useAuth'
+import { useCountry } from './CountryProvider'
 import MobileNav from './MobileNav'
 import CountrySelector from './CountrySelector'
 
 const NAV_LINKS = [
-  { label: 'Marketplace', href: '/marketplace', icon: ShoppingBag },
-  { label: 'Events', href: '/events', icon: Calendar },
-  { label: 'Sell', href: '/sell', icon: Store },
-  { label: 'Rides', href: '/rides', icon: Truck },
-  { label: 'Food', href: '/food', icon: Utensils },
-  { label: 'Deliveries', href: '/deliveries', icon: Package },
+  { label: 'Marketplace', href: '/search', icon: ShoppingBag, category: '' },
+  { label: 'Events', href: '/search', icon: Calendar, category: 'Entertainment' },
+  { label: 'Food', href: '/search', icon: Utensils, category: 'Food & Dining' },
+  { label: 'Rides', href: '/search', icon: Truck, category: 'Transportation' },
+  { label: 'Deliveries', href: '/search', icon: Package, category: 'Logistics' },
 ]
 
 export default function Header() {
@@ -34,8 +30,8 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const userMenuRef = useRef<HTMLDivElement>(null)
-  const isMobile = useIsMobile()
   const { user, authenticated, signOut } = useAuth()
+  const { countryCode, country: selectedCountry } = useCountry()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
@@ -52,29 +48,6 @@ export default function Header() {
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)
   }, [])
-
-  const getCountryFromCookie = (): string => {
-    if (typeof document === 'undefined') return 'NG'
-    const match = document.cookie.match(/country=([A-Z]{2})/)
-    return match?.[1] ?? 'NG'
-  }
-
-  const getCountryFromUrl = (): string => {
-    if (typeof window === 'undefined') return 'NG'
-    const pathParts = window.location.pathname.split('/')
-    const candidate = pathParts[1]?.toUpperCase()
-    if (candidate && COUNTRIES[candidate]) return candidate
-    return 'NG'
-  }
-
-  const [selectedCountryCode, setSelectedCountryCode] = useState('NG')
-
-  useEffect(() => {
-    const code = getCountryFromUrl() || getCountryFromCookie()
-    setSelectedCountryCode(code)
-  }, [])
-
-  const selectedCountry = COUNTRIES[selectedCountryCode] ?? Object.values(COUNTRIES).find((c) => c.subdomain === 'ng')
 
   return (
     <>
@@ -103,8 +76,8 @@ export default function Header() {
             <nav className="hidden lg:flex items-center gap-1">
               {NAV_LINKS.map((link) => (
                 <Link
-                  key={link.href}
-                  href={link.href}
+                  key={`${link.label}-${link.category}`}
+                  href={`/${countryCode}${link.href}${link.category ? `?category=${encodeURIComponent(link.category)}` : ''}`}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     scrolled
@@ -116,6 +89,18 @@ export default function Header() {
                   {link.label}
                 </Link>
               ))}
+              <Link
+                href="/sell"
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  scrolled
+                    ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                )}
+              >
+                <Store className="w-4 h-4" />
+                Sell
+              </Link>
             </nav>
 
             {/* Right section */}

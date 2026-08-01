@@ -2,10 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
-  ChevronLeft, Shield, Check, Clock, MapPin, User, CreditCard,
-  Tag, Info, AlertCircle, Sparkles,
+  ChevronLeft, Shield, Check, Clock, MapPin, User,
+  Sparkles,
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { getCountryConfig } from '@/lib/localization'
@@ -145,6 +145,7 @@ export default function BookingPage() {
                   staffSlots={staffSlots}
                   selectedStaffId={selectedStaff}
                   onStaffSelect={setSelectedStaff}
+                  timezone={country?.timezone}
                 />
 
                 <div className="flex justify-end mt-8">

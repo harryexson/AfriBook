@@ -3,9 +3,9 @@
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Search, Globe, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { COUNTRIES } from '@/lib/localization/countries'
 import type { CountryConfig } from '@/lib/localization/countries'
+import { useCountry } from './CountryProvider'
 
 interface CountrySelectorProps {
   open: boolean
@@ -16,6 +16,7 @@ const countryList = Object.values(COUNTRIES)
 
 export default function CountrySelector({ open, onClose }: CountrySelectorProps) {
   const [search, setSearch] = useState('')
+  const { setCountry } = useCountry()
 
   const filtered = useMemo(
     () =>
@@ -29,7 +30,8 @@ export default function CountrySelector({ open, onClose }: CountrySelectorProps)
   )
 
   const handleSelect = (country: CountryConfig) => {
-    window.location.href = `https://${country.domain}`
+    onClose()
+    setCountry(country.code)
   }
 
   return (
@@ -84,7 +86,7 @@ export default function CountrySelector({ open, onClose }: CountrySelectorProps)
             <div className="flex-1 overflow-y-auto px-6 py-4">
               {filtered.length === 0 ? (
                 <div className="text-center py-8 text-text-tertiary text-sm">
-                  No countries found matching "{search}"
+                  No countries found matching &quot;{search}&quot;
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -113,7 +115,7 @@ export default function CountrySelector({ open, onClose }: CountrySelectorProps)
             {/* Footer info */}
             <div className="px-6 py-3 border-t border-border bg-surface-secondary">
               <p className="text-xs text-text-tertiary text-center">
-                You'll be redirected to the country-specific experience
+                You&apos;ll be taken to the country-specific experience
               </p>
             </div>
           </motion.div>

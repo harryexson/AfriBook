@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, X, ShoppingBag, Store, Truck, Utensils, Package,
-  LogIn, UserPlus, Heart, HelpCircle, ChevronRight, Calendar,
+  LogIn, Heart, HelpCircle, ChevronRight, Calendar,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
+import { useCountry } from './CountryProvider'
 
 interface MobileNavProps {
   open: boolean
@@ -16,12 +16,12 @@ interface MobileNavProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Marketplace', href: '/marketplace', icon: ShoppingBag },
-  { label: 'Events', href: '/events', icon: Calendar },
-  { label: 'Sell', href: '/sell', icon: Store },
-  { label: 'Rides', href: '/rides', icon: Truck },
-  { label: 'Food', href: '/food', icon: Utensils },
-  { label: 'Deliveries', href: '/deliveries', icon: Package },
+  { label: 'Marketplace', href: '/search', icon: ShoppingBag, category: '' },
+  { label: 'Events', href: '/search', icon: Calendar, category: 'Entertainment' },
+  { label: 'Sell', href: '/sell', icon: Store, category: null },
+  { label: 'Rides', href: '/search', icon: Truck, category: 'Transportation' },
+  { label: 'Food', href: '/search', icon: Utensils, category: 'Food & Dining' },
+  { label: 'Deliveries', href: '/search', icon: Package, category: 'Logistics' },
 ]
 
 const ACCOUNT_ITEMS = [
@@ -31,6 +31,7 @@ const ACCOUNT_ITEMS = [
 
 export default function MobileNav({ open, onClose }: MobileNavProps) {
   const { user, authenticated } = useAuth()
+  const { countryCode, country } = useCountry()
 
   useEffect(() => {
     if (open) document.body.style.overflow = 'hidden'
@@ -126,8 +127,10 @@ export default function MobileNav({ open, onClose }: MobileNavProps) {
                   </p>
                   {NAV_ITEMS.map((item) => (
                     <Link
-                      key={item.href}
-                      href={item.href}
+                      key={`${item.label}-${item.category}`}
+                      href={item.category === null
+                        ? item.href
+                        : `/${countryCode}${item.href}${item.category ? `?category=${encodeURIComponent(item.category)}` : ''}`}
                       onClick={onClose}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors"
                     >
@@ -159,7 +162,7 @@ export default function MobileNav({ open, onClose }: MobileNavProps) {
               {/* Country badge */}
               <div className="px-5 py-4 border-t border-border">
                 <p className="text-xs text-text-tertiary text-center">
-                  Available in <span className="text-amber-500 font-semibold">16+</span> countries worldwide
+                  Serving {country.flag} <span className="text-amber-500 font-semibold">{country.name}</span> in {countryCode}
                 </p>
               </div>
             </div>

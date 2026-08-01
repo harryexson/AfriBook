@@ -1,258 +1,168 @@
-'use client'
-
-import { useMemo, useState, useCallback } from 'react'
-import { useParams } from 'next/navigation'
-import { motion } from 'framer-motion'
+import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import Link from 'next/link'
 import {
   Search, MapPin, Star, Users, ShoppingBag, ArrowRight,
-  TrendingUp, Sparkles, Clock, ChevronRight, Store, Heart,
-  Copy, Check,
+  TrendingUp, Sparkles, Clock, ChevronRight, Store, Heart, Calendar, Zap,
 } from 'lucide-react'
-import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { getCountryConfig } from '@/lib/localization'
+import { getCountryConfig, formatPrice } from '@/lib/localization'
 import type { CountryConfig } from '@/lib/localization/countries'
+import {
+  getCountryBusinesses,
+  getCountryServices,
+  getCountryStats,
+  getAllCountryCodes,
+} from '@/lib/countries-data'
 import BusinessCard from '@/components/marketplace/BusinessCard'
-import type { Business } from '@/types'
+import PromoCard, { type PromoConfig } from '@/components/marketplace/PromoCard'
+import type { Business, Service } from '@/types'
 
-const COUNTRY_BUSINESSES: Record<string, Business[]> = {
-  NG: [
-    { id: 'ng-1', name: 'Lagos Fresh Market', description: 'Premium fresh produce delivered to your doorstep. We source directly from local farmers across Nigeria to bring you the freshest fruits, vegetables, and organic goods.', category: 'Food & Dining', countryCode: 'NG', ownerId: '', address: { street: '12 Ahmadu Bello Way', city: 'Lagos', state: 'Lagos', postalCode: '100001', countryCode: 'NG', formatted: '12 Ahmadu Bello Way, Lagos', geoPoint: { latitude: 6.5244, longitude: 3.3792 } }, location: { latitude: 6.5244, longitude: 3.3792 }, contact: { phone: '+234 800 123 4567', email: 'hello@lagosfreshmarket.ng' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '07:00', close: '20:00', isClosed: false }, { day: 'tue', open: '07:00', close: '20:00', isClosed: false }, { day: 'wed', open: '07:00', close: '20:00', isClosed: false }, { day: 'thu', open: '07:00', close: '20:00', isClosed: false }, { day: 'fri', open: '07:00', close: '21:00', isClosed: false }, { day: 'sat', open: '08:00', close: '21:00', isClosed: false }, { day: 'sun', open: '09:00', close: '18:00', isClosed: false }], status: 'active', rating: 4.8, reviewCount: 234, qrBookingUrl: '', tags: ['groceries', 'fresh', 'organic', 'delivery'], deliveryAvailable: true, deliveryRadiusKm: 15, minimumOrder: 2000, commissionRate: 0.08, createdAt: '', updatedAt: '' },
-    { id: 'ng-2', name: 'Lekki Beauty Studio', description: 'Full-service beauty salon offering hairstyling, makeup, nails, and skincare treatments.', category: 'Beauty & Wellness', countryCode: 'NG', ownerId: '', address: { street: '45 Admiralty Way', city: 'Lekki', state: 'Lagos', postalCode: '100005', countryCode: 'NG', formatted: '45 Admiralty Way, Lekki, Lagos', geoPoint: { latitude: 6.4281, longitude: 3.4219 } }, location: { latitude: 6.4281, longitude: 3.4219 }, contact: { phone: '+234 800 987 6543', email: 'book@lekki-beauty.ng' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '08:00', close: '19:00', isClosed: false }, { day: 'tue', open: '08:00', close: '19:00', isClosed: false }, { day: 'wed', open: '08:00', close: '19:00', isClosed: false }, { day: 'thu', open: '08:00', close: '19:00', isClosed: false }, { day: 'fri', open: '08:00', close: '20:00', isClosed: false }, { day: 'sat', open: '09:00', close: '18:00', isClosed: false }, { day: 'sun', open: '00:00', close: '00:00', isClosed: true }], status: 'active', rating: 4.9, reviewCount: 189, qrBookingUrl: '', tags: ['salon', 'beauty', 'hair', 'nails'], deliveryAvailable: false, deliveryRadiusKm: 0, minimumOrder: 0, commissionRate: 0.1, createdAt: '', updatedAt: '' },
-    { id: 'ng-3', name: 'Abuja Tech Hub', description: 'Computer repairs, IT consulting, web development, and digital services for businesses and individuals.', category: 'Technology', countryCode: 'NG', ownerId: '', address: { street: '10 Shehu Shagari Way', city: 'Abuja', state: 'FCT', postalCode: '900001', countryCode: 'NG', formatted: '10 Shehu Shagari Way, Abuja', geoPoint: { latitude: 9.0579, longitude: 7.4951 } }, location: { latitude: 9.0579, longitude: 7.4951 }, contact: { phone: '+234 800 555 1234', email: 'info@abujatech.ng' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '09:00', close: '18:00', isClosed: false }, { day: 'tue', open: '09:00', close: '18:00', isClosed: false }, { day: 'wed', open: '09:00', close: '18:00', isClosed: false }, { day: 'thu', open: '09:00', close: '18:00', isClosed: false }, { day: 'fri', open: '09:00', close: '17:00', isClosed: false }, { day: 'sat', open: '10:00', close: '15:00', isClosed: false }, { day: 'sun', open: '00:00', close: '00:00', isClosed: true }], status: 'active', rating: 4.7, reviewCount: 98, qrBookingUrl: '', tags: ['tech', 'repairs', 'consulting', 'web'], deliveryAvailable: true, deliveryRadiusKm: 10, minimumOrder: 0, commissionRate: 0.1, createdAt: '', updatedAt: '' },
-    { id: 'ng-4', name: 'Lagos Fashion House', description: 'Bespoke tailoring, ready-to-wear African fashion, and custom designs.', category: 'Fashion & Tailoring', countryCode: 'NG', ownerId: '', address: { street: '22 Awolowo Road', city: 'Lagos', state: 'Lagos', postalCode: '100002', countryCode: 'NG', formatted: '22 Awolowo Road, Ikoyi, Lagos', geoPoint: { latitude: 6.4478, longitude: 3.4323 } }, location: { latitude: 6.4478, longitude: 3.4323 }, contact: { phone: '+234 800 333 4444', email: 'style@lagosfashion.ng' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '09:00', close: '19:00', isClosed: false }, { day: 'tue', open: '09:00', close: '19:00', isClosed: false }, { day: 'wed', open: '09:00', close: '19:00', isClosed: false }, { day: 'thu', open: '09:00', close: '19:00', isClosed: false }, { day: 'fri', open: '09:00', close: '20:00', isClosed: false }, { day: 'sat', open: '09:00', close: '18:00', isClosed: false }, { day: 'sun', open: '00:00', close: '00:00', isClosed: true }], status: 'active', rating: 4.6, reviewCount: 142, qrBookingUrl: '', tags: ['fashion', 'tailoring', 'african', 'bespoke'], deliveryAvailable: true, deliveryRadiusKm: 5, minimumOrder: 5000, commissionRate: 0.1, createdAt: '', updatedAt: '' },
-  ],
-  KE: [
-    { id: 'ke-1', name: 'Nairobi Beauty Studio', description: 'Premium beauty and wellness services including hairstyling, makeup, massage, and skincare.', category: 'Beauty & Wellness', countryCode: 'KE', ownerId: '', address: { street: '100 Moi Avenue', city: 'Nairobi', state: 'Nairobi', postalCode: '00100', countryCode: 'KE', formatted: '100 Moi Avenue, Nairobi', geoPoint: { latitude: -1.2864, longitude: 36.8172 } }, location: { latitude: -1.2864, longitude: 36.8172 }, contact: { phone: '+254 700 123 456', email: 'hello@nairobi-beauty.ke' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '08:00', close: '20:00', isClosed: false }, { day: 'tue', open: '08:00', close: '20:00', isClosed: false }, { day: 'wed', open: '08:00', close: '20:00', isClosed: false }, { day: 'thu', open: '08:00', close: '20:00', isClosed: false }, { day: 'fri', open: '08:00', close: '21:00', isClosed: false }, { day: 'sat', open: '09:00', close: '19:00', isClosed: false }, { day: 'sun', open: '10:00', close: '16:00', isClosed: false }], status: 'active', rating: 4.9, reviewCount: 312, qrBookingUrl: '', tags: ['beauty', 'salon', 'wellness', 'spa'], deliveryAvailable: false, deliveryRadiusKm: 0, minimumOrder: 0, commissionRate: 0.1, createdAt: '', updatedAt: '' },
-    { id: 'ke-2', name: 'Mama Mboga Farm Fresh', description: 'Farm-to-table organic produce delivered straight from Kiambu farms to your kitchen.', category: 'Food & Dining', countryCode: 'KE', ownerId: '', address: { street: '50 Kenyatta Market', city: 'Nairobi', state: 'Nairobi', postalCode: '00200', countryCode: 'KE', formatted: '50 Kenyatta Market, Nairobi', geoPoint: { latitude: -1.2921, longitude: 36.8219 } }, location: { latitude: -1.2921, longitude: 36.8219 }, contact: { phone: '+254 711 222 333', email: 'orders@mamamboga.ke' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '06:00', close: '18:00', isClosed: false }, { day: 'tue', open: '06:00', close: '18:00', isClosed: false }, { day: 'wed', open: '06:00', close: '18:00', isClosed: false }, { day: 'thu', open: '06:00', close: '18:00', isClosed: false }, { day: 'fri', open: '06:00', close: '19:00', isClosed: false }, { day: 'sat', open: '06:00', close: '17:00', isClosed: false }, { day: 'sun', open: '07:00', close: '14:00', isClosed: false }], status: 'active', rating: 4.7, reviewCount: 189, qrBookingUrl: '', tags: ['organic', 'farm', 'groceries', 'fresh'], deliveryAvailable: true, deliveryRadiusKm: 20, minimumOrder: 500, commissionRate: 0.08, createdAt: '', updatedAt: '' },
-    { id: 'ke-3', name: 'M-Pesa Tech Solutions', description: 'Mobile money integration, fintech consulting, and digital payment solutions for businesses.', category: 'Technology', countryCode: 'KE', ownerId: '', address: { street: '5 Upper Hill Road', city: 'Nairobi', state: 'Nairobi', postalCode: '00300', countryCode: 'KE', formatted: '5 Upper Hill Road, Nairobi', geoPoint: { latitude: -1.3005, longitude: 36.8154 } }, location: { latitude: -1.3005, longitude: 36.8154 }, contact: { phone: '+254 722 444 555', email: 'info@mpesa-tech.ke' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '08:00', close: '17:00', isClosed: false }, { day: 'tue', open: '08:00', close: '17:00', isClosed: false }, { day: 'wed', open: '08:00', close: '17:00', isClosed: false }, { day: 'thu', open: '08:00', close: '17:00', isClosed: false }, { day: 'fri', open: '08:00', close: '16:00', isClosed: false }, { day: 'sat', open: '00:00', close: '00:00', isClosed: true }, { day: 'sun', open: '00:00', close: '00:00', isClosed: true }], status: 'active', rating: 4.8, reviewCount: 76, qrBookingUrl: '', tags: ['fintech', 'mobile', 'payments', 'consulting'], deliveryAvailable: false, deliveryRadiusKm: 0, minimumOrder: 0, commissionRate: 0.1, createdAt: '', updatedAt: '' },
-  ],
-  GH: [
-    { id: 'gh-1', name: 'Accra Fashion House', description: 'Contemporary African fashion, bespoke tailoring, and ready-to-wear collections.', category: 'Fashion & Tailoring', countryCode: 'GH', ownerId: '', address: { street: '15 Oxford Street', city: 'Accra', state: 'Greater Accra', postalCode: 'GA001', countryCode: 'GH', formatted: '15 Oxford Street, Osu, Accra', geoPoint: { latitude: 5.5557, longitude: -0.2011 } }, location: { latitude: 5.5557, longitude: -0.2011 }, contact: { phone: '+233 30 123 4567', email: 'hello@accrafashion.gh' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '09:00', close: '19:00', isClosed: false }, { day: 'tue', open: '09:00', close: '19:00', isClosed: false }, { day: 'wed', open: '09:00', close: '19:00', isClosed: false }, { day: 'thu', open: '09:00', close: '19:00', isClosed: false }, { day: 'fri', open: '09:00', close: '20:00', isClosed: false }, { day: 'sat', open: '09:00', close: '18:00', isClosed: false }, { day: 'sun', open: '12:00', close: '16:00', isClosed: false }], status: 'active', rating: 4.6, reviewCount: 142, qrBookingUrl: '', tags: ['fashion', 'tailoring', 'african', 'couture'], deliveryAvailable: true, deliveryRadiusKm: 10, minimumOrder: 200, commissionRate: 0.1, createdAt: '', updatedAt: '' },
-    { id: 'gh-2', name: 'Kumasi AgroConnect', description: 'Connecting farmers with buyers. Fresh cocoa, cashew, maize, and vegetables from the Ashanti Region.', category: 'Agriculture', countryCode: 'GH', ownerId: '', address: { street: 'Kejetia Market Rd', city: 'Kumasi', state: 'Ashanti', postalCode: 'AK001', countryCode: 'GH', formatted: 'Kejetia Market Rd, Kumasi', geoPoint: { latitude: 6.6985, longitude: -1.6235 } }, location: { latitude: 6.6985, longitude: -1.6235 }, contact: { phone: '+233 50 987 6543', email: 'info@kumasiagro.gh' }, media: { galleryUrls: [] }, hours: [{ day: 'mon', open: '06:00', close: '17:00', isClosed: false }, { day: 'tue', open: '06:00', close: '17:00', isClosed: false }, { day: 'wed', open: '06:00', close: '17:00', isClosed: false }, { day: 'thu', open: '06:00', close: '17:00', isClosed: false }, { day: 'fri', open: '06:00', close: '16:00', isClosed: false }, { day: 'sat', open: '06:00', close: '15:00', isClosed: false }, { day: 'sun', open: '00:00', close: '00:00', isClosed: true }], status: 'active', rating: 4.5, reviewCount: 87, qrBookingUrl: '', tags: ['agriculture', 'farming', 'cocoa', 'organic'], deliveryAvailable: true, deliveryRadiusKm: 50, minimumOrder: 1000, commissionRate: 0.05, createdAt: '', updatedAt: '' },
-  ],
+export function generateStaticParams() {
+  return getAllCountryCodes().map((code) => ({ country: code }))
 }
 
-const COUNTRY_STATS: Record<string, { businesses: string; bookings: string; users: string }> = {
-  NG: { businesses: '12,500+', bookings: '85,000+', users: '450,000+' },
-  KE: { businesses: '8,200+', bookings: '52,000+', users: '280,000+' },
-  GH: { businesses: '5,100+', bookings: '31,000+', users: '175,000+' },
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ country: string }>
+}): Promise<Metadata> {
+  const { country } = await params
+  const countryConfig = getCountryConfig(country.toUpperCase())
+  if (!countryConfig) return {}
+
+  const description = `Book trusted local services, order products, request rides, and get deliveries in ${countryConfig.name}. Join ${countryConfig.flag} ${countryConfig.name} on AfriBook.`
+
+  return {
+    title: `${countryConfig.name} — Services, Bookings & Delivery`,
+    description,
+    keywords: [
+      countryConfig.name,
+      `${countryConfig.name} services`,
+      `${countryConfig.name} booking`,
+      `${countryConfig.name} delivery`,
+      'AfriBook',
+      'local services',
+    ],
+    openGraph: {
+      title: `${countryConfig.name} on AfriBook`,
+      description,
+      type: 'website',
+      locale: 'en_US',
+      siteName: 'AfriBook',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: `${countryConfig.name} on AfriBook`,
+      description,
+    },
+  }
 }
 
-const HERO_GRADIENTS: Record<string, string> = {
-  NG: 'from-green-600 to-emerald-800',
-  KE: 'from-red-600 to-amber-800',
-  GH: 'from-yellow-600 to-red-800',
-  ZA: 'from-blue-600 to-indigo-800',
-  EG: 'from-red-700 to-amber-900',
-  TZ: 'from-cyan-600 to-teal-800',
-  UG: 'from-yellow-700 to-orange-800',
-  MW: 'from-red-600 to-green-800',
-  US: 'from-blue-600 to-indigo-800',
-  GB: 'from-blue-700 to-red-800',
-  IN: 'from-orange-600 to-green-800',
-  AE: 'from-red-600 to-amber-800',
-  DE: 'from-yellow-700 to-red-800',
-  FR: 'from-blue-600 to-red-800',
-}
+// ─── Hero treatment (site-wide amber/dark brand) ──────────────
+const HERO_GRADIENT = 'from-amber-600 via-amber-700 to-dark-800'
 
-interface PromoConfig {
-  title: string
-  desc: string
-  code?: string
-  gradient: string
-}
-
-const COUNTRY_PROMOS: Record<string, PromoConfig[]> = {
-  US: [
-    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Refer a friend', desc: 'Earn $5 for each friend who signs up and books', code: 'REFER5', gradient: 'from-purple-500 to-violet-500' },
-    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
-  ],
-  NG: [
-    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Refer a friend', desc: 'Earn \u20A6500 for each friend who signs up and books', code: 'REFER500', gradient: 'from-purple-500 to-violet-500' },
-    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
-  ],
-  KE: [
-    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Refer a friend', desc: 'Earn KSh 500 for each friend who signs up and books', code: 'REFER500', gradient: 'from-purple-500 to-violet-500' },
-    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
-  ],
-  GH: [
-    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Refer a friend', desc: 'Earn GH\u20B550 for each friend who signs up and books', code: 'REFER50', gradient: 'from-purple-500 to-violet-500' },
-    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
-  ],
-  GB: [
-    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Refer a friend', desc: 'Earn \u00A35 for each friend who signs up and books', code: 'REFER5', gradient: 'from-purple-500 to-violet-500' },
-    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
-  ],
-  ZA: [
-    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Refer a friend', desc: 'Earn R50 for each friend who signs up and books', code: 'REFER50', gradient: 'from-purple-500 to-violet-500' },
-    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
-  ],
-}
-
-const DEFAULT_PROMOS: PromoConfig[] = [
-  { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-  { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-  { title: 'Refer a friend', desc: 'Earn rewards for each friend who signs up and books', code: 'REFER', gradient: 'from-purple-500 to-violet-500' },
-  { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
-]
-
-function PromoCard({ promo }: { promo: PromoConfig }) {
-  const [copied, setCopied] = useState(false)
-
-  const handleClaim = useCallback(() => {
-    if (!promo.code) return
-    navigator.clipboard.writeText(promo.code).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }, [promo.code])
-
-  return (
-    <div
-      className={cn(
-        'relative overflow-hidden rounded-2xl p-6 sm:p-8 bg-gradient-to-br text-white',
-        promo.gradient
-      )}
-    >
-      <div className="relative z-10">
-        {promo.code && (
-          <span className="inline-block px-2.5 py-0.5 rounded-md bg-white/20 backdrop-blur-sm text-xs font-mono font-bold tracking-wider mb-3">
-            {promo.code}
-          </span>
-        )}
-        <h3 className="text-xl font-bold">{promo.title}</h3>
-        <p className="text-white/80 mt-1 text-sm">{promo.desc}</p>
-        <button
-          onClick={handleClaim}
-          className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white/20 backdrop-blur-sm text-white text-sm font-semibold hover:bg-white/30 transition-colors"
-        >
-          {copied ? (
-            <>
-              <Check className="w-4 h-4" />
-              Copied!
-            </>
-          ) : (
-            <>
-              <Copy className="w-4 h-4" />
-              Copy code
-            </>
-          )}
-        </button>
-      </div>
-      <div className="absolute -bottom-4 -right-4 w-32 h-32 rounded-full bg-white/5" />
-      <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-white/5" />
-    </div>
-  )
-}
-
-const CONTAINER_VARIANTS = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-}
-
-const ITEM_VARIANTS = {
-  hidden: { opacity: 0, y: 20 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } },
-}
-
+// ─── Category icons ───────────────────────────────────────────
 function CategoryIcon({ name, className }: { name: string; className?: string }) {
   const icons: Record<string, React.ComponentType<{ className?: string }>> = {
-    'Home Services': Store, 'Healthcare': Heart, 'Education': TrendingUp, 'Technology': ShoppingBag,
+    'Home Services': Store, 'Healthcare': Heart, 'Education': TrendingUp, 'Technology': Zap,
     'Food & Dining': Clock, 'Beauty & Wellness': Sparkles, 'Automotive': Search, 'Legal & Financial': Store,
     'Real Estate': MapPin, 'Entertainment': Star, 'Fashion & Tailoring': Sparkles, 'Agriculture': TrendingUp,
     'Transportation': ArrowRight, 'Tourism': MapPin, 'Logistics': ShoppingBag, 'Tutoring': Users,
-    'Event Planning': Star,
+    'Event Planning': Star, 'Fitness': TrendingUp,
   }
   const Icon = icons[name] ?? Store
   return <Icon className={cn('w-6 h-6', className)} />
 }
 
-export default function CountryHomePage() {
-  const params = useParams()
-  const countryCode = (params?.country as string)?.toUpperCase() ?? 'NG'
-  const country = getCountryConfig(countryCode) as CountryConfig | undefined
+// ─── Promos (currency aware, deterministic) ──────────────────
+function getCountryPromos(country: CountryConfig): PromoConfig[] {
+  const symbol = country.currency.symbol
+  return [
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
+    { title: 'Refer a friend', desc: `Earn ${symbol}500 for each friend who signs up and books`, code: 'REFER', gradient: 'from-purple-500 to-violet-500' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+  ]
+}
 
-  if (!country) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-text-primary">Country not found</h1>
-          <p className="text-text-secondary mt-2">We don&apos;t support this region yet.</p>
-          <Link href="/" className="mt-4 inline-flex text-amber-500 hover:text-amber-600 font-medium">
-            Go home
-          </Link>
-        </div>
-      </div>
-    )
-  }
+export default async function CountryHomePage({
+  params,
+}: {
+  params: Promise<{ country: string }>
+}) {
+  const { country } = await params
+  const countryCode = country.toUpperCase()
+  const countryConfig = getCountryConfig(countryCode) as CountryConfig | undefined
 
-  const businesses = COUNTRY_BUSINESSES[countryCode] ?? []
-  const stats = COUNTRY_STATS[countryCode] ?? { businesses: '5,000+', bookings: '20,000+', users: '100,000+' }
-  const heroGradient = HERO_GRADIENTS[countryCode] ?? 'from-amber-600 to-amber-800'
-  const isRTL = country.isRTL
+  if (!countryConfig) notFound()
+
+  const businesses = getCountryBusinesses(countryCode)
+  const services = getCountryServices(countryCode)
+  const stats = getCountryStats(countryCode)
+  const heroGradient = HERO_GRADIENT
+  const isRTL = countryConfig.isRTL
+  const code = countryCode
+
+  const businessById = new Map(businesses.map((b) => [b.id, b]))
+  const featured = businesses.slice(0, 8)
+  const trending = services
+    .filter((s) => s.available && s.price > 0)
+    .slice(0, 6)
+    .map((s) => ({ service: s, business: businessById.get(s.businessId) }))
+    .filter((x): x is { service: Service; business: Business } => Boolean(x.business))
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="flex flex-col">
       {/* Hero Section */}
-      <section className={cn(
-        'relative min-h-[80vh] flex items-center bg-gradient-to-br',
-        heroGradient,
-      )}>
+      <section className={cn('relative min-h-[80vh] flex items-center bg-gradient-to-br', heroGradient)}>
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 w-full">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] }}
-            className="max-w-3xl"
-          >
+          <div className="max-w-3xl">
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-5xl">{country.flag}</span>
+              <span className="text-5xl">{countryConfig.flag}</span>
               <div>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-heading text-white leading-tight">
-                  Welcome to {country.name}
+                  Welcome to {countryConfig.name}
                 </h1>
                 <p className="text-xl text-white/80 mt-2 max-w-xl">
-                  Find and book trusted local services in {country.name}.
+                  Find and book trusted local services in {countryConfig.name}.
                 </p>
               </div>
             </div>
 
-            <Link
-              href={`/${params.country}/search`}
-              className="inline-flex items-center gap-2 mt-6 px-6 py-3.5 rounded-xl bg-white text-text-primary font-semibold hover:bg-white/90 transition-all shadow-lg group"
-            >
-              <Search className="w-5 h-5" />
-              Browse services in {country.name}
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </motion.div>
+            <div className="flex flex-wrap gap-3 mt-6">
+              <Link
+                href={`/${code}/search`}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white text-text-primary font-semibold hover:bg-white/90 transition-all shadow-lg group"
+              >
+                <Search className="w-5 h-5" />
+                Browse services in {countryConfig.name}
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link
+                href={`/${code}/search?category=${encodeURIComponent('Beauty & Wellness')}`}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 backdrop-blur-sm text-white font-semibold border border-white/25 hover:bg-white/20 transition-all"
+              >
+                <Calendar className="w-5 h-5" />
+                Book ahead
+              </Link>
+            </div>
+
+            <p className="mt-4 text-sm text-white/70 flex items-center gap-1.5">
+              <Zap className="w-4 h-4" />
+              {businesses.length}+ vetted businesses &middot; Instant booking &middot; Secure local payments
+            </p>
+          </div>
 
           {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
-            className="grid grid-cols-3 gap-6 mt-16 max-w-lg"
-          >
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-16 max-w-2xl">
             {[
               { icon: Store, label: 'Businesses', value: stats.businesses },
               { icon: ShoppingBag, label: 'Bookings', value: stats.bookings },
               { icon: Users, label: 'Users', value: stats.users },
+              { icon: Clock, label: 'Rides & Delivery', value: stats.deliveries },
             ].map((s) => (
               <div key={s.label} className="text-center">
                 <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/10 backdrop-blur-sm mx-auto mb-2">
@@ -262,116 +172,147 @@ export default function CountryHomePage() {
                 <p className="text-xs text-white/70">{s.label}</p>
               </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Categories */}
       <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="flex items-end justify-between mb-10"
-          >
+          <div className="flex items-end justify-between mb-10">
             <div>
               <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
                 Browse by category
               </h2>
               <p className="mt-2 text-text-secondary">
-                Find services available in {country.name}
+                Find services available in {countryConfig.name}
               </p>
             </div>
             <Link
-              href={`/${params.country}/search`}
+              href={`/${code}/search`}
               className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-amber-500 hover:text-amber-600 transition-colors"
             >
               View all <ChevronRight className="w-4 h-4" />
             </Link>
-          </motion.div>
+          </div>
 
-          <motion.div
-            variants={CONTAINER_VARIANTS}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-50px' }}
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4"
-          >
-            {country.categories.map((cat) => (
-              <motion.div key={cat} variants={ITEM_VARIANTS}>
-                <Link
-                  href={`/${params.country}/search?category=${encodeURIComponent(cat)}`}
-                  className="group flex flex-col items-center gap-3 p-5 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300"
-                >
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1">
-                    <CategoryIcon name={cat} />
-                  </div>
-                  <span className="text-sm font-semibold text-text-primary text-center group-hover:text-amber-500 transition-colors">
-                    {cat}
-                  </span>
-                </Link>
-              </motion.div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {countryConfig.categories.map((cat) => (
+              <Link
+                key={cat}
+                href={`/${code}/search?category=${encodeURIComponent(cat)}`}
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300"
+              >
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1">
+                  <CategoryIcon name={cat} />
+                </div>
+                <span className="text-sm font-semibold text-text-primary text-center group-hover:text-amber-500 transition-colors">
+                  {cat}
+                </span>
+              </Link>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Featured Businesses */}
       <section className="py-16 sm:py-20 bg-surface-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="flex items-end justify-between mb-10"
-          >
+          <div className="flex items-end justify-between mb-10">
             <div>
               <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
-                Featured in {country.name}
+                Featured in {countryConfig.name}
               </h2>
               <p className="mt-2 text-text-secondary">
                 Top-rated businesses near you
               </p>
             </div>
-          </motion.div>
+            <Link
+              href={`/${code}/search`}
+              className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-amber-500 hover:text-amber-600 transition-colors"
+            >
+              View all <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {businesses.slice(0, 4).map((b, i) => (
-              <BusinessCard key={b.id} business={b} countryCode={countryCode} index={i} />
+            {featured.map((b, i) => (
+              <BusinessCard key={b.id} business={b} countryCode={code} index={i} />
             ))}
           </div>
         </div>
       </section>
 
+      {/* Trending Services */}
+      {trending.length > 0 && (
+        <section className="py-16 sm:py-20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-end justify-between mb-10">
+              <div>
+                <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
+                  Trending services
+                </h2>
+                <p className="mt-2 text-text-secondary">
+                  Book instantly in {countryConfig.name}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {trending.map(({ service, business }) => (
+                <Link
+                  key={service.id}
+                  href={`/${code}/book/${service.businessId}/${service.id}`}
+                  className="group flex items-start gap-4 p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">
+                      {business.name}
+                    </span>
+                    <h3 className="text-base font-bold text-text-primary mt-0.5 group-hover:text-amber-500 transition-colors">
+                      {service.name}
+                    </h3>
+                    <div className="flex items-center gap-3 mt-2 text-xs text-text-secondary">
+                      <span className="flex items-center gap-1">
+                        <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                        {business.rating.toFixed(1)}
+                      </span>
+                      {service.duration > 0 && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {service.duration} min
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-text-primary shrink-0">
+                    {formatPrice(service.price, service.currencyCode)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Local Promotions */}
-      <section className="py-16 sm:py-20">
+      <section className="py-16 sm:py-20 bg-surface-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-10"
-          >
+          <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
               Local promotions
             </h2>
             <p className="mt-2 text-text-secondary">
-              Exclusive deals in {country.name}
+              Exclusive deals in {countryConfig.name}
             </p>
-          </motion.div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {(COUNTRY_PROMOS[countryCode] ?? DEFAULT_PROMOS).map((promo, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-              >
-                <PromoCard promo={promo} />
-              </motion.div>
+            {getCountryPromos(countryConfig).map((promo) => (
+              <PromoCard key={promo.title} promo={promo} />
             ))}
           </div>
         </div>
