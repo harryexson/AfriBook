@@ -4,8 +4,7 @@ import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { motion, Variants } from 'framer-motion'
-import { ArrowRight, Truck, ShoppingBag, Calendar } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ArrowRight, Truck, Calendar } from 'lucide-react'
 import CategoryGrid from '@/components/marketplace/CategoryGrid'
 import FeaturedBusinesses from '@/components/marketplace/FeaturedBusinesses'
 import DiscoverFeed from '@/components/marketplace/DiscoverFeed'
@@ -87,20 +86,20 @@ export default function HomePage() {
       <DiscoverFeed />
 
       {/* Trusted by countries */}
-      <section className="py-16 sm:py-20 border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="border-b border-border py-16 sm:py-20">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="text-center mb-10"
+            className="mb-10 text-center"
           >
-            <h2 className="text-2xl sm:text-3xl font-bold font-heading text-text-primary">
-              Trusted across 16+ countries
-            </h2>
-            <p className="mt-2 text-text-secondary">
-              Connecting buyers and sellers worldwide
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+              Global reach
             </p>
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-text-primary sm:text-3xl">
+              Connecting buyers and sellers across 16+ countries
+            </h2>
           </motion.div>
 
           <motion.div
@@ -108,21 +107,21 @@ export default function HomePage() {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            className="flex flex-wrap items-center justify-center gap-4"
+            className="flex flex-wrap items-center justify-center gap-3"
           >
             {TRUSTED_FLAGS.map((country) => (
               <motion.div
                 key={country.code}
                 variants={flagItemVariants}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-surface-secondary border border-border hover:bg-surface-tertiary hover:border-amber-500/30 transition-colors cursor-default"
+                className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 transition-colors hover:border-amber-500/40 hover:bg-surface-secondary"
               >
-                <span className="text-xl">{country.flag}</span>
+                <span className="text-lg">{country.flag}</span>
                 <span className="text-sm font-medium text-text-secondary">{country.name}</span>
               </motion.div>
             ))}
             <motion.div
               variants={flagItemVariants}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20"
+              className="flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-4 py-2"
             >
               <span className="text-sm font-bold text-amber-600 dark:text-amber-400">+4 more</span>
             </motion.div>
@@ -131,40 +130,45 @@ export default function HomePage() {
       </section>
 
       {/* Call to Action */}
-      <section className="py-16 sm:py-20 bg-gradient-to-br from-dark-500 via-dark-300 to-amber-600">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden bg-dark-600 py-20 sm:py-24">
+        <div className="absolute inset-0 bg-[radial-gradient(44rem_44rem_at_50%_-20%,rgba(245,158,11,0.14),transparent_60%)]" />
+        <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl sm:text-4xl font-bold font-heading text-white mb-4">
-              Ready to Get Started?
-            </h2>
-            <p className="text-white/70 text-lg mb-10 max-w-2xl mx-auto">
-              Join millions across Africa. Shop, ride, eat, and deliver — all in one place.
+            <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-amber-400">
+              Join the marketplace
             </p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <h2 className="mb-4 text-3xl font-semibold tracking-[-0.02em] text-white sm:text-5xl">
+              Your business, open to the world.
+            </h2>
+            <p className="mx-auto mb-10 max-w-2xl text-lg text-white/60">
+              Shop, ride, eat, and deliver — all in one place. Start free, no
+              setup fees.
+            </p>
+            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-bold px-8 py-4 rounded-xl transition-colors text-lg shadow-lg shadow-amber-500/30"
+                className="inline-flex items-center gap-2 rounded-xl bg-amber-500 px-8 py-4 text-lg font-semibold text-amber-950 shadow-gold-lg transition-colors hover:bg-amber-400"
               >
-                Start Free
-                <ArrowRight className="w-5 h-5" />
+                Start free
+                <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
                 href="/rides/book"
-                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-8 py-4 rounded-xl transition-colors backdrop-blur-sm border border-white/20"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-8 py-4 text-lg font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10"
               >
-                <Truck className="w-5 h-5" />
-                Book a Ride
+                <Truck className="h-5 w-5" />
+                Book a ride
               </Link>
               <Link
                 href="/events"
-                className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-medium px-8 py-4 rounded-xl transition-colors backdrop-blur-sm border border-white/20"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-8 py-4 text-lg font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10"
               >
-                <Calendar className="w-5 h-5" />
-                Browse Events
+                <Calendar className="h-5 w-5" />
+                Browse events
               </Link>
             </div>
           </motion.div>

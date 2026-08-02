@@ -220,9 +220,9 @@ export default function Header() {
                     </Link>
                     <Link
                       href="/register"
-                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors shadow-sm"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-amber-950 shadow-gold transition-colors hover:bg-amber-400"
                     >
-                      <Store className="w-4 h-4" />
+                      <Store className="h-4 w-4" />
                       Become a Vendor
                     </Link>
                   </>

@@ -124,7 +124,7 @@ export default function Footer() {
               <div>
                 <span className="text-lg font-bold font-heading">AfriBook</span>
                 <p className="text-xs text-white/40 mt-0.5">
-                  Made with <span className="text-red-400">❤️</span> in Africa
+                  Proudly built across Africa
                 </p>
               </div>
             </div>

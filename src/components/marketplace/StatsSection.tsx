@@ -1,75 +1,51 @@
 'use client'
 
-import { useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
-import { Globe, Building2, CalendarCheck, Package, TrendingUp } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { motion } from 'framer-motion'
+import { ArrowUpRight } from 'lucide-react'
 
 interface Stat {
   value: string
   label: string
-  suffix: string
-  icon: React.ComponentType<{ className?: string }>
 }
 
 const STATS: Stat[] = [
-  { value: '16', label: 'Countries', suffix: '+', icon: Globe },
-  { value: '10', label: 'Businesses', suffix: 'K+', icon: Building2 },
-  { value: '1', label: 'Bookings', suffix: 'M+', icon: CalendarCheck },
-  { value: '50', label: 'Products', suffix: 'K+', icon: Package },
+  { value: '16+', label: 'Countries' },
+  { value: '10K+', label: 'Businesses' },
+  { value: '1M+', label: 'Bookings' },
+  { value: '50K+', label: 'Products' },
 ]
-
-function AnimatedCounter({ value, suffix, label, icon: Icon }: Stat) {
-  const ref = useRef<HTMLDivElement>(null)
-  const isInView = useInView(ref, { once: true, margin: '-100px' })
-
-  return (
-    <div ref={ref} className="text-center">
-      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-amber-100 dark:bg-amber-500/10 mb-4">
-        <Icon className="w-8 h-8 text-amber-500" />
-      </div>
-      <div className="text-4xl sm:text-5xl font-bold font-heading text-text-primary">
-        {isInView ? (
-          <motion.span
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          >
-            {value}{suffix}
-          </motion.span>
-        ) : (
-          '0'
-        )}
-      </div>
-      <p className="text-text-secondary mt-2 font-medium">{label}</p>
-    </div>
-  )
-}
 
 export default function StatsSection() {
   return (
-    <section className="py-16 sm:py-24 bg-gradient-to-br from-amber-50/50 to-orange-50/50 dark:from-dark-200 dark:to-dark-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-16 sm:py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          className="text-center mb-14"
+          className="grid gap-px overflow-hidden rounded-3xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-4"
         >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-100 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm font-semibold mb-4">
-            <TrendingUp className="w-4 h-4" />
-            Our reach is growing
-          </div>
-          <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
-            Trusted across the continent
-          </h2>
-        </motion.div>
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
-          {STATS.map((stat) => (
-            <AnimatedCounter key={stat.label} {...stat} />
+          {STATS.map((stat, i) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.08 }}
+              className="group relative flex flex-col justify-between gap-8 bg-surface p-8 sm:p-10"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+                  {stat.label}
+                </span>
+                <ArrowUpRight className="h-4 w-4 text-text-tertiary transition-all duration-300 group-hover:text-amber-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </div>
+              <div className="font-mono text-5xl font-medium tracking-[-0.03em] text-text-primary sm:text-6xl">
+                {stat.value}
+              </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   )

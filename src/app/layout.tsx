@@ -1,22 +1,27 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
-import { Inter, Poppins } from 'next/font/google'
+import { Space_Grotesk, Manrope, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
 import Footer from '@/components/shared/Footer'
 import ClientProviders from '@/components/providers/ClientProviders'
 import ServiceWorkerRegister from '@/components/shared/ServiceWorkerRegister'
 
-const inter = Inter({
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-heading',
   display: 'swap',
 })
 
-const poppins = Poppins({
+const manrope = Manrope({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-poppins',
+  variable: '--font-sans',
+  display: 'swap',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-mono',
   display: 'swap',
 })
 
@@ -59,7 +64,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
+    { media: '(prefers-color-scheme: dark)', color: '#0E0C12' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -76,7 +81,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${poppins.variable} h-full`}
+      className={`${spaceGrotesk.variable} ${manrope.variable} ${geistMono.variable} h-full`}
     >
       <head>
         <Script

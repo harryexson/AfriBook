@@ -3,8 +3,7 @@
 import { useRef } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Star, MapPin, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Star, MapPin, ChevronLeft, ChevronRight, ArrowUpRight } from 'lucide-react'
 
 interface Business {
   id: string
@@ -13,40 +12,32 @@ interface Business {
   rating: number
   reviewCount: number
   location: string
-  image: string
-  gradient: string
 }
 
 const FEATURED: Business[] = [
   {
     id: '1', name: 'Lagos Fresh Market', category: 'Food & Grocery',
     rating: 4.8, reviewCount: 234, location: 'Lagos, Nigeria',
-    image: '', gradient: 'from-amber-500/20 to-orange-500/20',
   },
   {
     id: '2', name: 'Nairobi Beauty Studio', category: 'Beauty & Wellness',
     rating: 4.9, reviewCount: 189, location: 'Nairobi, Kenya',
-    image: '', gradient: 'from-pink-500/20 to-rose-500/20',
   },
   {
     id: '3', name: 'Cape Town Rides', category: 'Transportation',
     rating: 4.7, reviewCount: 567, location: 'Cape Town, SA',
-    image: '', gradient: 'from-blue-500/20 to-indigo-500/20',
   },
   {
-    id: '4', name: "Accra Fashion House", category: 'Fashion & Tailoring',
+    id: '4', name: 'Accra Fashion House', category: 'Fashion & Tailoring',
     rating: 4.6, reviewCount: 142, location: 'Accra, Ghana',
-    image: '', gradient: 'from-purple-500/20 to-violet-500/20',
   },
   {
     id: '5', name: 'Cairo Tech Repair', category: 'Electronics & Repairs',
     rating: 4.5, reviewCount: 98, location: 'Cairo, Egypt',
-    image: '', gradient: 'from-cyan-500/20 to-teal-500/20',
   },
   {
     id: '6', name: 'Dar Fresh Delivery', category: 'Food Delivery',
     rating: 4.8, reviewCount: 312, location: 'Dar es Salaam, TZ',
-    image: '', gradient: 'from-green-500/20 to-emerald-500/20',
   },
 ]
 
@@ -63,41 +54,43 @@ export default function FeaturedBusinesses() {
   }
 
   return (
-    <section className="py-16 sm:py-24 bg-surface-secondary">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-end justify-between mb-10">
+    <section className="border-t border-border py-16 sm:py-24">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+              Handpicked
+            </p>
+            <h2 className="text-3xl font-semibold tracking-[-0.02em] text-text-primary sm:text-4xl">
               Featured businesses
             </h2>
-            <p className="mt-2 text-text-secondary">
-              Top-rated businesses across Africa
-            </p>
           </motion.div>
 
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => scroll('left')}
-              className="p-2.5 rounded-xl bg-white dark:bg-dark-100 border border-border hover:bg-surface-secondary transition-colors text-text-secondary hover:text-text-primary"
+              aria-label="Scroll left"
+              className="p-2.5 rounded-xl border border-border bg-surface transition-colors text-text-secondary hover:border-amber-500/40 hover:text-text-primary"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={() => scroll('right')}
-              className="p-2.5 rounded-xl bg-white dark:bg-dark-100 border border-border hover:bg-surface-secondary transition-colors text-text-secondary hover:text-text-primary"
+              aria-label="Scroll right"
+              className="p-2.5 rounded-xl border border-border bg-surface transition-colors text-text-secondary hover:border-amber-500/40 hover:text-text-primary"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="h-5 w-5" />
             </button>
           </div>
         </div>
 
         <div
           ref={scrollRef}
-          className="flex gap-6 overflow-x-auto scrollbar-none pb-4 -mx-4 px-4 snap-x snap-mandatory"
+          className="-mx-4 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-4"
           style={{ scrollbarWidth: 'none' }}
         >
           {FEATURED.map((business, i) => (
@@ -107,46 +100,39 @@ export default function FeaturedBusinesses() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
               transition={{ delay: i * 0.1 }}
-              className="snap-start shrink-0"
+              className="shrink-0 snap-start"
             >
               <Link
                 href={`/business/${business.id}`}
-                className="group block w-[300px] sm:w-[340px] bg-white dark:bg-dark-100 rounded-2xl border border-border overflow-hidden hover:shadow-xl hover:shadow-amber-500/5 hover:border-amber-500/30 transition-all duration-300"
+                className="group flex h-full w-[300px] flex-col overflow-hidden rounded-3xl border border-border bg-surface transition-all duration-300 hover:-translate-y-1.5 hover:border-amber-500/40 hover:shadow-xl sm:w-[340px]"
               >
-                {/* Image placeholder */}
-                <div className={cn(
-                  'h-44 bg-gradient-to-br flex items-center justify-center',
-                  business.gradient
-                )}>
-                  <div className="w-16 h-16 rounded-full bg-white/30 backdrop-blur-sm flex items-center justify-center">
-                    <span className="text-2xl font-bold text-white">{business.name.charAt(0)}</span>
+                {/* Cover */}
+                <div className="relative flex h-44 items-center justify-center overflow-hidden bg-surface-tertiary">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-gold text-4xl font-semibold text-white shadow-gold-lg transition-transform duration-300 group-hover:scale-105">
+                    {business.name.charAt(0)}
                   </div>
-                </div>
-
-                <div className="p-5">
-                  <span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">
+                  <span className="absolute right-4 top-4 rounded-full bg-dark-700/80 px-3 py-1 text-xs font-semibold text-amber-300 backdrop-blur-sm">
                     {business.category}
                   </span>
-                  <h3 className="text-lg font-bold text-text-primary mt-1 group-hover:text-amber-500 transition-colors">
-                    {business.name}
-                  </h3>
+                  <ArrowUpRight className="absolute left-4 top-4 h-5 w-5 text-text-tertiary opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                </div>
 
-                  <div className="flex items-center gap-3 mt-3 text-sm text-text-secondary">
-                    <span className="flex items-center gap-1">
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-lg font-semibold tracking-[-0.01em] text-text-primary transition-colors group-hover:text-amber-600">
+                      {business.name}
+                    </h3>
+                    <span className="flex items-center gap-1 text-sm font-semibold text-text-primary">
+                      <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
                       {business.rating}
-                      <span className="text-text-tertiary">({business.reviewCount})</span>
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      {business.location}
                     </span>
                   </div>
 
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <span className="inline-flex items-center gap-1 text-sm font-semibold text-amber-500 group-hover:gap-2 transition-all">
-                      Book Now
-                      <ArrowRight className="w-4 h-4" />
+                  <div className="mt-2 flex items-center gap-1.5 text-sm text-text-secondary">
+                    <MapPin className="h-4 w-4 text-text-tertiary" />
+                    {business.location}
+                    <span className="text-text-tertiary">
+                      · {business.reviewCount} reviews
                     </span>
                   </div>
                 </div>

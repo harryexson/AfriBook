@@ -68,9 +68,9 @@ function EarthMaterial() {
     () => ({
       uTime: { value: 0 },
       uLightDirection: { value: new THREE.Vector3(1, 0.5, 1).normalize() },
-      uOceanColor: { value: new THREE.Color('#0c4a6e') },
-      uLandColor: { value: new THREE.Color('#166534') },
-      uBorderColor: { value: new THREE.Color('#38bdf8') },
+      uOceanColor: { value: new THREE.Color('#0d1117') },
+      uLandColor: { value: new THREE.Color('#1d242c') },
+      uBorderColor: { value: new THREE.Color('#f59e0b') },
     }),
     []
   )
@@ -191,8 +191,8 @@ function EarthMaterial() {
           vec3 color = baseColor * light;
 
           // Add subtle atmospheric glow
-          vec3 atmosphereColor = vec3(0.3, 0.6, 1.0);
-          color += atmosphereColor * fresnel * 0.5;
+          vec3 atmosphereColor = vec3(0.96, 0.62, 0.04);
+          color += atmosphereColor * fresnel * 0.4;
 
           // Subtle pulsing glow on land
           float pulse = sin(uTime * 0.5) * 0.5 + 0.5;
@@ -231,8 +231,8 @@ function Atmosphere() {
           void main() {
             vec3 viewDir = normalize(-vPosition);
             float fresnel = pow(1.0 - max(dot(vNormal, viewDir), 0.0), 4.0);
-            vec3 color = vec3(0.3, 0.6, 1.0);
-            float alpha = fresnel * 0.6;
+            vec3 color = vec3(0.96, 0.62, 0.04);
+            float alpha = fresnel * 0.5;
             gl_FragColor = vec4(color, alpha);
           }
         `}
@@ -315,7 +315,7 @@ function CountryMarkerMesh({
     [onClick]
   )
 
-  const color = isSelected || isFocused ? '#f59e0b' : '#38bdf8'
+  const color = isSelected || isFocused ? '#f59e0b' : '#fbbf24'
 
   return (
     <group position={position}>
@@ -347,17 +347,17 @@ function CountryMarkerMesh({
           <Html center distanceFactor={8} zIndexRange={[100, 0]}>
             <div
               style={{
-                background: 'rgba(15, 23, 42, 0.95)',
+                background: 'rgba(14, 12, 18, 0.92)',
                 backdropFilter: 'blur(8px)',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
                 borderRadius: '8px',
                 padding: '6px 12px',
                 color: 'white',
                 fontSize: '12px',
-                fontFamily: 'system-ui, sans-serif',
+                fontFamily: 'Manrope, system-ui, sans-serif',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
                 transform: 'translateY(-20px)',
               }}
             >
@@ -434,9 +434,9 @@ function Scene({
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[5, 3, 5]} intensity={1.2} color="#ffffff" />
-      <pointLight position={[-5, -3, -5]} intensity={0.3} color="#3b82f6" />
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[5, 3, 5]} intensity={1.4} color="#ffffff" />
+      <pointLight position={[-5, -3, -5]} intensity={0.25} color="#f59e0b" />
 
       {/* Stars background */}
       <Stars
