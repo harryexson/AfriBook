@@ -4,6 +4,8 @@ import type {
   EventTypeTicket,
   EventCategory,
   EventStatus,
+  TicketType,
+  TicketTierConfig,
 } from '@/types/events';
 import type { CreateEventParams, EventFilters } from './types';
 import { SUBSCRIPTION_PLANS } from '@/types/subscription-plans';
@@ -594,6 +596,53 @@ export async function getPastEvents(
 // ─── Mappers ──────────────────────────────────────────────────
 
 function mapEvent(row: Record<string, unknown>): Event {
+  // The `events` table stores venue/location under two conventions depending
+  // on which schema revision created the row. Read both so existing rows map.
+  const venue =
+    (row.venue_name as string) ?? (row.venue as string) ?? '';
+  const address =
+    (row.venue_address as string) ?? (row.address as string) ?? '';
+  const city = (row.venue_city as string) ?? (row.city as string) ?? '';
+  const country = (row.venue_country as string) ?? (row.country as string) ?? '';
+  const countryCode = (row.country_code as string) ?? (row.venue_country as string) ?? '';
+
+  // location may be a PostGIS string ("SRID=4326;POINT(lng lat)"),
+  // a GeoJSON Point, or absent entirely.
+  let location: { lat: number; lng: number };
+  const rawLocation = row.location as unknown;
+  if (
+    rawLocation &&
+    typeof rawLocation === 'object' &&
+    'lat' in rawLocation &&
+    'lng' in rawLocation
+  ) {
+    location = { lat: Number(rawLocation.lat), lng: Number(rawLocation.lng) };
+  } else if (typeof rawLocation === 'string' && rawLocation.includes('POINT(')) {
+    const coords = rawLocation.match(/POINT\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/);
+    location = coords
+      ? { lat: Number(coords[2]), lng: Number(coords[1]) }
+      : { lat: 0, lng: 0 };
+  } else if (
+    rawLocation &&
+    typeof rawLocation === 'object' &&
+    'coordinates' in rawLocation
+  ) {
+    const [lng, lat] = (rawLocation as { coordinates: [number, number] }).coordinates ?? [0, 0];
+    location = { lat, lng };
+  } else {
+    location = {
+      lat: (row.venue_lat as number) ?? 0,
+      lng: (row.venue_lng as number) ?? 0,
+    };
+  }
+
+  const isFree = (row.is_free as boolean) ?? row.ticket_type === 'free';
+  const ticketType = (row.ticket_type as TicketType) ?? (isFree ? 'free' : 'paid');
+  const rawTiers = row.ticket_tiers as unknown;
+  const ticketTiers: TicketTierConfig[] = Array.isArray(rawTiers)
+    ? (rawTiers as TicketTierConfig[])
+    : [];
+
   return {
     id: row.id as string,
     organizerId: row.organizer_id as string,
@@ -604,44 +653,69 @@ function mapEvent(row: Record<string, unknown>): Event {
     shortDescription: (row.short_description as string) ?? '',
     category: row.category as EventCategory,
     status: row.status as EventStatus,
+
+    venue,
+    venueName: venue || undefined,
+    venueAddress: address || undefined,
+    venueCity: city || undefined,
+    venueCountry: country || undefined,
+    venueLat: location.lat || undefined,
+    venueLng: location.lng || undefined,
+    address,
+    city,
+    country,
+    countryCode,
+    location,
+    isVirtual: (row.is_virtual as boolean) ?? false,
+    virtualLink: (row.virtual_link as string) ?? undefined,
+
     startDate: row.start_date as string,
     endDate: row.end_date as string,
     timezone: row.timezone as string,
-    doorsOpenAt: (row.doors_open as string) ?? undefined,
-    isVirtual: (row.is_virtual as boolean) ?? false,
-    venueName: (row.venue_name as string) ?? undefined,
-    venueAddress: (row.venue_address as string) ?? undefined,
-    venueCity: (row.venue_city as string) ?? undefined,
-    venueCountry: (row.venue_country as string) ?? undefined,
-    venueLat: (row.venue_lat as number) ?? undefined,
-    venueLng: (row.venue_lng as number) ?? undefined,
-    virtualLink: (row.virtual_link as string) ?? undefined,
-    coverImageUrl: (row.cover_image_url as string) ?? undefined,
+    doorsOpenAt: (row.doors_open as string) ?? (row.doors_open_at as string) ?? undefined,
+
+    coverImageUrl: (row.cover_image_url as string) ?? '',
     galleryImages: (row.gallery_images as string[]) ?? [],
     promoVideoUrl: (row.promo_video_url as string) ?? undefined,
     flyerUrl: (row.flyer_url as string) ?? undefined,
+
+    ticketType,
     ticketTypes: (row.ticket_types as EventCategory[]) ?? [],
-    minPrice: (row.min_price as number) ?? 0,
-    maxPrice: (row.max_price as number) ?? 0,
-    currencyCode: (row.currency_code as string) ?? 'USD',
+    ticketTiers,
     totalCapacity: (row.total_capacity as number) ?? 0,
     ticketsSold: (row.tickets_sold as number) ?? 0,
-    isFree: (row.is_free as boolean) ?? true,
+    waitlistEnabled: (row.enable_waitlist as boolean) ?? (row.waitlist_enabled as boolean) ?? false,
+
+    currencyCode: (row.currency_code as string) ?? 'USD',
+    minPrice: (row.min_price as number) ?? undefined,
+    maxPrice: (row.max_price as number) ?? undefined,
+    isFree,
     platformFeePercent: (row.platform_fee_percent as number) ?? 5,
     platformFeeFixed: (row.platform_fee_fixed as number) ?? 1,
+    taxRate: (row.tax_rate as number) ?? 0,
+
+    requiresApproval: (row.require_approval as boolean) ?? (row.requires_approval as boolean) ?? false,
+    showGuestList: (row.show_guest_list as boolean) ?? false,
+    allowRefunds: (row.allow_refunds as boolean) ?? true,
+    refundDeadlineDays: (row.refund_deadline_days as number) ?? 7,
+    maxGuestsPerRegistration: (row.max_guests_per_registration as number) ?? (row.max_guests_per_ticket as number) ?? 0,
+    allowGuestRegistration: (row.allow_guest_registration as boolean) ?? undefined,
+    maxGuestsPerTicket: (row.max_guests_per_ticket as number) ?? undefined,
+
+    metaTitle: (row.meta_title as string) ?? undefined,
+    metaDescription: (row.meta_description as string) ?? undefined,
+    shareImageUrl: (row.share_image_url as string) ?? undefined,
     shareUrl: (row.share_url as string) ?? '',
+    tags: (row.tags as string[]) ?? [],
     referralCode: (row.referral_code as string) ?? '',
     referralDiscountPercent: (row.referral_discount_percent as number) ?? 0,
     enableReferrals: (row.enable_referrals as boolean) ?? false,
-    waitlistEnabled: (row.enable_waitlist as boolean) ?? false,
-    requiresApproval: (row.require_approval as boolean) ?? false,
-    allowGuestRegistration: (row.allow_guest_registration as boolean) ?? false,
-    maxGuestsPerTicket: (row.max_guests_per_ticket as number) ?? 0,
-    tags: (row.tags as string[]) ?? [],
-    metaDescription: (row.meta_description as string) ?? undefined,
+
     viewCount: (row.view_count as number) ?? 0,
     shareCount: (row.share_count as number) ?? 0,
+    favoriteCount: (row.favorite_count as number) ?? 0,
     publishedAt: (row.published_at as string) ?? undefined,
+
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };

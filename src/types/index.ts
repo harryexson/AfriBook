@@ -13,6 +13,7 @@ export type DisputeStatus = 'open' | 'under_review' | 'resolved' | 'escalated';
 export type NotificationType = 'booking' | 'order' | 'payment' | 'promo' | 'system' | 'reminder';
 export type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+export type DomainStatus = 'pending' | 'active' | 'failed';
 
 // ─── Geo & Address ───────────────────────────────────────────
 
@@ -133,8 +134,22 @@ export interface Business {
   updatedAt: string;
 }
 
-// ─── Service ─────────────────────────────────────────────────
+// ─── Business Domain ─────────────────────────────────────────
 
+export interface BusinessDomain {
+  id: string;
+  businessId: string;
+  subdomain: string;
+  rootDomain: string;
+  fullDomain: string;
+  status: DomainStatus;
+  dnsRecords: Record<string, unknown>;
+  verifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Service ─────────────────────────────────────────────────
 export interface Service {
   id: string;
   businessId: string;
@@ -727,6 +742,7 @@ export interface Database {
     Tables: {
       users: { Row: Omit<User, never>; Insert: Omit<User, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<User, 'id'>>; Relationships: never[] };
       businesses: { Row: Omit<Business, never>; Insert: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Business, 'id'>>; Relationships: never[] };
+      business_domains: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       services: { Row: Omit<Service, never>; Insert: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Service, 'id'>>; Relationships: never[] };
       products: { Row: Omit<Product, never>; Insert: Omit<Product, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Product, 'id'>>; Relationships: never[] };
       bookings: { Row: Omit<Booking, never>; Insert: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Booking, 'id'>>; Relationships: never[] };
@@ -793,6 +809,10 @@ export interface Database {
       promo_codes: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       event_tickets: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       events: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
+      stay_hotels: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
+      stay_rooms: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
+      stay_room_availability: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
+      stay_bookings: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       compliance_violations: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       compliance_scorecards: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       delivery_compliance_tracker: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };

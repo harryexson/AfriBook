@@ -22,6 +22,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   analytics: 'Analytics',
   payouts: 'Payouts',
   qr: 'QR Codes',
+  domain: 'Domain',
   settings: 'Settings',
 }
 

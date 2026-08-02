@@ -96,7 +96,7 @@ export default function BookRidePage() {
   const [loading, setLoading] = useState(false)
 
   // Price estimate (computed from distance)
-  const estimatedDistance = 5.2 // Placeholder — in production, use geocoding + route API
+  const estimatedDistance = 5.2 // Placeholder â€” in production, use geocoding + route API
   const estimatedDuration = Math.round(estimatedDistance * 2.5)
   const config = RIDE_TYPE_CONFIG[selectedRideType]
   const estimatedFare = Math.max(
@@ -121,7 +121,7 @@ export default function BookRidePage() {
     setLoading(true)
 
     try {
-      // Simulated coordinates — in production, use geocoding
+      // Simulated coordinates â€” in production, use geocoding
       const pickup = { lat: 6.5244, lng: 3.3792 } // Lagos default
       const destination = { lat: 6.5244 + 0.03, lng: 3.3792 + 0.02 }
 
@@ -396,7 +396,7 @@ export default function BookRidePage() {
                   </span>
                 </div>
                 <p className="text-xs text-text-tertiary mt-1">
-                  ~{estimatedDistance} km · ~{estimatedDuration} min
+                  ~{estimatedDistance} km Â· ~{estimatedDuration} min
                 </p>
               </div>
 
