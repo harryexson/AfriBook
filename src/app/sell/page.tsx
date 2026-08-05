@@ -1,32 +1,33 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { motion } from 'framer-motion';
+import Link from 'next/link'
+import { motion } from 'framer-motion'
 import {
   Store,
   TrendingUp,
   Users,
   Shield,
-  CreditCard,
   BarChart3,
   ArrowRight,
   CheckCircle,
   Star,
-  Zap,
   Globe,
   Headphones,
-  ChevronRight,
-} from 'lucide-react';
+  Wallet,
+  Sparkles,
+} from 'lucide-react'
+import PhoneMockup from '@/components/showcase/PhoneMockup'
+import { SellAppScreen } from '@/components/showcase/AppScreens'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
   visible: { opacity: 1, y: 0 },
-};
+}
 
 const staggerContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
-};
+  visible: { transition: { staggerChildren: 0.08 } },
+}
 
 const benefits = [
   {
@@ -59,7 +60,7 @@ const benefits = [
     title: 'Dedicated Support',
     description: 'Our vendor success team is here to help you every step of the way.',
   },
-];
+]
 
 const steps = [
   {
@@ -77,7 +78,7 @@ const steps = [
     title: 'Start Selling',
     description: 'Receive orders, manage inventory, and grow your business with our tools.',
   },
-];
+]
 
 const testimonials = [
   {
@@ -104,7 +105,7 @@ const testimonials = [
     initials: 'FH',
     rating: 5,
   },
-];
+]
 
 const pricing = [
   {
@@ -142,67 +143,129 @@ const pricing = [
     ],
     cta: 'Contact Sales',
   },
-];
+]
 
 export default function SellPage() {
   return (
     <div className="min-h-screen bg-surface">
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-amber-600 via-amber-500 to-yellow-400 py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
-            <motion.p
-              variants={fadeIn}
-              className="text-white/80 font-medium tracking-wider uppercase text-sm mb-4"
-            >
-              Sell on AfriBook
-            </motion.p>
-            <motion.h1
-              variants={fadeIn}
-              className="font-heading text-4xl md:text-6xl font-bold text-white mb-6"
-            >
-              Start Selling on{' '}
-              <span className="text-dark-300">AfriBook Today</span>
-            </motion.h1>
-            <motion.p variants={fadeIn} className="text-xl text-white/90 max-w-3xl mx-auto mb-8">
-              Join 50,000+ vendors already growing their businesses on Africa&apos;s
-              largest marketplace. List your products and reach millions of customers.
-            </motion.p>
-            <motion.div variants={fadeIn} className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="#"
-                className="inline-flex items-center justify-center gap-2 bg-white text-amber-600 font-medium px-8 py-3 rounded-xl hover:bg-white/90 transition-colors"
+      <section className="relative overflow-hidden bg-dark-700">
+        <div className="absolute inset-0 bg-[radial-gradient(50rem_50rem_at_82%_12%,rgba(245,158,11,0.12),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(36rem_36rem_at_-8%_100%,rgba(16,185,129,0.1),transparent_60%)]" />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
+          <div className="grid items-center gap-16 lg:grid-cols-2 lg:gap-12">
+            <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
+              <motion.span
+                variants={fadeIn}
+                className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-300"
               >
-                <Store className="w-5 h-5" />
-                Register as Vendor
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="#pricing"
-                className="inline-flex items-center justify-center gap-2 border border-white/30 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors"
+                <Sparkles className="h-3.5 w-3.5" />
+                Sell on AfriBook
+              </motion.span>
+              <motion.h1
+                variants={fadeIn}
+                className="mt-6 text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-white sm:text-6xl"
               >
-                View Pricing
-              </Link>
+                Start selling on
+                <span className="block text-gradient-gold">AfriBook today.</span>
+              </motion.h1>
+              <motion.p variants={fadeIn} className="mt-6 max-w-lg text-lg leading-relaxed text-white/60">
+                Join 50,000+ vendors already growing their businesses on Africa&apos;s
+                largest marketplace. List your products and reach millions of customers.
+              </motion.p>
+
+              <motion.div variants={fadeIn} className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <Link
+                  href="#"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-7 py-3.5 text-base font-semibold text-amber-950 shadow-gold-lg transition-colors hover:bg-amber-400"
+                >
+                  <Store className="h-5 w-5" />
+                  Register as Vendor
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="#pricing"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-7 py-3.5 text-base font-semibold text-white backdrop-blur-md transition-colors hover:bg-white/10"
+                >
+                  View Pricing
+                </Link>
+              </motion.div>
+
+              <motion.div variants={fadeIn} className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3">
+                {[
+                  { label: 'Active vendors', value: '50K+' },
+                  { label: 'Avg. sales lift', value: '3x' },
+                  { label: 'Countries', value: '16+' },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <p className="font-heading text-xl font-bold text-white">{stat.value}</p>
+                    <p className="text-xs uppercase tracking-wider text-white/40">{stat.label}</p>
+                  </div>
+                ))}
+              </motion.div>
             </motion.div>
-          </motion.div>
+
+            {/* Phone showcase */}
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+              transition={{ delay: 0.25 }}
+              className="relative flex justify-center"
+            >
+              <PhoneMockup glow="emerald">
+                <SellAppScreen />
+              </PhoneMockup>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="absolute -left-6 top-24 hidden rounded-2xl border border-white/10 bg-dark-300/90 p-4 shadow-2xl backdrop-blur-md sm:block"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/15">
+                    <Wallet className="h-5 w-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">$1,240.50</p>
+                    <p className="text-xs text-white/50">This week&apos;s earnings</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="absolute -right-6 bottom-24 hidden rounded-2xl border border-white/10 bg-dark-300/90 p-4 shadow-2xl backdrop-blur-md sm:block"
+              >
+                <p className="text-xs text-white/50">Order confirmed</p>
+                <p className="text-sm font-bold text-white">+$45.00</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-400">
+                  <CheckCircle className="h-3 w-3" /> New customer
+                </p>
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Benefits */}
       <section className="py-20 bg-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={fadeIn}
-            className="text-center mb-16"
+            className="mb-16 text-center"
           >
-            <h2 className="font-heading text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            <h2 className="font-heading text-3xl font-bold text-text-primary md:text-4xl">
               Why Sell on AfriBook?
             </h2>
-            <p className="text-text-secondary text-lg max-w-2xl mx-auto">
+            <p className="mx-auto mt-4 max-w-2xl text-lg text-text-secondary">
               Everything you need to start, grow, and scale your business
             </p>
           </motion.div>
@@ -212,21 +275,21 @@ export default function SellPage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             {benefits.map((benefit) => (
               <motion.div
                 key={benefit.title}
                 variants={fadeIn}
-                className="bg-surface-secondary rounded-2xl p-6 border border-border hover:border-amber-500/50 transition-colors"
+                className="rounded-2xl border border-border bg-surface-secondary p-6 transition-colors hover:border-amber-500/50"
               >
-                <div className="w-12 h-12 bg-amber-500/10 rounded-xl flex items-center justify-center mb-4">
-                  <benefit.icon className="w-6 h-6 text-amber-500" />
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10">
+                  <benefit.icon className="h-6 w-6 text-amber-500" />
                 </div>
-                <h3 className="font-heading text-lg font-bold text-text-primary mb-2">
+                <h3 className="font-heading text-lg font-bold text-text-primary">
                   {benefit.title}
                 </h3>
-                <p className="text-text-secondary text-sm">{benefit.description}</p>
+                <p className="mt-2 text-sm text-text-secondary">{benefit.description}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -235,15 +298,15 @@ export default function SellPage() {
 
       {/* How It Works */}
       <section className="py-20 bg-surface-secondary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={fadeIn}
-            className="text-center mb-16"
+            className="mb-16 text-center"
           >
-            <h2 className="font-heading text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            <h2 className="font-heading text-3xl font-bold text-text-primary md:text-4xl">
               Get Started in 3 Simple Steps
             </h2>
           </motion.div>
@@ -253,7 +316,7 @@ export default function SellPage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-8"
+            className="grid gap-8 md:grid-cols-3"
           >
             {steps.map((step, i) => (
               <motion.div
@@ -262,13 +325,11 @@ export default function SellPage() {
                 transition={{ delay: i * 0.1 }}
                 className="text-center"
               >
-                <div className="w-16 h-16 bg-amber-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                  <span className="text-white font-heading font-bold text-xl">{step.step}</span>
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-gold">
+                  <span className="font-heading text-xl font-bold text-white">{step.step}</span>
                 </div>
-                <h3 className="font-heading text-xl font-bold text-text-primary mb-3">
-                  {step.title}
-                </h3>
-                <p className="text-text-secondary max-w-xs mx-auto">{step.description}</p>
+                <h3 className="font-heading text-xl font-bold text-text-primary">{step.title}</h3>
+                <p className="mx-auto mt-3 max-w-xs text-text-secondary">{step.description}</p>
               </motion.div>
             ))}
           </motion.div>
@@ -277,18 +338,18 @@ export default function SellPage() {
 
       {/* Pricing */}
       <section id="pricing" className="py-20 bg-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={fadeIn}
-            className="text-center mb-16"
+            className="mb-16 text-center"
           >
-            <h2 className="font-heading text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            <h2 className="font-heading text-3xl font-bold text-text-primary md:text-4xl">
               Simple, Transparent Pricing
             </h2>
-            <p className="text-text-secondary text-lg">
+            <p className="mt-4 text-lg text-text-secondary">
               No monthly fees. Only pay when you make a sale.
             </p>
           </motion.div>
@@ -298,47 +359,45 @@ export default function SellPage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto"
+            className="mx-auto grid max-w-5xl gap-8 md:grid-cols-3"
           >
             {pricing.map((plan) => (
               <motion.div
                 key={plan.name}
                 variants={fadeIn}
-                className={`bg-surface-secondary rounded-2xl p-8 border ${
+                className={`rounded-2xl border bg-surface-secondary p-8 ${
                   plan.popular
                     ? 'border-amber-500 shadow-lg shadow-amber-500/10'
                     : 'border-border'
                 }`}
               >
                 {plan.popular && (
-                  <span className="text-xs font-medium bg-amber-500 text-white px-3 py-1 rounded-full mb-4 inline-block">
+                  <span className="mb-4 inline-block rounded-full bg-amber-500 px-3 py-1 text-xs font-medium text-white">
                     Most Popular
                   </span>
                 )}
-                <h3 className="font-heading text-xl font-bold text-text-primary mb-2">
-                  {plan.name}
-                </h3>
-                <p className="text-text-secondary text-sm mb-4">{plan.description}</p>
+                <h3 className="font-heading text-xl font-bold text-text-primary">{plan.name}</h3>
+                <p className="mb-4 mt-1 text-sm text-text-secondary">{plan.description}</p>
                 <div className="mb-6">
                   <span className="font-heading text-4xl font-bold text-text-primary">
                     {plan.commission}
                   </span>
-                  <span className="text-text-secondary text-sm ml-1">commission</span>
+                  <span className="ml-1 text-sm text-text-secondary">commission</span>
                 </div>
-                <ul className="space-y-3 mb-8">
+                <ul className="mb-8 space-y-3">
                   {plan.features.map((feature) => (
                     <li key={feature} className="flex items-center gap-2 text-sm text-text-secondary">
-                      <CheckCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                      <CheckCircle className="h-4 w-4 shrink-0 text-amber-500" />
                       {feature}
                     </li>
                   ))}
                 </ul>
                 <Link
                   href="#"
-                  className={`block text-center font-medium py-3 rounded-xl transition-colors ${
+                  className={`block rounded-xl py-3 text-center font-medium transition-colors ${
                     plan.popular
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                      : 'border border-border hover:border-amber-500 text-text-primary'
+                      ? 'bg-amber-500 text-white hover:bg-amber-600'
+                      : 'border border-border text-text-primary hover:border-amber-500'
                   }`}
                 >
                   {plan.cta}
@@ -351,18 +410,18 @@ export default function SellPage() {
 
       {/* Testimonials */}
       <section className="py-20 bg-surface-secondary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
             variants={fadeIn}
-            className="text-center mb-16"
+            className="mb-16 text-center"
           >
-            <h2 className="font-heading text-3xl md:text-4xl font-bold text-text-primary mb-4">
+            <h2 className="font-heading text-3xl font-bold text-text-primary md:text-4xl">
               Vendor Success Stories
             </h2>
-            <p className="text-text-secondary text-lg">
+            <p className="mt-4 text-lg text-text-secondary">
               Hear from vendors who are growing with AfriBook
             </p>
           </motion.div>
@@ -372,33 +431,33 @@ export default function SellPage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid md:grid-cols-3 gap-6"
+            className="grid gap-6 md:grid-cols-3"
           >
             {testimonials.map((testimonial) => (
               <motion.div
                 key={testimonial.name}
                 variants={fadeIn}
-                className="bg-surface rounded-2xl p-6 border border-border"
+                className="rounded-2xl border border-border bg-surface p-6"
               >
-                <div className="flex items-center gap-1 mb-4">
+                <div className="mb-4 flex items-center gap-1">
                   {Array.from({ length: testimonial.rating }).map((_, i) => (
-                    <Star key={i} className="w-4 h-4 text-amber-500 fill-current" />
+                    <Star key={i} className="h-4 w-4 fill-amber-500 text-amber-500" />
                   ))}
                 </div>
-                <p className="text-text-secondary mb-6 italic">
+                <p className="mb-6 italic text-text-secondary">
                   &ldquo;{testimonial.quote}&rdquo;
                 </p>
-                <div className="flex items-center gap-3 pt-4 border-t border-border">
-                  <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-amber-600 rounded-full flex items-center justify-center">
-                    <span className="text-white font-heading font-bold text-sm">
+                <div className="flex items-center gap-3 border-t border-border pt-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-500 to-amber-600">
+                    <span className="font-heading text-sm font-bold text-white">
                       {testimonial.initials}
                     </span>
                   </div>
                   <div>
-                    <p className="font-heading font-bold text-text-primary text-sm">
+                    <p className="font-heading text-sm font-bold text-text-primary">
                       {testimonial.name}
                     </p>
-                    <p className="text-text-tertiary text-xs">
+                    <p className="text-xs text-text-tertiary">
                       {testimonial.business} · {testimonial.location}
                     </p>
                   </div>
@@ -410,28 +469,29 @@ export default function SellPage() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-gradient-to-br from-amber-500 to-amber-600">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden bg-dark-500 py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(38rem_38rem_at_50%_120%,rgba(245,158,11,0.16),transparent_60%)]" />
+        <div className="relative mx-auto max-w-4xl px-4 text-center sm:px-6 lg:px-8">
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn}>
-            <h2 className="font-heading text-3xl md:text-4xl font-bold text-white mb-6">
+            <h2 className="font-heading text-3xl font-bold text-white md:text-4xl">
               Ready to Grow Your Business?
             </h2>
-            <p className="text-white/90 text-lg mb-8 max-w-2xl mx-auto">
+            <p className="mx-auto mb-8 mt-4 max-w-2xl text-lg text-white/70">
               Join thousands of vendors who are already succeeding on AfriBook.
               It takes just 5 minutes to get started.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col justify-center gap-4 sm:flex-row">
               <Link
                 href="#"
-                className="inline-flex items-center justify-center gap-2 bg-white text-amber-600 font-medium px-8 py-3 rounded-xl hover:bg-white/90 transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-8 py-3.5 font-medium text-white shadow-gold-lg transition-colors hover:bg-amber-600"
               >
-                <Store className="w-5 h-5" />
+                <Store className="h-5 w-5" />
                 Register as Vendor
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/contact"
-                className="inline-flex items-center justify-center gap-2 border border-white/30 text-white font-medium px-8 py-3 rounded-xl hover:bg-white/10 transition-colors"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-8 py-3.5 font-medium text-white backdrop-blur-md transition-colors hover:bg-white/10"
               >
                 Talk to Sales
               </Link>
@@ -440,5 +500,5 @@ export default function SellPage() {
         </div>
       </section>
     </div>
-  );
+  )
 }

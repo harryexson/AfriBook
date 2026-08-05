@@ -16,9 +16,7 @@ import {
   Ticket,
   CreditCard,
   Download,
-  ChevronRight,
   AlertTriangle,
-  Sparkles,
 } from 'lucide-react';
 
 const fadeIn = {
@@ -141,25 +139,40 @@ export default function SubscriptionsPage() {
 
   return (
     <div className="min-h-screen bg-surface-secondary">
-      {/* Header */}
-      <div className="bg-surface border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4 mb-2">
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-dark-700">
+        <div className="absolute inset-0 bg-[radial-gradient(42rem_42rem_at_80%_0%,rgba(245,158,11,0.14),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(30rem_30rem_at_-5%_110%,rgba(168,85,247,0.1),transparent_60%)]" />
+
+        <div className="relative mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 sm:pt-8 lg:px-8">
+          <div className="mb-8 flex items-center gap-3 sm:gap-4">
             <Link
               href="/events"
-              className="text-text-secondary hover:text-text-primary transition-colors"
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3.5 py-1.5 text-sm text-white/70 backdrop-blur-md transition-colors hover:text-white"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="h-4 w-4" />
+              Back to Events
             </Link>
-            <h1 className="font-heading text-2xl font-bold text-text-primary">
-              Organizer Subscriptions
-            </h1>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-300">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+              Professional · Active
+            </span>
           </div>
-          <p className="text-text-secondary text-sm ml-9">
-            Choose the plan that fits your event hosting needs
-          </p>
+          <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
+            <motion.h1
+              variants={fadeIn}
+              className="max-w-2xl text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-white sm:text-5xl"
+            >
+              Pricing that scales
+              <span className="block text-gradient-gold">with your events.</span>
+            </motion.h1>
+            <motion.p variants={fadeIn} className="mt-5 max-w-lg text-lg leading-relaxed text-white/60">
+              Host more, pay less. Pick a plan for your organizing needs — switch
+              or cancel anytime.
+            </motion.p>
+          </motion.div>
         </div>
-      </div>
+      </section>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Current Usage */}

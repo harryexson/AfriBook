@@ -10,8 +10,11 @@ import {
   Truck,
   ChevronDown,
   Navigation,
+  Sparkles,
 } from 'lucide-react'
 import FeaturedRestaurants from '@/components/food/FeaturedRestaurants'
+import PhoneMockup from '@/components/showcase/PhoneMockup'
+import { FoodAppScreen } from '@/components/showcase/AppScreens'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -20,7 +23,7 @@ const fadeIn = {
 
 const staggerContainer = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
+  visible: { transition: { staggerChildren: 0.08 } },
 }
 
 const categories = [
@@ -56,7 +59,7 @@ interface Restaurant {
 const restaurants: Restaurant[] = [
   {
     id: '1',
-    name: 'Mama Nkechi\'s Kitchen',
+    name: "Mama Nkechi's Kitchen",
     cuisine: 'Nigerian',
     category: ['Nigerian'],
     rating: 4.9,
@@ -67,7 +70,7 @@ const restaurants: Restaurant[] = [
     location: 'Lekki, Lagos',
     initials: 'MN',
     featured: true,
-    gradient: 'from-amber-500/20 to-orange-500/20',
+    gradient: 'from-amber-500 to-orange-600',
   },
   {
     id: '2',
@@ -82,7 +85,7 @@ const restaurants: Restaurant[] = [
     location: 'Westlands, Nairobi',
     initials: 'CN',
     featured: true,
-    gradient: 'from-emerald-500/20 to-teal-500/20',
+    gradient: 'from-emerald-500 to-teal-600',
   },
   {
     id: '3',
@@ -97,7 +100,7 @@ const restaurants: Restaurant[] = [
     location: 'Woodstock, Cape Town',
     initials: 'AC',
     featured: false,
-    gradient: 'from-yellow-500/20 to-amber-500/20',
+    gradient: 'from-yellow-500 to-amber-600',
   },
   {
     id: '4',
@@ -112,7 +115,7 @@ const restaurants: Restaurant[] = [
     location: 'Guéliz, Marrakech',
     initials: 'MG',
     featured: false,
-    gradient: 'from-red-500/20 to-rose-500/20',
+    gradient: 'from-red-500 to-rose-600',
   },
   {
     id: '5',
@@ -127,7 +130,7 @@ const restaurants: Restaurant[] = [
     location: 'Victoria Island, Lagos',
     initials: 'LB',
     featured: false,
-    gradient: 'from-orange-500/20 to-red-500/20',
+    gradient: 'from-orange-500 to-red-600',
   },
   {
     id: '6',
@@ -142,7 +145,7 @@ const restaurants: Restaurant[] = [
     location: 'Stone Town, Zanzibar',
     initials: 'ZS',
     featured: true,
-    gradient: 'from-cyan-500/20 to-blue-500/20',
+    gradient: 'from-cyan-500 to-blue-600',
   },
   {
     id: '7',
@@ -157,7 +160,7 @@ const restaurants: Restaurant[] = [
     location: 'Kigali, Rwanda',
     initials: 'GL',
     featured: false,
-    gradient: 'from-green-500/20 to-emerald-500/20',
+    gradient: 'from-green-500 to-emerald-600',
   },
   {
     id: '8',
@@ -172,7 +175,7 @@ const restaurants: Restaurant[] = [
     location: 'Osu, Accra',
     initials: 'DW',
     featured: false,
-    gradient: 'from-purple-500/20 to-violet-500/20',
+    gradient: 'from-purple-500 to-violet-600',
   },
   {
     id: '9',
@@ -187,7 +190,7 @@ const restaurants: Restaurant[] = [
     location: 'East Legon, Accra',
     initials: 'BH',
     featured: false,
-    gradient: 'from-pink-500/20 to-rose-500/20',
+    gradient: 'from-pink-500 to-rose-600',
   },
   {
     id: '10',
@@ -202,7 +205,7 @@ const restaurants: Restaurant[] = [
     location: 'Kigali, Rwanda',
     initials: 'SR',
     featured: true,
-    gradient: 'from-indigo-500/20 to-blue-500/20',
+    gradient: 'from-indigo-500 to-blue-600',
   },
 ]
 
@@ -212,10 +215,8 @@ function StarRating({ rating }: { rating: number }) {
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
-          className={`w-3.5 h-3.5 ${
-            star <= Math.round(rating)
-              ? 'text-amber-500 fill-amber-500'
-              : 'text-text-tertiary'
+          className={`h-3.5 w-3.5 ${
+            star <= Math.round(rating) ? 'fill-amber-500 text-amber-500' : 'text-text-tertiary'
           }`}
         />
       ))}
@@ -285,57 +286,129 @@ export default function FoodPage() {
   return (
     <div className="min-h-screen bg-surface">
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-amber-600 via-orange-500 to-red-500 py-20 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
-            <motion.h1
-              variants={fadeIn}
-              className="font-heading text-4xl md:text-6xl font-bold text-white mb-6"
-            >
-              Discover Restaurants{' '}
-              <span className="text-dark-300">Near You</span>
-            </motion.h1>
-            <motion.p variants={fadeIn} className="text-xl text-white/90 max-w-2xl mx-auto mb-8">
-              Order from the best African restaurants and get it delivered to your door.
-            </motion.p>
-            <motion.div variants={fadeIn} className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button
-                onClick={handleUseLocation}
-                disabled={locating}
-                className="inline-flex items-center gap-2 bg-white text-amber-600 font-medium px-6 py-3 rounded-xl hover:bg-white/90 transition-colors disabled:opacity-60"
+      <section className="relative overflow-hidden bg-dark-700">
+        <div className="absolute inset-0 bg-[radial-gradient(50rem_50rem_at_82%_12%,rgba(244,63,94,0.1),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(36rem_36rem_at_-8%_100%,rgba(245,158,11,0.14),transparent_60%)]" />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
+          <div className="grid items-center gap-16 lg:grid-cols-2 lg:gap-12">
+            <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
+              <motion.span
+                variants={fadeIn}
+                className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-300"
               >
-                <Navigation className="w-4 h-4" />
-                {locating ? 'Locating...' : userLocation ? 'Location Set' : 'Use My Location'}
-              </button>
-              <div className="relative w-full sm:w-96">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" />
-                <input
-                  type="text"
-                  placeholder="Search restaurants or dishes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 rounded-xl bg-white/95 text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-white/50"
-                />
-              </div>
+                <Sparkles className="h-3.5 w-3.5" />
+                AfriBook Food
+              </motion.span>
+              <motion.h1
+                variants={fadeIn}
+                className="mt-6 text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-white sm:text-6xl"
+              >
+                Africa&apos;s best kitchens,
+                <span className="block text-gradient-gold">delivered.</span>
+              </motion.h1>
+              <motion.p variants={fadeIn} className="mt-6 max-w-lg text-lg leading-relaxed text-white/60">
+                Order from the best African restaurants — Nigerian, Ethiopian, Moroccan,
+                and more — and get it delivered to your door.
+              </motion.p>
+
+              <motion.div variants={fadeIn} className="mt-8 flex flex-col gap-4 sm:flex-row">
+                <button
+                  onClick={handleUseLocation}
+                  disabled={locating}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-500 px-7 py-3.5 text-base font-semibold text-amber-950 shadow-gold-lg transition-colors hover:bg-amber-400 disabled:opacity-60"
+                >
+                  <Navigation className="h-4 w-4" />
+                  {locating ? 'Locating...' : userLocation ? 'Location Set' : 'Use My Location'}
+                </button>
+                <div className="relative flex-1 sm:max-w-sm">
+                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/35" />
+                  <input
+                    type="text"
+                    placeholder="Search restaurants or dishes..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.06] py-3.5 pl-12 pr-4 text-white placeholder:text-white/35 backdrop-blur-md focus:border-amber-500/50 focus:outline-none"
+                  />
+                </div>
+              </motion.div>
+
+              <motion.div
+                variants={fadeIn}
+                className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3"
+              >
+                {[
+                  { label: 'Restaurants', value: '5,000+' },
+                  { label: 'Avg. delivery', value: '28 min' },
+                  { label: 'Rating', value: '4.8★' },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <p className="font-heading text-xl font-bold text-white">{stat.value}</p>
+                    <p className="text-xs uppercase tracking-wider text-white/40">{stat.label}</p>
+                  </div>
+                ))}
+              </motion.div>
             </motion.div>
-          </motion.div>
+
+            {/* Phone showcase */}
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={fadeIn}
+              transition={{ delay: 0.25 }}
+              className="relative flex justify-center"
+            >
+              <PhoneMockup glow="rose">
+                <FoodAppScreen />
+              </PhoneMockup>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="absolute -left-6 top-24 hidden rounded-2xl border border-white/10 bg-dark-300/90 p-4 shadow-2xl backdrop-blur-md sm:block"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/15">
+                    <Clock className="h-5 w-5 text-rose-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">25-35 min</p>
+                    <p className="text-xs text-white/50">Fastest delivery</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="absolute -right-6 bottom-24 hidden rounded-2xl border border-white/10 bg-dark-300/90 p-4 shadow-2xl backdrop-blur-md sm:block"
+              >
+                <p className="text-xs text-white/50">Order total</p>
+                <p className="text-sm font-bold text-white">3 items · $24.50</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-400">
+                  <Truck className="h-3 w-3" /> Free delivery
+                </p>
+              </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Category Filters & Sort */}
-      <section className="py-6 bg-surface border-b border-border sticky top-0 z-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="sticky top-0 z-20 border-b border-border bg-surface/80 py-6 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between gap-4">
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1 -mb-1">
+            <div className="-mb-1 flex gap-2 overflow-x-auto pb-1">
               {categories.map((category) => (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  className={`shrink-0 rounded-full px-4 py-2 text-sm font-medium transition-colors ${
                     selectedCategory === category
-                      ? 'bg-amber-500 text-white'
-                      : 'bg-surface-secondary border border-border text-text-secondary hover:border-amber-500/50 hover:text-text-primary'
+                      ? 'bg-amber-500 text-white shadow-gold'
+                      : 'border border-border bg-surface-secondary text-text-secondary hover:border-amber-500/50 hover:text-text-primary'
                   }`}
                 >
                   {category}
@@ -346,13 +419,13 @@ export default function FoodPage() {
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-secondary border border-border text-sm font-medium text-text-primary hover:border-amber-500/50 transition-colors"
+                className="flex items-center gap-2 rounded-xl border border-border bg-surface-secondary px-4 py-2 text-sm font-medium text-text-primary transition-colors hover:border-amber-500/50"
               >
                 {sortBy}
-                <ChevronDown className="w-4 h-4 text-text-tertiary" />
+                <ChevronDown className="h-4 w-4 text-text-tertiary" />
               </button>
               {showSortDropdown && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-surface rounded-xl border border-border shadow-xl z-30 overflow-hidden">
+                <div className="absolute right-0 top-full z-30 mt-2 w-48 overflow-hidden rounded-xl border border-border bg-surface shadow-xl">
                   {sortOptions.map((option) => (
                     <button
                       key={option}
@@ -360,9 +433,9 @@ export default function FoodPage() {
                         setSortBy(option)
                         setShowSortDropdown(false)
                       }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
+                      className={`w-full px-4 py-2.5 text-left text-sm transition-colors ${
                         sortBy === option
-                          ? 'bg-amber-500/10 text-amber-500 font-medium'
+                          ? 'bg-amber-500/10 font-medium text-amber-500'
                           : 'text-text-secondary hover:bg-surface-secondary'
                       }`}
                     >
@@ -378,7 +451,7 @@ export default function FoodPage() {
 
       {/* Restaurant Grid */}
       <section className="py-12 bg-surface">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial="hidden"
             whileInView="visible"
@@ -386,11 +459,12 @@ export default function FoodPage() {
             variants={fadeIn}
             className="mb-8"
           >
-            <h2 className="font-heading text-2xl font-bold text-text-primary mb-2">
+            <h2 className="mb-2 font-heading text-2xl font-bold text-text-primary">
               All Restaurants
             </h2>
             <p className="text-text-secondary">
-              {filteredRestaurants.length} restaurant{filteredRestaurants.length !== 1 ? 's' : ''} found
+              {filteredRestaurants.length} restaurant
+              {filteredRestaurants.length !== 1 ? 's' : ''} found
               {selectedCategory !== 'All' && ` in ${selectedCategory}`}
             </p>
           </motion.div>
@@ -400,39 +474,41 @@ export default function FoodPage() {
             whileInView="visible"
             viewport={{ once: true }}
             variants={staggerContainer}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3"
           >
             {filteredRestaurants.map((restaurant) => (
               <motion.div
                 key={restaurant.id}
                 variants={fadeIn}
-                className="bg-surface-secondary rounded-2xl border border-border hover:border-amber-500/50 transition-colors overflow-hidden group cursor-pointer"
+                className="group cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface-secondary transition-colors hover:border-amber-500/50"
               >
-                <div className={`h-40 bg-gradient-to-br ${restaurant.gradient} flex items-center justify-center relative`}>
-                  <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center">
-                    <span className="text-white font-heading font-bold text-xl">
+                <div
+                  className={`relative flex h-40 items-center justify-center bg-gradient-to-br ${restaurant.gradient}`}
+                >
+                  <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md">
+                    <span className="font-heading text-xl font-bold text-white">
                       {restaurant.initials}
                     </span>
                   </div>
                   {restaurant.featured && (
-                    <div className="absolute top-3 right-3 bg-amber-500 text-white text-xs font-semibold px-3 py-1 rounded-full">
-                      Featured
+                    <div className="absolute right-3 top-3 rounded-full bg-dark-900/70 px-3 py-1 text-xs font-semibold text-amber-300 backdrop-blur-md">
+                      ★ Featured
                     </div>
                   )}
                 </div>
 
                 <div className="p-5">
-                  <div className="flex items-start justify-between mb-1">
+                  <div className="mb-1 flex items-start justify-between">
                     <div>
-                      <h3 className="font-heading font-bold text-text-primary group-hover:text-amber-500 transition-colors">
+                      <h3 className="font-heading font-bold text-text-primary transition-colors group-hover:text-amber-500">
                         {restaurant.name}
                       </h3>
-                      <p className="text-text-secondary text-sm">
+                      <p className="text-sm text-text-secondary">
                         {restaurant.cuisine} · {restaurant.priceRange}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-1 rounded-lg">
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                    <div className="flex items-center gap-1 rounded-lg bg-amber-500/10 px-2 py-1">
+                      <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
                       <span className="text-sm font-bold text-text-primary">
                         {restaurant.rating}
                       </span>
@@ -441,19 +517,19 @@ export default function FoodPage() {
 
                   <StarRating rating={restaurant.rating} />
 
-                  <div className="flex items-center gap-4 text-sm text-text-secondary mt-3">
+                  <div className="mt-3 flex items-center gap-4 text-sm text-text-secondary">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-4 h-4 text-text-tertiary" />
+                      <Clock className="h-4 w-4 text-text-tertiary" />
                       {restaurant.deliveryTime}
                     </span>
                     <span className="flex items-center gap-1">
-                      <Truck className="w-4 h-4 text-text-tertiary" />
+                      <Truck className="h-4 w-4 text-text-tertiary" />
                       {restaurant.deliveryFee}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1 text-xs text-text-tertiary mt-2">
-                    <MapPin className="w-3 h-3" />
+                  <div className="mt-2 flex items-center gap-1 text-xs text-text-tertiary">
+                    <MapPin className="h-3 w-3" />
                     {restaurant.location}
                   </div>
                 </div>
@@ -462,8 +538,8 @@ export default function FoodPage() {
           </motion.div>
 
           {filteredRestaurants.length === 0 && (
-            <div className="text-center py-16">
-              <p className="text-text-secondary text-lg">
+            <div className="py-16 text-center">
+              <p className="text-lg text-text-secondary">
                 No restaurants found. Try a different search or category.
               </p>
             </div>

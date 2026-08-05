@@ -2,25 +2,21 @@
 
 import { useState, useRef } from 'react';
 import Link from 'next/link';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   Search,
   Calendar,
   MapPin,
-  Clock,
   Ticket,
   ChevronRight,
   ChevronLeft,
   SlidersHorizontal,
   ArrowUpDown,
-  Star,
   Flame,
-  Tag,
   Users,
   Globe,
   Heart,
   Plus,
-  X,
   Sparkles,
   Zap,
   Music,
@@ -28,11 +24,11 @@ import {
   Image,
   Wrench,
   Download,
-  TrendingUp,
-  ArrowRight,
   TicketCheck,
   MapPinned,
 } from 'lucide-react';
+import PhoneMockup from '@/components/showcase/PhoneMockup';
+import { EventsAppScreen } from '@/components/showcase/AppScreens';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -191,7 +187,7 @@ const stats = [
   { label: 'Countries', value: '28', icon: Globe },
 ];
 
-function EventCard({ event, index }: { event: (typeof upcomingEvents)[0]; index: number }) {
+function EventCard({ event }: { event: (typeof upcomingEvents)[0] }) {
   return (
     <motion.div
       variants={fadeIn}
@@ -253,7 +249,7 @@ function EventCard({ event, index }: { event: (typeof upcomingEvents)[0]; index:
   );
 }
 
-function FeaturedCard({ event, index }: { event: (typeof featuredEvents)[0]; index: number }) {
+function FeaturedCard({ event }: { event: (typeof featuredEvents)[0] }) {
   return (
     <motion.div
       variants={fadeIn}
@@ -314,60 +310,114 @@ export default function EventsPage() {
   return (
     <div className="min-h-screen bg-surface-secondary">
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-amber-500 via-amber-600 to-orange-500 overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-10 left-10 w-72 h-72 bg-white rounded-full blur-3xl" />
-          <div className="absolute bottom-10 right-10 w-96 h-96 bg-white rounded-full blur-3xl" />
-        </div>
-        <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24 text-center">
-          <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
+      <section className="relative overflow-hidden bg-dark-700">
+        <div className="absolute inset-0 bg-[radial-gradient(50rem_50rem_at_82%_12%,rgba(245,158,11,0.12),transparent_58%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(36rem_36rem_at_-8%_100%,rgba(168,85,247,0.12),transparent_60%)]" />
+
+        <div className="relative mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8">
+          <div className="grid items-center gap-16 lg:grid-cols-2 lg:gap-12">
+            <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
+              <motion.div
+                variants={fadeIn}
+                className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-amber-300"
+              >
+                <Flame className="h-3.5 w-3.5" />
+                Discover events across 28 African countries
+              </motion.div>
+              <motion.h1
+                variants={fadeIn}
+                className="mt-6 text-4xl font-semibold leading-[1.05] tracking-[-0.03em] text-white sm:text-6xl"
+              >
+                The best events in
+                <span className="block text-gradient-gold">Africa, ticketed.</span>
+              </motion.h1>
+              <motion.p variants={fadeIn} className="mt-6 max-w-lg text-lg leading-relaxed text-white/60">
+                Concerts, conferences, weddings, and festivals — book instantly and keep
+                your tickets in one place.
+              </motion.p>
+              <motion.div variants={fadeIn} className="mt-8">
+                <div className="relative max-w-xl">
+                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/35" />
+                  <input
+                    type="text"
+                    placeholder="Search events, venues, or cities..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.06] py-4 pl-12 pr-28 text-white placeholder:text-white/35 backdrop-blur-md focus:border-amber-500/50 focus:outline-none"
+                  />
+                  <button className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-amber-600">
+                    Search
+                  </button>
+                </div>
+              </motion.div>
+              <motion.div variants={fadeIn} className="mt-4 flex flex-wrap gap-2">
+                {['Lagos', 'Nairobi', 'Cape Town', 'Accra', 'Kigali'].map((city) => (
+                  <button
+                    key={city}
+                    onClick={() => setSearchQuery(city)}
+                    className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-sm text-white/60 transition-colors hover:border-amber-500/50 hover:text-white"
+                  >
+                    {city}
+                  </button>
+                ))}
+              </motion.div>
+              <motion.div variants={fadeIn} className="mt-8 flex flex-wrap items-center gap-x-8 gap-y-3">
+                {[
+                  { label: 'Events hosted', value: '12,400+' },
+                  { label: 'Tickets sold', value: '850K+' },
+                  { label: 'Countries', value: '28' },
+                ].map((stat) => (
+                  <div key={stat.label}>
+                    <p className="font-heading text-xl font-bold text-white">{stat.value}</p>
+                    <p className="text-xs uppercase tracking-wider text-white/40">{stat.label}</p>
+                  </div>
+                ))}
+              </motion.div>
+            </motion.div>
+
+            {/* Phone showcase */}
             <motion.div
+              initial="hidden"
+              animate="visible"
               variants={fadeIn}
-              className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium mb-6"
+              transition={{ delay: 0.25 }}
+              className="relative flex justify-center"
             >
-              <Flame className="w-4 h-4" />
-              Discover events across 28 African countries
+              <PhoneMockup glow="violet">
+                <EventsAppScreen />
+              </PhoneMockup>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+                className="absolute -left-6 top-24 hidden rounded-2xl border border-white/10 bg-dark-300/90 p-4 shadow-2xl backdrop-blur-md sm:block"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-500/15">
+                    <Ticket className="h-5 w-5 text-violet-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Ticket confirmed</p>
+                    <p className="text-xs text-white/50">Afrobeats Night · Aug 15</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.8 }}
+                className="absolute -right-6 bottom-24 hidden rounded-2xl border border-white/10 bg-dark-300/90 p-4 shadow-2xl backdrop-blur-md sm:block"
+              >
+                <p className="text-xs text-white/50">Tickets on sale</p>
+                <p className="text-sm font-bold text-white">$38 · Row A</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-amber-400">
+                  <Flame className="h-3 w-3" /> 124 left
+                </p>
+              </motion.div>
             </motion.div>
-            <motion.h1
-              variants={fadeIn}
-              className="font-heading font-bold text-white text-4xl md:text-6xl mb-4"
-            >
-              Discover Amazing Events
-              <br />
-              <span className="text-dark-300">Near You</span>
-            </motion.h1>
-            <motion.p
-              variants={fadeIn}
-              className="text-white/80 text-lg md:text-xl mb-8 max-w-2xl mx-auto"
-            >
-              Find concerts, conferences, workshops, and more happening across Africa
-            </motion.p>
-            <motion.div variants={fadeIn} className="max-w-2xl mx-auto">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary" />
-                <input
-                  type="text"
-                  placeholder="Search events, venues, or cities..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white text-text-primary text-lg shadow-xl focus:outline-none focus:ring-2 focus:ring-white/50 placeholder:text-text-tertiary"
-                />
-                <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-xl transition-colors">
-                  Search
-                </button>
-              </div>
-            </motion.div>
-            <motion.div variants={fadeIn} className="flex flex-wrap justify-center gap-3 mt-6">
-              {['Lagos', 'Nairobi', 'Cape Town', 'Accra', 'Kigali'].map((city) => (
-                <button
-                  key={city}
-                  className="text-white/70 hover:text-white text-sm bg-white/10 hover:bg-white/20 px-4 py-1.5 rounded-full transition-colors"
-                >
-                  {city}
-                </button>
-              ))}
-            </motion.div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -586,8 +636,8 @@ export default function EventsPage() {
                   variants={staggerContainer}
                   className="flex gap-5"
                 >
-                  {featuredEvents.map((event, i) => (
-                    <FeaturedCard key={event.id} event={event} index={i} />
+                  {featuredEvents.map((event) => (
+                    <FeaturedCard key={event.id} event={event} />
                   ))}
                 </motion.div>
               </div>
@@ -607,8 +657,8 @@ export default function EventsPage() {
                 variants={staggerContainer}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
               >
-                {upcomingEvents.map((event, i) => (
-                  <EventCard key={event.id} event={event} index={i} />
+                {upcomingEvents.map((event) => (
+                  <EventCard key={event.id} event={event} />
                 ))}
               </motion.div>
               {/* Pagination */}

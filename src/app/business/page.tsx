@@ -174,8 +174,9 @@ export default function BusinessPage() {
   return (
     <div className="min-h-screen bg-surface">
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-dark-500 via-dark-300 to-amber-600 py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-10" />
+      <section className="relative overflow-hidden bg-dark-700 py-24">
+        <div className="absolute inset-0 bg-[radial-gradient(48rem_48rem_at_85%_10%,rgba(245,158,11,0.12),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(30rem_30rem_at_-5%_110%,rgba(59,130,246,0.08),transparent_60%)]" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <motion.div initial="hidden" animate="visible" variants={staggerContainer}>

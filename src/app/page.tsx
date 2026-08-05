@@ -11,6 +11,15 @@ import DiscoverFeed from '@/components/marketplace/DiscoverFeed'
 import HowItWorks from '@/components/marketplace/HowItWorks'
 import StatsSection from '@/components/marketplace/StatsSection'
 import DownloadApp from '@/components/marketplace/DownloadApp'
+import SuperAppShowcase from '@/components/showcase/SuperAppShowcase'
+import {
+  MarketAppScreen,
+  RidesAppScreen,
+  FoodAppScreen,
+  DeliveryAppScreen,
+  EventsAppScreen,
+  SellAppScreen,
+} from '@/components/showcase/AppScreens'
 import { COUNTRIES } from '@/lib/localization/countries'
 
 const GlobeSection = dynamic(
@@ -70,6 +79,28 @@ export default function HomePage() {
       {/* Hero / Globe Section */}
       <GlobeSection />
 
+      {/* One app for everything */}
+      <SuperAppShowcase
+        eyebrow="One app. Every vertical."
+        title={
+          <>
+            Download once.
+            <br />
+            <span className="text-gradient-gold">One for everything.</span>
+          </>
+        }
+        subtitle="Marketplace, rides, food, deliveries, events, and your seller dashboard — six services, one account, every African city."
+        bullets={['Rides', 'Food', 'Marketplace', 'Deliveries', 'Events', 'Selling']}
+        screens={[
+          { label: 'Marketplace', node: <MarketAppScreen />, glow: 'amber' },
+          { label: 'Rides', node: <RidesAppScreen />, glow: 'blue' },
+          { label: 'Food', node: <FoodAppScreen />, glow: 'rose' },
+          { label: 'Deliveries', node: <DeliveryAppScreen />, glow: 'emerald' },
+          { label: 'Events', node: <EventsAppScreen />, glow: 'violet' },
+          { label: 'Sell', node: <SellAppScreen />, glow: 'amber' },
+        ]}
+      />
+
       {/* Category Grid */}
       <CategoryGrid />
 
@@ -86,19 +117,21 @@ export default function HomePage() {
       <DiscoverFeed />
 
       {/* Trusted by countries */}
-      <section className="border-b border-border py-16 sm:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden bg-dark-600 py-16 sm:py-20">
+        <div className="absolute inset-0 bg-[radial-gradient(40rem_40rem_at_50%_-20%,rgba(245,158,11,0.1),transparent_60%)]" />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="mb-10 text-center"
+            className="mb-12 text-center"
           >
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-600 dark:text-amber-400">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-400">
               Global reach
             </p>
-            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-text-primary sm:text-3xl">
-              Connecting buyers and sellers across 16+ countries
+            <h2 className="text-2xl font-semibold tracking-[-0.02em] text-white sm:text-4xl">
+              Built for Africa&apos;s cities.
+              <span className="block text-white/50">Loved across 16+ countries.</span>
             </h2>
           </motion.div>
 
@@ -113,25 +146,26 @@ export default function HomePage() {
               <motion.div
                 key={country.code}
                 variants={flagItemVariants}
-                className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 transition-colors hover:border-amber-500/40 hover:bg-surface-secondary"
+                className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 backdrop-blur-md transition-colors hover:border-amber-500/40 hover:bg-white/10"
               >
                 <span className="text-lg">{country.flag}</span>
-                <span className="text-sm font-medium text-text-secondary">{country.name}</span>
+                <span className="text-sm font-medium text-white/70">{country.name}</span>
               </motion.div>
             ))}
             <motion.div
               variants={flagItemVariants}
-              className="flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-4 py-2"
+              className="flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-4 py-2"
             >
-              <span className="text-sm font-bold text-amber-600 dark:text-amber-400">+4 more</span>
+              <span className="text-sm font-bold text-amber-400">+4 more</span>
             </motion.div>
           </motion.div>
         </div>
       </section>
 
       {/* Call to Action */}
-      <section className="relative overflow-hidden bg-dark-600 py-20 sm:py-24">
-        <div className="absolute inset-0 bg-[radial-gradient(44rem_44rem_at_50%_-20%,rgba(245,158,11,0.14),transparent_60%)]" />
+      <section className="relative overflow-hidden bg-dark-500 py-20 sm:py-24">
+        <div className="absolute inset-0 bg-[radial-gradient(44rem_44rem_at_50%_-20%,rgba(245,158,11,0.16),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(32rem_32rem_at_100%_120%,rgba(180,83,9,0.18),transparent_60%)]" />
         <div className="relative mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -171,6 +205,9 @@ export default function HomePage() {
                 Browse events
               </Link>
             </div>
+            <p className="mt-8 text-xs text-white/40">
+              Free forever for buyers · No setup fees for sellers · Available on iOS &amp; Android
+            </p>
           </motion.div>
         </div>
       </section>

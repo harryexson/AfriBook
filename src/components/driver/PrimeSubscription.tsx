@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Crown, Check, Zap, Clock, Percent, Star } from 'lucide-react'
+import { Crown, Zap, Clock, Percent, Star } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ─── Prime Subscription Plans ────────────────────────────────
@@ -64,7 +64,6 @@ interface PrimeSubscriptionProps {
 
 export default function PrimeSubscription({
   currentPlan = 'none',
-  countryCode = 'US',
   onSubscribe,
   className,
 }: PrimeSubscriptionProps) {
@@ -81,14 +80,14 @@ export default function PrimeSubscription({
   return (
     <div className={cn('space-y-6', className)}>
       {/* Header */}
-      <div className="text-center space-y-2">
-        <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 mx-auto">
+      <div className="space-y-2 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-gold">
           <Crown className="h-6 w-6 text-white" />
         </div>
-        <h2 className="text-2xl font-bold">
+        <h2 className="font-heading text-2xl font-bold text-text-primary">
           {isSubscribed ? 'Your Prime Membership' : 'Upgrade to Prime'}
         </h2>
-        <p className="text-muted-foreground">
+        <p className="text-text-secondary">
           {isSubscribed
             ? 'Enjoy your exclusive Prime benefits'
             : 'Save on every ride with priority matching and exclusive perks'}
@@ -96,7 +95,7 @@ export default function PrimeSubscription({
       </div>
 
       {/* Plans */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {PRIME_PLANS.map((plan) => {
           const isCurrent = currentPlan === plan.id
           const price = plan.monthlyPrice > 0
@@ -111,26 +110,26 @@ export default function PrimeSubscription({
               key={plan.id}
               whileHover={{ y: -2 }}
               className={cn(
-                'relative rounded-xl border p-5 space-y-4',
-                plan.highlight && 'border-2 border-amber-400 shadow-lg',
-                isCurrent && 'bg-primary/5',
+                'relative space-y-4 rounded-2xl border border-border bg-surface-secondary p-5 transition-colors',
+                plan.highlight && 'border-2 border-amber-400 shadow-gold',
+                isCurrent && 'bg-amber-500/5',
               )}
             >
               {plan.highlight && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="inline-flex items-center rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-1 text-xs font-semibold text-white">
+                  <span className="inline-flex items-center rounded-full bg-gradient-to-r from-amber-400 to-orange-500 px-3 py-1 text-xs font-semibold text-white shadow-gold">
                     Best Value — Save {savings}%
                   </span>
                 </div>
               )}
 
               <div>
-                <h3 className="font-semibold">{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mt-1">
-                  <span className="text-3xl font-bold">{price}</span>
+                <h3 className="font-heading font-semibold text-text-primary">{plan.name}</h3>
+                <div className="mt-1 flex items-baseline gap-1">
+                  <span className="font-heading text-3xl font-bold text-text-primary">{price}</span>
                 </div>
                 {savings > 0 && (
-                  <p className="text-xs text-green-600 mt-1">
+                  <p className="mt-1 text-xs text-emerald-600">
                     You save {savings}% vs monthly
                   </p>
                 )}
@@ -139,10 +138,10 @@ export default function PrimeSubscription({
               <ul className="space-y-2">
                 {plan.features.map((feature) => (
                   <li key={feature.label} className="flex items-start gap-2">
-                    <div className="mt-0.5 text-primary">{feature.icon}</div>
+                    <div className="mt-0.5 text-amber-500">{feature.icon}</div>
                     <div>
-                      <span className="text-sm font-medium">{feature.label}</span>
-                      <p className="text-xs text-muted-foreground">{feature.description}</p>
+                      <span className="text-sm font-medium text-text-primary">{feature.label}</span>
+                      <p className="text-xs text-text-secondary">{feature.description}</p>
                     </div>
                   </li>
                 ))}
@@ -152,10 +151,10 @@ export default function PrimeSubscription({
                 <button
                   onClick={() => onSubscribe?.(plan.id)}
                   className={cn(
-                    'w-full rounded-lg py-2.5 text-sm font-medium transition-colors',
+                    'w-full rounded-xl py-2.5 text-sm font-medium transition-colors',
                     plan.highlight
                       ? 'bg-gradient-to-r from-amber-400 to-orange-500 text-white hover:opacity-90'
-                      : 'bg-primary text-primary-foreground hover:bg-primary/90',
+                      : 'bg-amber-500 text-white hover:bg-amber-600',
                   )}
                 >
                   {isSubscribed ? 'Switch Plan' : 'Subscribe'}
@@ -163,7 +162,7 @@ export default function PrimeSubscription({
               )}
 
               {isCurrent && (
-                <div className="w-full rounded-lg py-2.5 text-sm font-medium text-center bg-primary/10 text-primary">
+                <div className="w-full rounded-xl bg-amber-500/10 py-2.5 text-center text-sm font-medium text-amber-500">
                   Current Plan
                 </div>
               )}
@@ -173,13 +172,13 @@ export default function PrimeSubscription({
       </div>
 
       {/* Benefits Table */}
-      <div className="rounded-xl border overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-border">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-muted">
-              <th className="text-left p-3 font-medium">Benefit</th>
-              <th className="text-center p-3 font-medium">Free</th>
-              <th className="text-center p-3 font-medium">Prime</th>
+            <tr className="bg-surface-secondary">
+              <th className="p-3 text-left font-medium text-text-primary">Benefit</th>
+              <th className="p-3 text-center font-medium text-text-primary">Free</th>
+              <th className="p-3 text-center font-medium text-text-primary">Prime</th>
             </tr>
           </thead>
           <tbody>
@@ -190,17 +189,17 @@ export default function PrimeSubscription({
               { benefit: 'Support', free: 'Standard', prime: 'Priority/VIP' },
               { benefit: 'Monthly free upgrade', free: '-', prime: '1 ride/mo' },
             ].map((row) => (
-              <tr key={row.benefit} className="border-t">
-                <td className="p-3">{row.benefit}</td>
-                <td className="p-3 text-center text-muted-foreground">{row.free}</td>
-                <td className="p-3 text-center font-medium text-primary">{row.prime}</td>
+              <tr key={row.benefit} className="border-t border-border">
+                <td className="p-3 text-text-primary">{row.benefit}</td>
+                <td className="p-3 text-center text-text-tertiary">{row.free}</td>
+                <td className="p-3 text-center font-medium text-amber-500">{row.prime}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <p className="text-xs text-center text-muted-foreground">
+      <p className="text-center text-xs text-text-tertiary">
         Cancel anytime. Subscription renews automatically.
       </p>
     </div>

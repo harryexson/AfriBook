@@ -16,6 +16,7 @@ const FOOTER_LINKS = {
   ],
   Marketplace: [
     { label: 'All Categories', href: '/marketplace' },
+    { label: 'Features', href: '/features' },
     { label: 'Services', href: '/marketplace/services' },
     { label: 'Products', href: '/marketplace/products' },
     { label: 'Events & Tickets', href: '/events' },
