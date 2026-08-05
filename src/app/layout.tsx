@@ -1,11 +1,11 @@
 import type { Metadata, Viewport } from 'next'
-import Script from 'next/script'
 import { Space_Grotesk, Manrope, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
 import Footer from '@/components/shared/Footer'
 import ClientProviders from '@/components/providers/ClientProviders'
 import ServiceWorkerRegister from '@/components/shared/ServiceWorkerRegister'
+import { InlineScript } from '@/components/shared/InlineScript'
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
@@ -84,25 +84,8 @@ export default function RootLayout({
       className={`${spaceGrotesk.variable} ${manrope.variable} ${geistMono.variable} h-full`}
     >
       <head>
-        <Script
-          id="theme-preload"
-          strategy="beforeInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var theme = localStorage.getItem('afribook-ui');
-                  if (theme) {
-                    var parsed = JSON.parse(theme);
-                    if (parsed.state.theme === 'dark' ||
-                        (parsed.state.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                      document.documentElement.classList.add('dark');
-                    }
-                  }
-                } catch(e) {}
-              })();
-            `,
-          }}
+        <InlineScript
+          html={`(function(){try{var t=localStorage.getItem('afribook-ui');if(t){var p=JSON.parse(t);if(p.state.theme==='dark'||(p.state.theme==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches)){document.documentElement.classList.add('dark')}}}catch(e){}})()`}
         />
       </head>
       <body className="min-h-full flex flex-col antialiased">
