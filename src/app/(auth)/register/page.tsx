@@ -16,6 +16,8 @@ import {
 import { COUNTRIES } from '@/lib/localization/countries'
 import { moderateRegistration, getBlockMessage } from '@/lib/moderation'
 import PhoneVerification from '@/components/shared/PhoneVerification'
+import ConsentSection from '@/components/account/ConsentSection'
+import type { ConsentType } from '@/types'
 
 type AccountType = 'customer' | 'vendor' | 'driver' | 'restaurant'
 type Step = 1 | 2 | 3 | 4 | 5
@@ -55,7 +57,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState<Step>(1)
   const [accountType, setAccountType] = useState<AccountType | null>(null)
   const [selectedCountry, setSelectedCountry] = useState(countryList[0])
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [grantedConsents, setGrantedConsents] = useState<ConsentType[]>([])
   const [submitLoading, setSubmitLoading] = useState(false)
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -144,6 +146,24 @@ export default function RegisterPage() {
       if (authData.user) {
         localStorage.setItem('afribook-register-role', accountType || 'customer')
         localStorage.setItem('afribook-register-user-id', authData.user.id)
+
+        // Record sign-up disclosures/consents (best-effort; non-blocking).
+        try {
+          await fetch('/api/consents', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              context: 'signup',
+              consents: grantedConsents.map((consentType) => ({
+                consentType,
+                context: 'signup',
+                consentVersion: '2025-06-01',
+              })),
+            }),
+          })
+        } catch {
+          // Consent recording is best-effort and must not block registration.
+        }
       }
       setStep(3)
     } catch (err: any) {
@@ -441,25 +461,70 @@ export default function RegisterPage() {
                 </motion.div>
               )}
 
-              {/* Terms */}
-              <label className="flex items-start gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded-md border-border text-amber-500 focus:ring-amber-500/30 focus:ring-2"
+              {/* Disclosures & Consents */}
+              <div className="p-4 rounded-xl border border-amber-200/50 dark:border-amber-500/20 bg-amber-50/40 dark:bg-amber-500/5 space-y-2">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                  Disclosures &amp; Consents
+                </p>
+                <ConsentSection
+                  items={[
+                    {
+                      type: 'terms_of_service',
+                      title: 'Terms of Service',
+                      description: (
+                        <>
+                          I agree to the{' '}
+                          <Link href={selectedCountry.legalTermsUrl} target="_blank" className="font-semibold text-amber-600 hover:text-amber-700">
+                            Terms of Service
+                          </Link>
+                          , including the Limitation of Liability and Indemnification provisions.
+                        </>
+                      ),
+                    },
+                    {
+                      type: 'privacy_policy',
+                      title: 'Privacy Policy',
+                      description: (
+                        <>
+                          I agree to the{' '}
+                          <Link href={selectedCountry.privacyUrl} target="_blank" className="font-semibold text-amber-600 hover:text-amber-700">
+                            Privacy Policy
+                          </Link>
+                          , including how my personal and payment data is processed.
+                        </>
+                      ),
+                    },
+                    {
+                      type: 'payment_authorization',
+                      title: 'Payment Authorization',
+                      description: (
+                        <>
+                          I authorise AfriBook to store payment methods and charge them for purchases, bookings, and subscriptions. Card numbers are never stored directly.
+                        </>
+                      ),
+                    },
+                    {
+                      type: 'communications',
+                      title: 'Communications Consent',
+                      description: (
+                        <>
+                          I consent to receive transactional, service, and promotional communications by email, SMS, and push notification (promotions can be opted out anytime).
+                        </>
+                      ),
+                    },
+                    {
+                      type: 'hold_harmless_waiver',
+                      title: 'Waiver of Liability & Hold Harmless',
+                      description: (
+                        <>
+                          To the fullest extent permitted by law, I release and hold harmless AfriBook, its owners, shareholders, partners, directors, employees, and agents from liability arising from normal and acceptable use of the Platform, unforeseeable events, events beyond AfriBook&apos;s control, and acts of nature (including natural disasters). AfriBook acts as an intermediary and is not a party to transactions between users and independent vendors or providers.
+                        </>
+                      ),
+                    },
+                  ]}
+                  onChange={setGrantedConsents}
                 />
-                <span className="text-xs text-text-secondary">
-                  I agree to the{' '}
-                  <Link href={selectedCountry.legalTermsUrl} className="font-semibold text-amber-600 hover:text-amber-700">
-                    Terms of Service
-                  </Link>{' '}
-                  and{' '}
-                  <Link href={selectedCountry.privacyUrl} className="font-semibold text-amber-600 hover:text-amber-700">
-                    Privacy Policy
-                  </Link>
-                </span>
-              </label>
+              </div>
 
               {/* Back + Submit */}
               <div className="flex gap-3 pt-2">
@@ -472,7 +537,7 @@ export default function RegisterPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitLoading || !acceptedTerms}
+                  disabled={submitLoading || grantedConsents.length < 5}
                   className={cn(
                     'flex-1 py-2.5 rounded-xl font-semibold text-sm transition-all',
                     'bg-gradient-to-r from-amber-500 to-amber-600 text-white',

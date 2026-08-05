@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
     method,
     bookingId,
     orderId,
+    rideId,
+    deliveryId,
+    vendorId,
+    businessId,
     description,
   } = body;
 
@@ -47,6 +51,10 @@ export async function POST(req: NextRequest) {
       description: description ?? 'AfriBook Payment',
       bookingId: bookingId ?? undefined,
       orderId: orderId ?? undefined,
+      rideId: rideId ?? undefined,
+      deliveryId: deliveryId ?? undefined,
+      vendorId: vendorId ?? undefined,
+      businessId: businessId ?? undefined,
       metadata: {
         afribook_customer_id: user.id,
       },
@@ -56,7 +64,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 402 });
     }
 
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(
+      {
+        ...result,
+        publishableKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+      },
+      { status: 201 },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Payment intent creation failed';
     return NextResponse.json({ error: message }, { status: 500 });

@@ -12,7 +12,9 @@ import {
   Save,
   Mail,
   Phone,
+  CreditCard,
 } from 'lucide-react';
+import PaymentMethodsManager from '@/components/account/PaymentMethodsManager';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -350,6 +352,21 @@ export default function SettingsPage() {
               </select>
             </div>
           </div>
+        </motion.section>
+
+        {/* Payment Methods */}
+        <motion.section
+          variants={fadeIn}
+          className="bg-surface-secondary rounded-2xl border border-border p-6"
+        >
+          <h2 className="font-heading font-bold text-text-primary mb-1 flex items-center gap-2">
+            <CreditCard className="w-5 h-5 text-amber-500" />
+            Payment Methods
+          </h2>
+          <p className="text-sm text-text-secondary mb-6">
+            Mobile money wallets, bank accounts, and debit or credit cards.
+          </p>
+          <PaymentMethodsManager />
         </motion.section>
 
         {/* Delete Account */}

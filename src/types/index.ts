@@ -6,6 +6,14 @@ export type BookingStatus = 'pending' | 'confirmed' | 'in_progress' | 'completed
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'out_for_delivery' | 'delivered' | 'cancelled' | 'refunded';
 export type PaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded' | 'partially_refunded';
 export type PaymentMethod = 'card' | 'mobile_money' | 'bank_transfer' | 'cash' | 'wallet';
+export type SavedPaymentType = 'card' | 'mobile_money' | 'bank';
+export type ConsentType =
+  | 'terms_of_service'
+  | 'privacy_policy'
+  | 'communications'
+  | 'data_sharing'
+  | 'payment_authorization'
+  | 'hold_harmless_waiver';
 export type EscrowStatus = 'held' | 'released' | 'refunded' | 'disputed';
 export type DriverStatus = 'offline' | 'available' | 'on_trip' | 'busy';
 export type BusinessStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification';
@@ -85,6 +93,44 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
+}
+
+// ─── Saved Payment Methods & Consents ────────────────────────
+
+export interface UserPaymentMethod {
+  id: string;
+  userId: string;
+  type: SavedPaymentType;
+  provider?: string;
+  label?: string;
+  last4?: string;
+  network?: string;
+  accountName?: string;
+  accountNumber?: string;
+  phoneNumber?: string;
+  countryCode?: string;
+  currency?: string;
+  expiryMonth?: number;
+  expiryYear?: number;
+  isDefault: boolean;
+  providerToken?: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UserConsent {
+  id: string;
+  userId: string;
+  consentType: ConsentType;
+  consentVersion?: string;
+  context?: string;
+  granted: boolean;
+  grantedAt: string;
+  revokedAt?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata: Record<string, unknown>;
 }
 
 // ─── Business ────────────────────────────────────────────────
@@ -741,6 +787,18 @@ export interface Database {
   public: {
     Tables: {
       users: { Row: Omit<User, never>; Insert: Omit<User, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<User, 'id'>>; Relationships: never[] };
+      user_payment_methods: {
+        Row: Omit<UserPaymentMethod, never>;
+        Insert: Omit<UserPaymentMethod, 'id' | 'createdAt' | 'updatedAt'>;
+        Update: Partial<Omit<UserPaymentMethod, 'id'>>;
+        Relationships: never[];
+      };
+      user_consents: {
+        Row: Omit<UserConsent, never>;
+        Insert: Omit<UserConsent, 'id' | 'grantedAt' | 'revokedAt'>;
+        Update: Partial<Omit<UserConsent, 'id'>>;
+        Relationships: never[];
+      };
       businesses: { Row: Omit<Business, never>; Insert: Omit<Business, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Business, 'id'>>; Relationships: never[] };
       business_domains: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       services: { Row: Omit<Service, never>; Insert: Omit<Service, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Service, 'id'>>; Relationships: never[] };

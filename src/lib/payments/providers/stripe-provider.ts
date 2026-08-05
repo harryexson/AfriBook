@@ -66,33 +66,53 @@ export class StripeProvider implements PaymentProvider {
       request.idempotencyKey ?? `txn_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
     try {
-      const intent = await this.stripe.paymentIntents.create(
-        {
-          amount: Math.round(request.amount * 100),
-          currency: request.currency.toLowerCase(),
-          automatic_payment_methods: { enabled: true },
-          description: request.description,
-          receipt_email: request.customer.email,
-          metadata: {
-            afribook_customer_email: request.customer.email,
-            afribook_customer_name: request.customer.name,
-            afribook_country: request.countryCode,
-            afribook_booking_id: request.bookingId ?? '',
-            afribook_order_id: request.orderId ?? '',
-            afribook_ride_id: request.rideId ?? '',
-            ...request.metadata,
-          },
+      // Resolve the vendor's connected Stripe account (if any) so we can use
+      // Connect destination charges: customer pays the platform, the platform
+      // takes its fee, and the net is transferred to the vendor's account.
+      const destinationAccount = await this.resolveDestinationAccount(request);
+      const fees = this.calculateFees(request.amount, request.currency);
+
+      const intentParams: Stripe.PaymentIntentCreateParams = {
+        amount: Math.round(request.amount * 100),
+        currency: request.currency.toLowerCase(),
+        automatic_payment_methods: { enabled: true },
+        description: request.description,
+        receipt_email: request.customer.email,
+        metadata: {
+          afribook_customer_email: request.customer.email,
+          afribook_customer_name: request.customer.name,
+          afribook_country: request.countryCode,
+          afribook_booking_id: request.bookingId ?? '',
+          afribook_order_id: request.orderId ?? '',
+          afribook_ride_id: request.rideId ?? '',
+          afribook_delivery_id: request.deliveryId ?? '',
+          afribook_vendor_id: request.vendorId ?? '',
+          ...request.metadata,
         },
+      };
+
+      if (destinationAccount) {
+        intentParams.transfer_data = {
+          destination: destinationAccount,
+        };
+        intentParams.on_behalf_of = destinationAccount;
+        intentParams.application_fee_amount = Math.round(
+          (fees.platformFee + fees.tax) * 100,
+        );
+      }
+
+      const intent = await this.stripe.paymentIntents.create(
+        intentParams,
         { idempotencyKey },
       );
 
-      const fees = this.calculateFees(request.amount, request.currency);
       const insertResult = await db
         .from('payment_transactions')
         .insert({
           booking_id: request.bookingId ?? null,
           order_id: request.orderId ?? null,
-          ride_id: request.rideId ?? null,
+          ridely_ride_id: request.rideId ?? null,
+          delivery_id: request.deliveryId ?? null,
           amount: request.amount,
           currency: request.currency,
           provider_code: this.code,
@@ -103,7 +123,13 @@ export class StripeProvider implements PaymentProvider {
           fee_processor: fees.processorFee,
           fee_tax: fees.tax,
           net_amount: fees.netToVendor,
-          metadata: request.metadata,
+          metadata: {
+            ...request.metadata,
+            destination_account: destinationAccount ?? null,
+            application_fee_amount: destinationAccount
+              ? Math.round((fees.platformFee + fees.tax) * 100)
+              : null,
+          },
         })
         .select('id')
         .single();
@@ -424,6 +450,68 @@ export class StripeProvider implements PaymentProvider {
   }
 
   // ─── Private Helpers ─────────────────────────────────────────
+
+  /**
+   * Resolve the vendor's connected Stripe account (destination account for
+   * Connect transfers). Resolution order:
+   *   1. Explicit vendorId + businessId on the request
+   *   2. The business linked to the transaction's order/booking
+   * Returns null when no connected account exists yet (non-Connect flow).
+   */
+  private async resolveDestinationAccount(
+    request: PaymentRequest,
+  ): Promise<string | null> {
+    const db = await createPaymentDb();
+
+    let vendorId = request.vendorId;
+    let businessId = request.businessId;
+
+    if (!vendorId || !businessId) {
+      let businessIdFromRef: string | null = null;
+      let vendorIdFromRef: string | null = null;
+
+      if (request.orderId) {
+        const { data } = await db
+          .from('orders')
+          .select('business_id')
+          .eq('id', request.orderId)
+          .single() as unknown as { data: { business_id: string } | null };
+        businessIdFromRef = data?.business_id ?? null;
+      } else if (request.bookingId) {
+        const { data } = await db
+          .from('bookings')
+          .select('business_id')
+          .eq('id', request.bookingId)
+          .single() as unknown as { data: { business_id: string } | null };
+        businessIdFromRef = data?.business_id ?? null;
+      }
+
+      if (businessIdFromRef) {
+        const { data: biz } = await db
+          .from('businesses')
+          .select('owner_id')
+          .eq('id', businessIdFromRef)
+          .single() as unknown as { data: { owner_id: string } | null };
+        businessId = businessIdFromRef;
+        vendorId = biz?.owner_id ?? vendorId;
+      }
+    }
+
+    if (!vendorId || !businessId) return null;
+
+    const walletResult = await db
+      .from('vendor_wallets')
+      .select('metadata')
+      .eq('vendor_id', vendorId)
+      .eq('business_id', businessId)
+      .maybeSingle() as unknown as {
+      data: { metadata: Record<string, unknown> } | null;
+    };
+
+    const stripeAccountId =
+      walletResult.data?.metadata?.stripe_account_id as string | undefined;
+    return stripeAccountId ?? null;
+  }
 
   private mapStripeStatus(status: string): OrchestratorPaymentStatus {
     const map: Record<string, OrchestratorPaymentStatus> = {

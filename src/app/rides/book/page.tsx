@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { RIDE_TYPE_CONFIG, type RideType, type RideStatus } from '@/types/ridely'
+import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
 import { cn, formatCurrency } from '@/lib/utils'
 
 // --- Ride Type Definitions -----------------------------------
@@ -70,7 +71,7 @@ const PAYMENT_METHODS = [
 
 // --- Step Type -----------------------------------------------
 
-type BookingStep = 'details' | 'select' | 'confirm' | 'matching' | 'riding' | 'complete'
+type BookingStep = 'details' | 'select' | 'payment' | 'matching' | 'riding' | 'complete'
 
 // --- Page ----------------------------------------------------
 
@@ -117,7 +118,6 @@ export default function BookRidePage() {
     }
 
     setError(null)
-    setStep('matching')
     setLoading(true)
 
     try {
@@ -148,24 +148,43 @@ export default function BookRidePage() {
       setRideId(data.data.id)
       setRideStatus(data.data.status)
 
-      // Simulate driver matching after a delay (in production, use Supabase Realtime)
-      setTimeout(() => {
-        setDriverInfo({
-          name: 'Adebayo O.',
-          rating: 4.8,
-          vehicle: '2022 White Toyota Corolla',
-          etaMinutes: 4,
-        })
-        setRideStatus('accepted')
+      // Card payments confirm the ride up-front; cash/wallet proceed to matching.
+      if (paymentType === 'card') {
+        setStep('payment')
         setLoading(false)
-        setStep('riding')
-      }, 3000)
+        return
+      }
+
+      beginMatching(data.data.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to request ride')
       setStep('details')
       setLoading(false)
     }
   }, [user, pickupAddress, destinationAddress, selectedRideType, paymentType, router])
+
+  const beginMatching = useCallback((id: string) => {
+    setRideId(id)
+    setStep('matching')
+    setLoading(true)
+
+    // Simulate driver matching after a delay (in production, use Supabase Realtime)
+    setTimeout(() => {
+      setDriverInfo({
+        name: 'Adebayo O.',
+        rating: 4.8,
+        vehicle: '2022 White Toyota Corolla',
+        etaMinutes: 4,
+      })
+      setRideStatus('accepted')
+      setLoading(false)
+      setStep('riding')
+    }, 3000)
+  }, [])
+
+  const handlePaymentSuccess = useCallback(() => {
+    if (rideId) beginMatching(rideId)
+  }, [rideId, beginMatching])
 
   // -- Cancel ride -------------------------------------------
   const handleCancelRide = useCallback(async () => {
@@ -412,6 +431,55 @@ export default function BookRidePage() {
                   className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors"
                 >
                   Confirm {RIDE_TYPES.find((t) => t.id === selectedRideType)?.name}
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* -- Step: Payment ------------------------------- */}
+          {step === 'payment' && (
+            <motion.div
+              key="payment"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <h1 className="font-heading text-2xl font-bold text-text-primary mb-2">
+                Confirm payment
+              </h1>
+              <p className="text-sm text-text-secondary mb-6">
+                Pay for your {selectedRideType} ride before we find your driver.
+              </p>
+
+              <div className="bg-surface-secondary rounded-xl p-4 border border-border mb-6">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-text-secondary">Estimated fare</span>
+                  <span className="font-heading text-xl font-bold text-text-primary">
+                    {formatCurrency(estimatedFare, 'XAF')}
+                  </span>
+                </div>
+                <p className="text-xs text-text-tertiary mt-1">
+                  {pickupAddress} → {destinationAddress}
+                </p>
+              </div>
+
+              <StripePaymentSection
+                amount={estimatedFare}
+                countryCode="US"
+                method="card"
+                rideId={rideId ?? undefined}
+                description={`AfriBook ${selectedRideType} ride`}
+                buttonLabel={`Pay ${formatCurrency(estimatedFare, 'XAF')}`}
+                onSuccess={handlePaymentSuccess}
+                onError={setError}
+              />
+
+              <div className="flex gap-3 mt-4">
+                <button
+                  onClick={() => setStep('select')}
+                  className="px-6 py-3.5 rounded-xl border border-border text-text-secondary hover:text-text-primary transition-colors"
+                >
+                  Back
                 </button>
               </div>
             </motion.div>

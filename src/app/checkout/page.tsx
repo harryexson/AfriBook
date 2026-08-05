@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCartStore } from '@/stores/cart-store'
+import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
 import {
   ShoppingBag, MapPin, Store, Truck, Package,
   ChevronLeft, CheckCircle, ArrowRight, Clock,
@@ -25,6 +26,7 @@ export default function CheckoutPage() {
   const store = useCartStore()
   const [submitting, setSubmitting] = useState(false)
   const [orderResult, setOrderResult] = useState<any>(null)
+  const [paymentCompleted, setPaymentCompleted] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handlePlaceOrder = async () => {
@@ -60,29 +62,7 @@ export default function CheckoutPage() {
       const orderData = await res.json()
       if (!res.ok) throw new Error(orderData.error ?? 'Order failed')
 
-      if (store.fulfillmentMethod === 'pickup') {
-        const pickupRes = await fetch('/api/orders/pickup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderId: orderData.id,
-            businessId: store.businessId,
-            pickupNotes: store.pickupNotes || undefined,
-          }),
-        })
-
-        if (!pickupRes.ok) {
-          const pickupErr = await pickupRes.json()
-          throw new Error(pickupErr.error ?? 'Pickup creation failed')
-        }
-
-        const pickupData = await pickupRes.json()
-        setOrderResult({ ...orderData, pickupCode: pickupData.pickupCode })
-      } else {
-        setOrderResult(orderData)
-      }
-
-      store.clearCart()
+      setOrderResult(orderData)
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -90,8 +70,76 @@ export default function CheckoutPage() {
     }
   }
 
+  const handlePaymentSuccess = async () => {
+    setPaymentCompleted(true)
+    store.clearCart()
+
+    if (store.fulfillmentMethod === 'pickup' && orderResult?.id) {
+      try {
+        const pickupRes = await fetch('/api/orders/pickup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: orderResult.id,
+            businessId: store.businessId,
+            pickupNotes: store.pickupNotes || undefined,
+          }),
+        })
+
+        if (pickupRes.ok) {
+          const pickupData = await pickupRes.json()
+          setOrderResult({ ...orderResult, pickupCode: pickupData.pickupCode })
+        }
+      } catch {
+        // Pickup code generation is best-effort; the order is already placed.
+      }
+    }
+  }
+
   const subtotal = store.subtotal()
   const total = store.total()
+
+  if (orderResult && !paymentCompleted) {
+    return (
+      <div className="min-h-screen bg-surface-secondary flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full bg-surface rounded-2xl border border-border p-6"
+        >
+          <div className="flex items-center gap-3 mb-2">
+            <button onClick={() => { setOrderResult(null); router.refresh() }} className="p-2 rounded-xl hover:bg-surface transition-colors">
+              <ChevronLeft className="w-5 h-5 text-text-secondary" />
+            </button>
+            <h1 className="text-lg font-bold text-text-primary font-heading">Complete Payment</h1>
+          </div>
+          <p className="text-sm text-text-secondary mb-4">
+            Your order <span className="font-mono font-bold text-text-primary">{orderResult.id.slice(0, 12)}</span> has been
+            reserved. Pay now to confirm it.
+          </p>
+          <div className="mb-4 p-4 rounded-xl bg-surface-secondary flex items-center justify-between">
+            <span className="text-sm text-text-secondary">Order Total</span>
+            <span className="text-lg font-bold text-text-primary">₦{total.toLocaleString()}</span>
+          </div>
+          <StripePaymentSection
+            amount={total}
+            countryCode="US"
+            method="card"
+            orderId={orderResult.id}
+            businessId={store.businessId ?? undefined}
+            buttonLabel={`Pay ₦${total.toLocaleString()}`}
+            onSuccess={handlePaymentSuccess}
+            onError={setError}
+          />
+          {error && (
+            <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+            </div>
+          )}
+        </motion.div>
+      </div>
+    )
+  }
 
   if (orderResult) {
     return (

@@ -8,6 +8,7 @@ import {
   Heart,
   Bell,
   Settings,
+  CreditCard,
   LogOut,
   ChevronRight,
   User,
@@ -18,6 +19,7 @@ const navItems = [
   { href: '/account/orders', label: 'Orders', icon: ShoppingBag },
   { href: '/account/favorites', label: 'Favorites', icon: Heart },
   { href: '/account/notifications', label: 'Notifications', icon: Bell },
+  { href: '/account/payment-methods', label: 'Payment Methods', icon: CreditCard },
   { href: '/account/settings', label: 'Settings', icon: Settings },
 ];
 

@@ -18,6 +18,18 @@ function generateTicketCode(): string {
   return code;
 }
 
+async function getOrganizerStripeAccountId(organizerId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from('vendor_wallets')
+    .select('metadata')
+    .eq('vendor_id', organizerId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const acctId = (data.metadata as Record<string, unknown> | null)?.stripe_account_id as string | undefined;
+  return acctId ?? null;
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -254,6 +266,13 @@ export async function POST(
 
     let paymentIntent = null;
     if (!event.is_free && total > 0) {
+      // Resolve the organizer's connected Stripe account so ticket funds reach
+      // the seller: customer pays the platform (total), the platform keeps the
+      // application fee (platform fee + processing fee), and the net (subtotal)
+      // is transferred to the organizer's connected account via Connect.
+      const stripeAccountId = await getOrganizerStripeAccountId(event.organizer_id);
+      const appFeeAmount = Math.round((platformFee + processingFee) * 100);
+
       const stripePaymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(total * 100),
         currency: event.currency_code.toLowerCase(),
@@ -262,9 +281,18 @@ export async function POST(
           registration_id: registration.id,
           user_id: userId,
           ticket_code: ticketCode,
+          afribook_organizer_id: event.organizer_id,
+          afribook_net_to_organizer: String(Math.round((subtotal) * 100) / 100),
         },
         description: `Event registration: ${event.title} (${ticketTier.name} x${quantity})`,
         receipt_email: userEmail,
+        ...(stripeAccountId
+          ? {
+              transfer_data: { destination: stripeAccountId },
+              on_behalf_of: stripeAccountId,
+              application_fee_amount: appFeeAmount,
+            }
+          : {}),
       });
 
       paymentIntent = {

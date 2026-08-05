@@ -54,6 +54,9 @@ export interface PaymentRequest {
   bookingId?: string;
   orderId?: string;
   rideId?: string;
+  deliveryId?: string;
+  vendorId?: string;
+  businessId?: string;
   idempotencyKey?: string;
 }
 
@@ -421,7 +424,7 @@ export const COUNTRY_METHODS_MAP: Record<
   KE: ['mpesa', 'card'],
   TZ: ['mpesa'],
   UG: ['mpesa', 'airtel_money'],
-  MW: ['mobile_money', 'bank_transfer'],
+  MW: ['mobile_money', 'airtel_money', 'mtn_mobile_money', 'bank_transfer', 'card'],
   ZA: ['card', 'bank_transfer'],
   EG: ['card', 'fawry', 'wallet'],
   RW: ['mobile_money'],

@@ -40,7 +40,8 @@ const TABLE_OF_CONTENTS = [
   { id: 'indemnification', label: '12. Indemnification' },
   { id: 'modifications', label: '13. Modifications to Terms' },
   { id: 'governing-law', label: '14. Governing Law' },
-  { id: 'contact', label: '15. Contact Information' },
+  { id: 'waiver', label: '15. Waiver of Liability, Hold Harmless & Force Majeure' },
+  { id: 'contact', label: '16. Contact Information' },
 ]
 
 export default function TermsOfServicePage() {
@@ -67,10 +68,10 @@ export default function TermsOfServicePage() {
         <div className="flex items-center gap-4 text-sm text-text-secondary mt-4">
           <div className="flex items-center gap-1.5">
             <Clock className="w-4 h-4" />
-            <span>Last updated: January 15, 2025</span>
+            <span>Last updated: August 4, 2026</span>
           </div>
           <span className="text-text-tertiary">|</span>
-          <span>Effective: January 1, 2025</span>
+          <span>Effective: August 1, 2026</span>
         </div>
       </motion.div>
 
@@ -674,9 +675,69 @@ export default function TermsOfServicePage() {
           </div>
         </motion.section>
 
-        {/* 15. Contact */}
+        {/* 15. Waiver of Liability, Hold Harmless & Force Majeure */}
         <motion.section
           custom={14}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+          variants={sectionVariants}
+          id="waiver"
+          className="scroll-mt-24"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <Shield className="w-5 h-5 text-amber-500" />
+            <h2 className="text-2xl font-bold text-text-primary font-heading">
+              15. Waiver of Liability, Hold Harmless &amp; Force Majeure
+            </h2>
+          </div>
+          <div className="prose prose-sm max-w-none text-text-secondary space-y-4">
+            <p>
+              This section applies to all users of the Platform, including customers, vendors, drivers, restaurants, and other service providers.
+            </p>
+
+            <h3 className="text-lg font-semibold text-text-primary font-heading">15.1 Release and Hold Harmless</h3>
+            <p>
+              To the fullest extent permitted by applicable law, you release, discharge, and hold harmless AfriBook, its owners, shareholders, partners, directors, officers, employees, contractors, and agents (collectively, &quot;AfriBook Parties&quot;) from any and all liability, claims, demands, damages, losses, costs, or expenses (including reasonable attorneys&apos; fees) arising out of or in any way connected with:
+            </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>
+                Your normal and acceptable use of the Platform, including booking, ordering, requesting rides, arranging deliveries, and all other platform activities;
+              </li>
+              <li>
+                Any transaction, agreement, or interaction between you and any independent vendor, driver, restaurant, or other third-party user facilitated through the Platform;
+              </li>
+              <li>
+                The conduct, products, services, quality, safety, or legality of any independent vendor, driver, restaurant, or other third party; and
+              </li>
+              <li>
+                Any unauthorized access to or use of your account that results from your failure to safeguard your credentials.
+              </li>
+            </ul>
+
+            <h3 className="text-lg font-semibold text-text-primary font-heading">15.2 Force Majeure</h3>
+            <p>
+              AfriBook shall not be liable for any failure or delay in performing its obligations, or for any loss, damage, or claim arising out of or in connection with, any event beyond its reasonable control, including but not limited to: acts of God and natural disasters (such as earthquakes, floods, hurricanes, storms, droughts, wildfires, landslides, and epidemics or pandemics); war, terrorism, civil unrest, or riots; strikes, lockouts, or other industrial disputes; power failures, telecommunications or internet outages, or failures of third-party infrastructure; government actions, orders, embargoes, or regulations; and any other unforeseeable event or circumstance.
+            </p>
+            <p>
+              You acknowledge that AfriBook cannot guarantee the continuous, uninterrupted, or error-free availability of the Platform, the fulfilment of bookings or orders, or the completion of rides or deliveries when such performance is prevented or impeded by force majeure events, and you waive any claim against the AfriBook Parties in respect of such non-performance or delay.
+            </p>
+
+            <h3 className="text-lg font-semibold text-text-primary font-heading">15.3 Intermediary Role</h3>
+            <p>
+              You accept that AfriBook acts solely as an intermediary platform and is not a party to any transaction between users. Where a dispute arises between users, the AfriBook Parties shall have no liability for the subject matter of that transaction, and you agree to pursue remedies against the relevant independent vendor, driver, restaurant, or other party in accordance with these Terms and applicable law.
+            </p>
+
+            <h3 className="text-lg font-semibold text-text-primary font-heading">15.4 Severability and Savings</h3>
+            <p>
+              Where a court or other competent authority determines that any part of this waiver or hold-harmless provision is invalid or unenforceable, the remainder of this provision shall continue in full force and effect, and the invalid or unenforceable part shall be limited to the fullest extent permitted by law. Nothing in this section limits any rights you may have under mandatory consumer protection law of your country of residence that cannot be waived by agreement.
+            </p>
+          </div>
+        </motion.section>
+
+        {/* 16. Contact */}
+        <motion.section
+          custom={15}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-50px' }}
@@ -687,7 +748,7 @@ export default function TermsOfServicePage() {
           <div className="flex items-center gap-3 mb-4">
             <Mail className="w-5 h-5 text-amber-500" />
             <h2 className="text-2xl font-bold text-text-primary font-heading">
-              15. Contact Information
+              16. Contact Information
             </h2>
           </div>
           <div className="prose prose-sm max-w-none text-text-secondary space-y-4">

@@ -24,6 +24,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
+import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
 
 // ── Types ──────────────────────────────────────────────────────
 

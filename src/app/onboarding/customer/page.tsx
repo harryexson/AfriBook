@@ -8,6 +8,9 @@ import { useAuthStore } from '@/stores/auth-store'
 import { OnboardingLayout } from '@/components/onboarding'
 import InterestCard from '@/components/onboarding/InterestCard'
 import { COUNTRIES } from '@/lib/localization/countries'
+import PaymentMethodsManager from '@/components/account/PaymentMethodsManager'
+import ConsentSection, { DEFAULT_CONSENTS } from '@/components/account/ConsentSection'
+import type { ConsentType } from '@/types'
 import {
   Camera, MapPin, Search, ChevronDown, Eye, EyeOff,
   Calendar, Phone, ArrowRight, PartyPopper, Lightbulb,
@@ -56,14 +59,19 @@ export default function CustomerOnboardingPage() {
   // Step 4 - Interests
   const [selectedInterests, setSelectedInterests] = useState<string[]>([])
 
-  const totalSteps = 5
+  // Step 5 - Payment & Consents
+  const [grantedConsents, setGrantedConsents] = useState<ConsentType[]>([])
+  const [consentSaving, setConsentSaving] = useState(false)
+
+  const totalSteps = 6
 
   const stepLabels: Record<number, string> = {
     1: 'Welcome',
     2: 'Your Profile',
     3: 'Location',
     4: 'Interests',
-    5: 'All Set',
+    5: 'Payment & Consents',
+    6: 'All Set',
   }
 
   const canProceed = useCallback(() => {
@@ -72,10 +80,11 @@ export default function CustomerOnboardingPage() {
       case 2: return true // profile is optional mostly
       case 3: return country !== ''
       case 4: return selectedInterests.length >= 3
-      case 5: return true
+      case 5: return grantedConsents.length >= DEFAULT_CONSENTS.length
+      case 6: return true
       default: return true
     }
-  }, [step, country, selectedInterests])
+  }, [step, country, selectedInterests, grantedConsents])
 
   const next = () => {
     if (step < totalSteps) {
@@ -120,8 +129,28 @@ export default function CustomerOnboardingPage() {
     c.name.toLowerCase().includes(countrySearch.toLowerCase())
   )
 
-  const finish = () => {
-    router.push(`/${country.toLowerCase() || 'ng'}`)
+  const finish = async () => {
+    // Record onboarding disclosures/consents (best-effort, non-blocking).
+    setConsentSaving(true)
+    try {
+      await fetch('/api/consents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          context: 'onboarding',
+          consents: grantedConsents.map((consentType) => ({
+            consentType,
+            context: 'onboarding',
+            consentVersion: '2025-06-01',
+          })),
+        }),
+      })
+    } catch {
+      // Best-effort recording.
+    } finally {
+      setConsentSaving(false)
+      router.push(`/${country.toLowerCase() || 'ng'}`)
+    }
   }
 
   const STEP_LABEL = stepLabels[step] || ''
@@ -542,8 +571,93 @@ export default function CustomerOnboardingPage() {
           </motion.div>
         )}
 
-        {/* ─── Step 5: All Set! ─── */}
+        {/* ─── Step 5: Payment & Consents ─── */}
         {step === 5 && (
+          <motion.div
+            key="payment"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <div className="text-center">
+              <h2 className="text-2xl font-bold text-text-primary font-heading">Payments &amp; consents</h2>
+              <p className="text-text-secondary mt-1">
+                Save a payment method and confirm your consents (you can manage both later)
+              </p>
+            </div>
+
+            <PaymentMethodsManager compact />
+
+            <div className="p-4 rounded-xl border border-amber-200/50 dark:border-amber-500/20 bg-amber-50/40 dark:bg-amber-500/5">
+              <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-2">
+                Disclosures &amp; Consents
+              </p>
+              <ConsentSection
+                items={[
+                  {
+                    type: 'terms_of_service',
+                    title: 'Terms of Service',
+                    description: (
+                      <>
+                        I agree to the Terms of Service, including the Limitation of Liability and Indemnification provisions.
+                      </>
+                    ),
+                  },
+                  {
+                    type: 'privacy_policy',
+                    title: 'Privacy Policy',
+                    description: (
+                      <>
+                        I agree to the Privacy Policy, including how my personal and payment data is processed.
+                      </>
+                    ),
+                  },
+                  {
+                    type: 'payment_authorization',
+                    title: 'Payment Authorization',
+                    description: (
+                      <>
+                        I authorise AfriBook to store payment methods and charge them for purchases, bookings, and subscriptions. Card numbers are never stored directly.
+                      </>
+                    ),
+                  },
+                  {
+                    type: 'communications',
+                    title: 'Communications Consent',
+                    description: (
+                      <>
+                        I consent to receive transactional, service, and promotional communications (promotions can be opted out anytime).
+                      </>
+                    ),
+                  },
+                  {
+                    type: 'hold_harmless_waiver',
+                    title: 'Waiver of Liability & Hold Harmless',
+                    description: (
+                      <>
+                        To the fullest extent permitted by law, I release and hold harmless AfriBook, its owners, shareholders, partners, directors, employees, and agents from liability arising from normal and acceptable use of the Platform, unforeseeable events, events beyond AfriBook&apos;s control, and acts of nature (including natural disasters). AfriBook acts as an intermediary and is not a party to transactions between users and independent vendors or providers.
+                      </>
+                    ),
+                  },
+                ]}
+                onChange={setGrantedConsents}
+              />
+            </div>
+
+            <button
+              onClick={next}
+              disabled={grantedConsents.length < DEFAULT_CONSENTS.length}
+              className="w-full inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold shadow-lg shadow-amber-500/25 hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Continue
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+
+        {/* ─── Step 6: All Set! ─── */}
+        {step === 6 && (
           <motion.div
             key="complete"
             initial={{ opacity: 0, scale: 0.95 }}

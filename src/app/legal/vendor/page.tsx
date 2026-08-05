@@ -44,8 +44,9 @@ const TABLE_OF_CONTENTS = [
   { id: 'liability', label: '13. Liability & Indemnification' },
   { id: 'disputes', label: '14. Dispute Resolution' },
   { id: 'modifications', label: '15. Modifications' },
-  { id: 'governing-law', label: '16. Governing Law' },
-  { id: 'contact', label: '17. Contact Information' },
+  { id: 'waiver', label: '16. Waiver of Liability, Hold Harmless & Force Majeure' },
+  { id: 'governing-law', label: '17. Governing Law' },
+  { id: 'contact', label: '18. Contact Information' },
 ]
 
 export default function VendorAgreementPage() {
@@ -72,10 +73,10 @@ export default function VendorAgreementPage() {
         <div className="flex items-center gap-4 text-sm text-text-secondary mt-4">
           <div className="flex items-center gap-1.5">
             <Clock className="w-4 h-4" />
-            <span>Last updated: January 15, 2025</span>
+            <span>Last updated: August 4, 2026</span>
           </div>
           <span className="text-text-tertiary">|</span>
-          <span>Effective: January 1, 2025</span>
+          <span>Effective: August 1, 2026</span>
         </div>
       </motion.div>
 
@@ -742,9 +743,52 @@ export default function VendorAgreementPage() {
           </div>
         </motion.section>
 
-        {/* 16. Governing Law */}
+        {/* 16. Waiver of Liability, Hold Harmless & Force Majeure */}
         <motion.section
           custom={15}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: '-50px' }}
+          variants={sectionVariants}
+          id="waiver"
+          className="scroll-mt-24"
+        >
+          <div className="flex items-center gap-3 mb-4">
+            <Shield className="w-5 h-5 text-amber-500" />
+            <h2 className="text-2xl font-bold text-text-primary font-heading">
+              16. Waiver of Liability, Hold Harmless &amp; Force Majeure
+            </h2>
+          </div>
+          <div className="prose prose-sm max-w-none text-text-secondary space-y-4">
+            <p>
+              To the fullest extent permitted by applicable law, you release, discharge, and hold harmless AfriBook, its owners, shareholders, partners, directors, officers, employees, contractors, and agents from any and all liability, claims, demands, damages, losses, costs, or expenses (including reasonable attorneys&apos; fees) arising out of or in any way connected with:
+            </p>
+            <ul className="list-disc pl-6 space-y-2">
+              <li>
+                Your normal and acceptable use of the Platform as a vendor, including listing products or services, fulfilling orders, and all other platform activities;
+              </li>
+              <li>
+                Any transaction, agreement, or interaction between you and any customer, driver, restaurant, or other third-party user facilitated through the Platform; and
+              </li>
+              <li>
+                The conduct, products, services, quality, safety, or legality of any independent customer, driver, restaurant, or other third party.
+              </li>
+            </ul>
+            <p>
+              AfriBook shall not be liable for any failure or delay in performing its obligations, or for any loss, damage, or claim arising out of or in connection with, any event beyond its reasonable control, including but not limited to: acts of God and natural disasters (such as earthquakes, floods, hurricanes, storms, droughts, wildfires, landslides, and epidemics or pandemics); war, terrorism, civil unrest, or riots; strikes, lockouts, or other industrial disputes; power failures, telecommunications or internet outages, or failures of third-party infrastructure; government actions, orders, embargoes, or regulations; and any other unforeseeable event or circumstance. You waive any claim against AfriBook in respect of non-performance or delay caused by such force majeure events.
+            </p>
+            <p>
+              You accept that AfriBook acts solely as an intermediary platform and is not a party to any transaction between users. Where a dispute arises between users, AfriBook shall have no liability for the subject matter of that transaction, and you agree to pursue remedies against the relevant party in accordance with this Agreement and applicable law.
+            </p>
+            <p>
+              Where a court or other competent authority determines that any part of this waiver or hold-harmless provision is invalid or unenforceable, the remainder of this provision shall continue in full force and effect. Nothing in this section limits any rights you may have under mandatory law of your country of residence that cannot be waived by agreement.
+            </p>
+          </div>
+        </motion.section>
+
+        {/* 17. Governing Law */}
+        <motion.section
+          custom={16}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-50px' }}
@@ -755,7 +799,7 @@ export default function VendorAgreementPage() {
           <div className="flex items-center gap-3 mb-4">
             <Scale className="w-5 h-5 text-amber-500" />
             <h2 className="text-2xl font-bold text-text-primary font-heading">
-              16. Governing Law
+              17. Governing Law
             </h2>
           </div>
           <div className="prose prose-sm max-w-none text-text-secondary space-y-4">
@@ -768,9 +812,9 @@ export default function VendorAgreementPage() {
           </div>
         </motion.section>
 
-        {/* 17. Contact */}
+        {/* 18. Contact */}
         <motion.section
-          custom={16}
+          custom={17}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-50px' }}
@@ -781,7 +825,7 @@ export default function VendorAgreementPage() {
           <div className="flex items-center gap-3 mb-4">
             <Mail className="w-5 h-5 text-amber-500" />
             <h2 className="text-2xl font-bold text-text-primary font-heading">
-              17. Contact Information
+              18. Contact Information
             </h2>
           </div>
           <div className="prose prose-sm max-w-none text-text-secondary space-y-4">
