@@ -31,11 +31,15 @@ export default function Card({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius['2xl'],
+    backgroundColor: colors.surface,
+    overflow: 'hidden',
   },
   default: {
     backgroundColor: colors.surface,
-    ...shadows.sm,
+    ...shadows.md,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 231, 235, 0.7)',
   },
   outlined: {
     backgroundColor: colors.surface,
@@ -45,5 +49,7 @@ const styles = StyleSheet.create({
   elevated: {
     backgroundColor: colors.surface,
     ...shadows.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
 });

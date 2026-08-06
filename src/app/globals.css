@@ -314,20 +314,37 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .premium-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  position: relative;
+  background: linear-gradient(180deg, var(--color-surface) 0%, rgba(255,255,255,0.95) 100%);
+  border: 1px solid rgba(255,255,255,0.18);
   border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-premium);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
   transition:
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
     border-color 0.35s ease;
 }
 
+.premium-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 10% 15%, rgba(245, 158, 11, 0.12), transparent 22%),
+    radial-gradient(circle at 90% 75%, rgba(16, 185, 129, 0.08), transparent 18%);
+}
+
+.premium-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .premium-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
-  border-color: color-mix(in srgb, var(--color-amber-500) 40%, var(--color-border));
+  transform: translateY(-6px);
+  box-shadow: 0 32px 110px rgba(15, 23, 42, 0.16);
+  border-color: rgba(245, 158, 11, 0.28);
 }
 
 .hover-lift {

@@ -49,11 +49,11 @@ export default function BookingCard({
   return (
     <TouchableOpacity
       style={styles.card}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
       onPress={onPress}
     >
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <View style={styles.datePill}>
           <Text style={styles.date}>{dateStr}</Text>
           <Text style={styles.time}>{timeStr}</Text>
         </View>
@@ -74,14 +74,17 @@ export default function BookingCard({
       </View>
 
       <View style={styles.footer}>
-        <Text style={styles.amount}>
-          {booking.currencyCode} {booking.amount.toFixed(2)}
-        </Text>
-        {booking.notes && (
-          <Text style={styles.notes} numberOfLines={1}>
-            📝 {booking.notes}
+        <View>
+          <Text style={styles.amount}>
+            {booking.currencyCode} {booking.amount.toFixed(2)}
           </Text>
-        )}
+          {booking.notes && (
+            <Text style={styles.notes} numberOfLines={1}>
+              📝 {booking.notes}
+            </Text>
+          )}
+        </View>
+        <Text style={styles.statusHelp}>Tap to manage</Text>
       </View>
     </TouchableOpacity>
   );
@@ -90,37 +93,42 @@ export default function BookingCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius['2xl'],
+    overflow: 'hidden',
+    ...shadows.lg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
     padding: spacing.lg,
-    ...shadows.sm,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
-  headerLeft: {
-    gap: 2,
+  datePill: {
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
   date: {
     fontSize: typography.fontSize.sm,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   time: {
     fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
+    marginTop: 2,
   },
   body: {
-    gap: 2,
+    gap: spacing.sm,
     marginBottom: spacing.md,
   },
   businessName: {
-    fontSize: typography.fontSize.md,
-    fontWeight: '700',
+    fontSize: typography.fontSize['2xl'],
+    fontWeight: '800',
     color: colors.textPrimary,
   },
   serviceName: {
@@ -130,21 +138,23 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
   },
   amount: {
-    fontSize: typography.fontSize.md,
-    fontWeight: '700',
+    fontSize: typography.fontSize.xl,
+    fontWeight: '800',
     color: colors.primary,
   },
   notes: {
     fontSize: typography.fontSize.xs,
     color: colors.textTertiary,
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  statusHelp: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
   },
 });

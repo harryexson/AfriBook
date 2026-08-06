@@ -86,14 +86,17 @@ export default function CategoryGrid() {
             <motion.div key={category.name} variants={itemVariants}>
               <Link
                 href={category.href}
-                className="group flex flex-col items-start gap-4 rounded-2xl border border-border bg-surface p-5 transition-all duration-300 hover:-translate-y-1 hover:border-amber-500/40 hover:shadow-lg"
+                className="group flex flex-col gap-5 rounded-[28px] border border-border bg-gradient-to-b from-white to-surface-secondary p-5 shadow-[0_18px_50px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-1 hover:border-amber-500/30 hover:shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 transition-all duration-300 group-hover:bg-amber-500 group-hover:text-amber-950 dark:text-amber-400">
-                  <category.icon className="h-5 w-5" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 transition-all duration-300 group-hover:bg-amber-500 group-hover:text-white">
+                  <category.icon className="h-6 w-6" />
                 </div>
-                <span className="text-sm font-semibold leading-tight text-text-primary transition-colors group-hover:text-amber-600">
-                  {category.name}
-                </span>
+                <div>
+                  <span className="text-sm font-semibold leading-tight text-text-primary transition-colors group-hover:text-amber-600">
+                    {category.name}
+                  </span>
+                  <p className="mt-2 text-xs text-text-secondary">Trusted vendors, curated services, and easy booking.</p>
+                </div>
               </Link>
             </motion.div>
           ))}
