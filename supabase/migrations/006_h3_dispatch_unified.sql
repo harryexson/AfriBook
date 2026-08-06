@@ -37,12 +37,8 @@ CREATE TYPE payout_type AS ENUM (
     'ewa'
 );
 
-CREATE TYPE payout_status AS ENUM (
-    'pending',
-    'processing',
-    'completed',
-    'failed'
-);
+-- NOTE: payout_status is defined in migration 001 (values include 'on_hold').
+-- Do not re-create it here or fresh installs fail with a duplicate-type error.
 
 CREATE TYPE earnings_status AS ENUM (
     'pending',
@@ -72,7 +68,8 @@ CREATE TABLE driver_online_sessions (
     ended_at        TIMESTAMPTZ,
     total_earnings  NUMERIC(12, 2) DEFAULT 0,
     total_rides     INT DEFAULT 0,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE driver_online_sessions IS 'Tracks driver online/offline periods for earnings and stats';
@@ -100,7 +97,8 @@ CREATE TABLE driver_earnings (
     currency        VARCHAR(3) NOT NULL DEFAULT 'USD',
     status          earnings_status NOT NULL DEFAULT 'pending',
     metadata        JSONB DEFAULT '{}'::jsonb,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE driver_earnings IS 'Per-ride earnings breakdown for driver payout tracking';
@@ -127,7 +125,8 @@ CREATE TABLE driver_payouts (
     payout_method   JSONB NOT NULL DEFAULT '{}'::jsonb,
     currency        VARCHAR(3) NOT NULL DEFAULT 'USD',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    completed_at    TIMESTAMPTZ
+    completed_at    TIMESTAMPTZ,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE driver_payouts IS 'Driver payout requests and processing history';
@@ -321,8 +320,17 @@ BEGIN
     FROM driver_locations dl
     JOIN drivers d ON d.id = dl.driver_id
     WHERE dl.last_seen_at > now() - INTERVAL '5 minutes'
-      AND d.status = 'available'
-      AND (p_vehicle_type IS NULL OR d.vehicle->>'type' = p_vehicle_type)
+      AND d.status = 'online'
+      AND d.is_available = true
+      AND (
+          p_vehicle_type IS NULL
+          OR EXISTS (
+              SELECT 1 FROM vehicles v
+              WHERE v.driver_id = dl.driver_id
+                AND v.is_active = true
+                AND v.type = p_vehicle_type
+          )
+      )
       AND ST_DWithin(dl.location, v_pickup_geog, v_radius_m)
     ORDER BY dl.last_seen_at DESC, ST_Distance(dl.location, v_pickup_geog) ASC
     LIMIT 30;
@@ -407,7 +415,7 @@ BEGIN
     VALUES (p_driver_id)
     RETURNING id INTO v_session_id;
 
-    UPDATE drivers SET status = 'available' WHERE id = p_driver_id;
+    UPDATE drivers SET status = 'online', is_available = true WHERE id = p_driver_id;
 
     RETURN v_session_id;
 END;
@@ -423,7 +431,7 @@ BEGIN
     WHERE driver_id = p_driver_id
       AND ended_at IS NULL;
 
-    UPDATE drivers SET status = 'offline' WHERE id = p_driver_id;
+    UPDATE drivers SET status = 'offline', is_available = false WHERE id = p_driver_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

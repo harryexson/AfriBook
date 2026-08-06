@@ -1,69 +1,48 @@
+// RetroBuddy restaurant food-delivery types, reconciled to the real
+// `ridely_food_deliveries` schema (migration 002 + 012 additions). Only
+// delivery orders are supported: dine-in/pickup have no table in the schema.
 export type RestaurantOrderStatus =
-  | 'received'
+  | 'requesting'
+  | 'searching'
+  | 'matched'
   | 'accepted'
-  | 'preparing'
-  | 'ready'
-  | 'driver_assigned'
-  | 'driver_arriving'
+  | 'en_route_to_pickup'
+  | 'at_pickup'
   | 'picked_up'
   | 'in_transit'
+  | 'at_dropoff'
   | 'delivered'
-  | 'cancelled'
-  | 'refunded';
+  | 'cancelled';
 
 export type KitchenDisplayPriority = 'normal' | 'urgent' | 'rush';
 export type PrepTimeStatus = 'on_time' | 'delayed' | 'critical';
 
-export interface RestaurantConfig {
-  id: string;
-  businessId: string;
-  restaurantName: string;
-  avgPrepTimeMin: number;
-  maxOrdersPerHour: number;
-  acceptsOrders: boolean;
-  opensAt: string;
-  closesAt: string;
-  deliveryRadiusKm: number;
-  minimumOrder: number;
-  deliveryFee: number;
-  autoAcceptOrders: boolean;
-  posIntegrationType?: 'toast' | 'square' | 'clover' | 'custom' | null;
-  posApiKey?: string;
-}
-
 export interface RestaurantOrder {
   id: string;
   restaurantId: string;
+  restaurantName: string;
   customerId: string;
-  customerName: string;
-  customerPhone: string;
   items: RestaurantOrderItem[];
   subtotal: number;
   tax: number;
   deliveryFee: number;
-  tip: number;
   total: number;
   currencyCode: string;
   status: RestaurantOrderStatus;
-  type: 'delivery' | 'dine_in' | 'pickup';
+  type: 'delivery';
   deliveryAddress?: string;
   deliveryLocation?: { lat: number; lng: number };
   driverId?: string;
   estimatedPrepTime: number;
   estimatedDeliveryTime: number;
-  actualPrepTime?: number;
   specialInstructions?: string;
   paymentMethod: string;
-  paymentStatus: 'pending' | 'paid' | 'refunded';
-  acceptedAt?: string;
-  preparingAt?: string;
-  readyAt?: string;
-  pickedUpAt?: string;
+  requestedAt: string;
+  restaurantAcceptedAt?: string;
+  restaurantReadyAt?: string;
   deliveredAt?: string;
   cancelledAt?: string;
   cancelReason?: string;
-  rating?: number;
-  review?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -76,13 +55,6 @@ export interface RestaurantOrderItem {
   unitPrice: number;
   totalPrice: number;
   notes?: string;
-  modifications?: OrderItemModification[];
-}
-
-export interface OrderItemModification {
-  type: 'add' | 'remove' | 'substitute';
-  name: string;
-  price: number;
 }
 
 export interface KitchenDisplayItem {
@@ -99,27 +71,6 @@ export interface KitchenDisplayItem {
   specialInstructions?: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface PrepTimeEstimate {
-  menuItemId: string;
-  baseTimeMin: number;
-  complexity: 'simple' | 'moderate' | 'complex';
-  currentLoad: number;
-  estimatedTimeMin: number;
-}
-
-export interface RestaurantAnalytics {
-  totalOrders: number;
-  totalRevenue: number;
-  averageOrderValue: number;
-  averagePrepTime: number;
-  averageRating: number;
-  peakHours: { hour: number; orders: number }[];
-  topItems: { name: string; quantity: number; revenue: number }[];
-  orderStatusBreakdown: Record<RestaurantOrderStatus, number>;
-  repeatCustomerRate: number;
-  averageDeliveryTime: number;
 }
 
 export type OrderCancelledBy = 'customer' | 'restaurant' | 'driver' | 'system';
@@ -142,9 +93,8 @@ export interface CreateOrderParams {
     quantity: number;
     unitPrice: number;
     notes?: string;
-    modifications?: OrderItemModification[];
   }[];
-  type: 'delivery' | 'dine_in' | 'pickup';
+  type: 'delivery';
   deliveryAddress?: string;
   deliveryLocation?: { lat: number; lng: number };
   specialInstructions?: string;

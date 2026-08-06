@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import type { Order } from '@/types';
+
+async function getAdminDb() {
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient() as any;
+}
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -23,27 +27,50 @@ export async function POST(req: NextRequest) {
 
   const { data: business } = await supabase
     .from('businesses')
-    .select('currency_code, delivery_fee, minimum_order')
+    .select('id, name, status, metadata, countries(currency_code)')
     .eq('id', businessId)
-    .single() as unknown as { data: { currency_code: string; delivery_fee: number; minimum_order: number } | null };
+    .single();
 
   if (!business) {
     return NextResponse.json({ error: 'Business not found' }, { status: 404 });
   }
+  if (business.status !== 'active') {
+    return NextResponse.json({ error: 'Business is not accepting orders' }, { status: 400 });
+  }
+
+  const businessMeta = (business.metadata as Record<string, unknown>) ?? {};
+  const minimumOrder = Number(businessMeta.minimum_order ?? 0);
+  const deliveryFee = Number(businessMeta.delivery_fee ?? 0);
+  const currency = (business.countries as { currency_code?: string }[] | null)?.[0]?.currency_code ?? 'USD';
 
   const productIds = items.map((i: { productId: string }) => i.productId);
   const { data: products } = await supabase
     .from('products')
-    .select('id, name, price, stock')
-    .in('id', productIds) as unknown as { data: { id: string; name: string; price: number; stock: number }[] };
+    .select('id, name, price, stock, is_available')
+    .in('id', productIds);
 
-  const productMap = new Map(products?.map((p) => [p.id, p]) ?? []);
+  interface ProductRow {
+    id: string;
+    name: string;
+    price: number;
+    stock: number;
+    is_available: boolean;
+  }
+
+  const productMap = new Map<string, ProductRow>(
+    (products as ProductRow[] | null)?.map((p) => [p.id, p]) ?? [],
+  );
 
   let subtotal = 0;
   const orderItems = items.map((item: { productId: string; quantity: number; variant?: string; notes?: string }) => {
     const product = productMap.get(item.productId);
     if (!product) throw new Error(`Product ${item.productId} not found`);
-    const unitPrice = product.price;
+    if (product.is_available === false) throw new Error(`Product ${product.name} is unavailable`);
+    if (item.quantity <= 0) throw new Error('Quantity must be positive');
+    if (Number(product.stock ?? 0) < item.quantity) {
+      throw new Error(`Insufficient stock for ${product.name}`);
+    }
+    const unitPrice = Number(product.price);
     const totalPrice = unitPrice * item.quantity;
     subtotal += totalPrice;
     return {
@@ -57,33 +84,31 @@ export async function POST(req: NextRequest) {
     };
   });
 
-  if (subtotal < business.minimum_order) {
+  if (minimumOrder > 0 && subtotal < minimumOrder) {
     return NextResponse.json(
-      { error: `Minimum order amount is ${business.minimum_order}` },
+      { error: `Minimum order amount is ${minimumOrder}` },
       { status: 400 },
     );
   }
 
-  const taxRate = 0;
-  const tax = subtotal * taxRate;
-  const deliveryFee = business.delivery_fee ?? 0;
-  const total = subtotal + tax + deliveryFee;
+  const tax = 0;
+  const total = Math.round((subtotal + tax + deliveryFee) * 100) / 100;
 
   const { data: order, error } = await supabase
     .from('orders')
     .insert({
-      businessId,
-      customerId: user.id,
-      items: orderItems,
+      business_id: businessId,
+      customer_id: user.id,
+      type: 'products',
       status: 'pending',
+      items: orderItems,
       subtotal,
       tax,
-      deliveryFee,
-      tip: 0,
+      delivery_fee: deliveryFee,
       total,
-      currencyCode: business.currency_code,
-      paymentStatus: 'pending',
-      deliveryAddress,
+      currency,
+      payment_status: 'pending',
+      delivery_address: deliveryAddress ?? {},
       notes: notes ?? null,
     })
     .select()
@@ -94,17 +119,42 @@ export async function POST(req: NextRequest) {
   }
 
   for (const item of orderItems) {
-    await supabase.rpc('decrement_product_stock' as never, {
-      p_product_id: item.product_id,
-      p_quantity: item.quantity,
-    } as never);
+    const { data: current } = await supabase
+      .from('products')
+      .select('stock')
+      .eq('id', item.product_id)
+      .single();
+
+    const { error: stockError } = await supabase
+      .from('products')
+      .update({ stock: Math.max(0, Number(current?.stock ?? 0) - item.quantity) })
+      .eq('id', item.product_id)
+      .gte('stock', item.quantity);
+
+    if (stockError) continue;
+
+    await supabase.from('inventory_log').insert({
+      product_id: item.product_id,
+      quantity_change: -item.quantity,
+      reason: 'order',
+      reference_id: order.id,
+    });
   }
+
+  const adminDb = await getAdminDb();
+  await adminDb.from('notifications').insert({
+    user_id: user.id,
+    type: 'order',
+    title: 'Order Created',
+    body: `Your order #${order.id} has been placed.`,
+    data: { order_id: order.id, total, currency },
+  });
 
   return NextResponse.json(order, { status: 201 });
 }
 
 export async function GET(req: NextRequest) {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -120,27 +170,38 @@ export async function GET(req: NextRequest) {
   let query = supabase.from('orders').select('*', { count: 'exact' });
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .single() as unknown as { data: { role: string } | null };
+    .single();
 
-  if (profile?.role === 'admin' || profile?.role === 'super_admin') {
-  } else if (profile?.role === 'vendor') {
+  const role = profile?.role;
+
+  if (role === 'super_admin') {
+    // full access
+  } else if (role === 'vendor') {
     const { data: businesses } = await supabase
       .from('businesses')
       .select('id')
-      .eq('ownerId', user.id) as unknown as { data: { id: string }[] };
-    const ids = businesses?.map((b) => b.id) ?? [];
+      .eq('owner_id', user.id);
+    const ids = businesses?.map((b: { id: string }) => b.id) ?? [];
+    if (ids.length === 0) return NextResponse.json({ data: [], count: 0, page, limit });
     query = query.in('business_id', ids);
-  } else if (profile?.role === 'driver') {
-    query = query.eq('driverId', user.id);
+  } else if (role === 'driver') {
+    const { data: deliveries } = await supabase
+      .from('deliveries')
+      .select('order_id')
+      .not('order_id', 'is', null)
+      .eq('driver_id', user.id);
+    const orderIds = deliveries?.map((d: { order_id: string }) => d.order_id) ?? [];
+    if (orderIds.length === 0) return NextResponse.json({ data: [], count: 0, page, limit });
+    query = query.in('id', orderIds);
   } else {
-    query = query.eq('customerId', user.id);
+    query = query.eq('customer_id', user.id);
   }
 
-  if (status) query = query.eq('status', status as Order['status']);
-  if (businessId) query = query.eq('businessId', businessId);
+  if (status) query = query.eq('status', status);
+  if (businessId) query = query.eq('business_id', businessId);
 
   const { data, count, error } = await query
     .order('created_at', { ascending: false })
@@ -154,7 +215,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -171,7 +232,7 @@ export async function PUT(req: NextRequest) {
     .from('orders')
     .select('status')
     .eq('id', orderId)
-    .single() as unknown as { data: { status: string } | null };
+    .single();
 
   if (!existing) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
@@ -197,12 +258,12 @@ export async function PUT(req: NextRequest) {
 
   const updateData: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
   if (status === 'delivered') {
-    updateData.delivered_at = new Date().toISOString();
+    updateData.completed_at = new Date().toISOString();
   }
 
   const { data, error } = await supabase
     .from('orders')
-    .update(updateData as never)
+    .update(updateData)
     .eq('id', orderId)
     .select()
     .single();

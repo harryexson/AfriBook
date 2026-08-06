@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import {
   DELIVERY_TYPE_CONFIG,
   DELIVERY_STATUS_TRANSITIONS,
   type DeliveryType,
 } from '@/types/ridely';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+async function getDb() {
+  const { createClient } = await import('@/lib/supabase/server');
+  return createClient() as any;
+}
+
+async function getAdminDb() {
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient() as any;
+}
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
@@ -51,9 +55,21 @@ function estimatePricing(
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await getDb();
+    const adminDb = await getAdminDb();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const {
-      customerId,
       deliveryType = 'general',
       pickup,
       pickupAddress,
@@ -63,9 +79,9 @@ export async function POST(req: NextRequest) {
       paymentType = 'cash',
     } = body;
 
-    if (!customerId || !pickup || !destination) {
+    if (!pickup || !destination) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: customerId, pickup, destination' },
+        { success: false, error: 'Missing required fields: pickup, destination' },
         { status: 400 },
       );
     }
@@ -96,7 +112,7 @@ export async function POST(req: NextRequest) {
     const { data: delivery, error } = await supabase
       .from('ridely_deliveries')
       .insert({
-        customer_id: customerId,
+        customer_id: user.id,
         delivery_type: deliveryType,
         status: 'requesting',
         pickup_lat: pickup.lat,
@@ -122,7 +138,7 @@ export async function POST(req: NextRequest) {
     }
 
     Promise.resolve(
-      supabase.rpc('ridely_dispatch_delivery' as never, {
+      adminDb.rpc('ridely_dispatch_delivery' as never, {
         p_delivery_id: delivery.id,
         p_table: 'ridely_deliveries',
       } as never),
@@ -146,24 +162,28 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await getDb();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
     const status = searchParams.get('status');
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const offset = (page - 1) * limit;
 
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId query parameter is required' },
-        { status: 400 },
-      );
-    }
-
     let query = supabase
       .from('ridely_deliveries')
       .select('*', { count: 'exact' })
-      .eq('customer_id', userId);
+      .eq('customer_id', user.id);
 
     if (status) {
       const allowedStatuses = Object.keys(DELIVERY_STATUS_TRANSITIONS);

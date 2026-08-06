@@ -5,301 +5,306 @@ import type {
   OrderStatusMetadata,
   CreateOrderParams,
   OrderCancelledBy,
-  RestaurantConfig,
 } from './types';
 import { estimatePrepTime } from './prep-time-predictor';
 import { addToKitchenDisplay } from './kitchen-display';
 
 const VALID_STATUS_TRANSITIONS: Record<RestaurantOrderStatus, RestaurantOrderStatus[]> = {
-  received: ['accepted', 'cancelled'],
-  accepted: ['preparing', 'cancelled'],
-  preparing: ['ready', 'cancelled'],
-  ready: ['driver_assigned', 'cancelled'],
-  driver_assigned: ['driver_arriving', 'cancelled'],
-  driver_arriving: ['picked_up', 'cancelled'],
+  requesting: ['accepted', 'cancelled'],
+  searching: ['accepted', 'cancelled'],
+  matched: ['accepted', 'cancelled'],
+  accepted: ['en_route_to_pickup', 'at_pickup', 'cancelled'],
+  en_route_to_pickup: ['at_pickup', 'cancelled'],
+  at_pickup: ['picked_up', 'cancelled'],
   picked_up: ['in_transit'],
-  in_transit: ['delivered'],
-  delivered: ['refunded'],
+  in_transit: ['at_dropoff', 'delivered'],
+  at_dropoff: ['delivered'],
+  delivered: [],
   cancelled: [],
-  refunded: [],
 };
 
 function getTimestampField(status: RestaurantOrderStatus): string | null {
   const map: Partial<Record<RestaurantOrderStatus, string>> = {
-    accepted: 'accepted_at',
-    preparing: 'preparing_at',
-    ready: 'ready_at',
-    picked_up: 'picked_up_at',
+    accepted: 'restaurant_accepted_at',
+    at_pickup: 'restaurant_ready_at',
+    picked_up: 'driver_picked_up_at',
     delivered: 'delivered_at',
-    cancelled: 'cancelled_at',
   };
   return map[status] ?? null;
 }
 
-interface RestaurantConfigRow {
+interface RestaurantBusinessRow {
   id: string;
   business_id: string;
-  restaurant_name: string;
-  avg_prep_time_min: number;
-  max_orders_per_hour: number;
-  accepts_orders: boolean;
-  opens_at: string;
-  closes_at: string;
-  delivery_radius_km: number;
-  minimum_order: number;
-  delivery_fee: number;
-  auto_accept_orders: boolean;
-  pos_integration_type?: string | null;
-  pos_api_key?: string | null;
+  preparation_time: number | null;
+  minimum_order: number | null;
+  delivery_radius_km: number | null;
+  businesses?: {
+    id: string;
+    name: string;
+    status: string;
+    owner_id: string;
+    location: unknown;
+    address: { formatted?: string } | null;
+    metadata: Record<string, unknown> | null;
+  } | null;
 }
 
-interface RestaurantOrderRow {
+interface FoodDeliveryRow {
   id: string;
-  restaurant_id: string;
   customer_id: string;
-  customer_name: string;
-  customer_phone: string;
+  restaurant_id: string;
+  restaurant_name: string;
   items: RestaurantOrder['items'];
   subtotal: number;
-  tax: number;
   delivery_fee: number;
-  tip: number;
+  tax: number;
   total: number;
-  currency_code: string;
   status: RestaurantOrderStatus;
-  type: string;
-  delivery_address: string | null;
-  delivery_location: { lat: number; lng: number } | null;
   driver_id: string | null;
+  special_instructions: string | null;
+  payment_type: string;
+  requested_at: string;  restaurant_accepted_at: string | null;
+  restaurant_ready_at: string | null;
+  driver_picked_up_at: string | null;
+  delivered_at: string | null;
+  destination_address: string | null;
+  destination_lat: number | null;
+  destination_lng: number | null;
   estimated_prep_time: number;
   estimated_delivery_time: number;
-  actual_prep_time: number | null;
-  special_instructions: string | null;
-  payment_method: string;
-  payment_status: string;
-  accepted_at: string | null;
-  preparing_at: string | null;
-  ready_at: string | null;
-  picked_up_at: string | null;
-  delivered_at: string | null;
-  cancelled_at: string | null;
-  cancel_reason: string | null;
-  rating: number | null;
-  review: string | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
 }
 
-function rowToOrder(row: RestaurantOrderRow): RestaurantOrder {
+function rowToOrder(row: FoodDeliveryRow): RestaurantOrder {
   return {
     id: row.id,
     restaurantId: row.restaurant_id,
+    restaurantName: row.restaurant_name,
     customerId: row.customer_id,
-    customerName: row.customer_name,
-    customerPhone: row.customer_phone,
     items: row.items,
     subtotal: row.subtotal,
     tax: row.tax,
     deliveryFee: row.delivery_fee,
-    tip: row.tip,
     total: row.total,
-    currencyCode: row.currency_code,
+    currencyCode: 'XAF',
     status: row.status,
-    type: row.type as RestaurantOrder['type'],
-    deliveryAddress: row.delivery_address ?? undefined,
-    deliveryLocation: row.delivery_location ?? undefined,
+    type: 'delivery',
+    deliveryAddress: row.destination_address ?? undefined,
+    deliveryLocation:
+      row.destination_lat != null && row.destination_lng != null
+        ? { lat: row.destination_lat, lng: row.destination_lng }
+        : undefined,
     driverId: row.driver_id ?? undefined,
     estimatedPrepTime: row.estimated_prep_time,
     estimatedDeliveryTime: row.estimated_delivery_time,
-    actualPrepTime: row.actual_prep_time ?? undefined,
     specialInstructions: row.special_instructions ?? undefined,
-    paymentMethod: row.payment_method,
-    paymentStatus: row.payment_status as RestaurantOrder['paymentStatus'],
-    acceptedAt: row.accepted_at ?? undefined,
-    preparingAt: row.preparing_at ?? undefined,
-    readyAt: row.ready_at ?? undefined,
-    pickedUpAt: row.picked_up_at ?? undefined,
+    paymentMethod: row.payment_type,
+    requestedAt: row.requested_at,
+    restaurantAcceptedAt: row.restaurant_accepted_at ?? undefined,
+    restaurantReadyAt: row.restaurant_ready_at ?? undefined,
     deliveredAt: row.delivered_at ?? undefined,
-    cancelledAt: row.cancelled_at ?? undefined,
-    cancelReason: row.cancel_reason ?? undefined,
-    rating: row.rating ?? undefined,
-    review: row.review ?? undefined,
+    cancelledAt: (row.metadata?.cancelled_at as string | undefined) ?? undefined,
+    cancelReason: (row.metadata?.cancel_reason as string | undefined) ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-function configToTyped(row: RestaurantConfigRow): RestaurantConfig {
-  return {
-    id: row.id,
-    businessId: row.business_id,
-    restaurantName: row.restaurant_name,
-    avgPrepTimeMin: row.avg_prep_time_min,
-    maxOrdersPerHour: row.max_orders_per_hour,
-    acceptsOrders: row.accepts_orders,
-    opensAt: row.opens_at,
-    closesAt: row.closes_at,
-    deliveryRadiusKm: row.delivery_radius_km,
-    minimumOrder: row.minimum_order,
-    deliveryFee: row.delivery_fee,
-    autoAcceptOrders: row.auto_accept_orders,
-    posIntegrationType: row.pos_integration_type as RestaurantConfig['posIntegrationType'] ?? null,
-    posApiKey: row.pos_api_key ?? undefined,
-  };
+function parseWktPoint(location: unknown): { lat: number; lng: number } | null {
+  if (!location) return null;
+  const str = String(location);
+  const match = str.match(/POINT\((-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\)/);
+  if (!match) return null;
+  return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
 }
 
-async function initRideLyDispatch(orderId: string, restaurantId: string): Promise<void> {
-  const supabase = await createClient();
+async function getAdminDb() {
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient() as any;
+}
 
-  const { data: restaurant } = await supabase
-    .from('restaurant_configs' as never)
-    .select('restaurant_name, delivery_radius_km')
+export async function isRestaurantOwner(
+  userId: string,
+  restaurantId: string,
+): Promise<boolean> {
+  const adminDb = await getAdminDb();
+  const { data } = await adminDb
+    .from('restaurants')
+    .select('business_id, businesses!inner(owner_id)')
     .eq('id', restaurantId)
-    .single() as unknown as {
-    data: { restaurant_name: string; delivery_radius_km: number } | null;
-  };
+    .maybeSingle();
 
-  const { data: order } = await supabase
-    .from('restaurant_orders' as never)
-    .select('delivery_address, delivery_location, estimated_prep_time, delivery_fee, total')
-    .eq('id', orderId)
-    .single() as unknown as {
-    data: {
-      delivery_address: string;
-      delivery_location: { lat: number; lng: number } | null;
-      estimated_prep_time: number;
-      delivery_fee: number;
-      total: number;
-    } | null;
-  };
-
-  if (!order) return;
-
-  await supabase.from('ridely_dispatches' as never).insert({
-    order_id: orderId,
-    restaurant_id: restaurantId,
-    restaurant_name: restaurant?.restaurant_name ?? 'Restaurant',
-    pickup_address: restaurant?.restaurant_name ?? '',
-    delivery_address: order.delivery_address,
-    delivery_location: order.delivery_location,
-    estimated_prep_time: order.estimated_prep_time,
-    delivery_fee: order.delivery_fee,
-    order_total: order.total,
-    status: 'searching',
-    radius_km: restaurant?.delivery_radius_km ?? 5,
-  } as never);
-
-  console.log(`[RideLy] Dispatch initiated for order ${orderId}`);
+  const ownerId = (data?.businesses as { owner_id?: string } | null | undefined)?.owner_id;
+  return ownerId === userId;
 }
+
+async function initRideLyDispatch(orderId: string): Promise<void> {
+  const adminDb = await getAdminDb();
+  Promise.resolve(
+    adminDb.rpc('ridely_dispatch_delivery' as never, {
+      p_delivery_id: orderId,
+      p_table: 'ridely_food_deliveries',
+    } as never),
+  ).catch((err: unknown) => {
+    console.log(`[RideLy] Dispatch initiation failed for order ${orderId}:`, err);
+  });
+}
+
+const VALID_PAYMENT_TYPES = ['cash', 'card', 'wallet', 'mobile_money'];
 
 export async function createRestaurantOrder(
   params: CreateOrderParams,
 ): Promise<RestaurantOrder> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
-  const { data: configRow } = await supabase
-    .from('restaurant_configs' as never)
-    .select('*')
+  if (params.type !== 'delivery') {
+    throw new Error('Only delivery orders are supported. Dine-in and pickup have been discontinued.');
+  }
+
+  if (!VALID_PAYMENT_TYPES.includes(params.paymentMethod)) {
+    throw new Error('Invalid payment method');
+  }
+
+  const adminDb = await getAdminDb();
+  const { data: restaurantRow, error: restaurantError } = await adminDb
+    .from('restaurants')
+    .select('id, business_id, preparation_time, minimum_order, delivery_radius_km, businesses!inner(id, name, status, owner_id, location, address, metadata)')
     .eq('id', params.restaurantId)
-    .single() as unknown as {
-    data: RestaurantConfigRow | null;
-  };
+    .single();
 
-  if (!configRow) {
+  const business = restaurantRow?.businesses ?? null;
+
+  if (restaurantError || !restaurantRow || !business) {
     throw new Error('Restaurant not found');
   }
 
-  if (!configRow.accepts_orders) {
+  if (business.status !== 'active') {
     throw new Error('Restaurant is not accepting orders');
   }
 
-  const restaurantConfig = configToTyped(configRow);
-  const estimates = await estimatePrepTime(params.items, restaurantConfig);
+  const restaurantName = (business.name as string) ?? 'Restaurant';
+  const pickup = parseWktPoint(business.location);
+  if (!pickup) {
+    throw new Error('Restaurant location is not available');
+  }
+
+  if (!params.deliveryLocation) {
+    throw new Error('deliveryLocation is required for delivery orders');
+  }
+
+  const estimates = await estimatePrepTime(
+    params.items,
+    params.restaurantId,
+    restaurantRow.preparation_time ?? 15,
+  );
   const maxPrepTime = Math.max(...estimates.map((e) => e.estimatedTimeMin), 0);
+
+  const itemIds = [...new Set(params.items.map((i) => i.menuItemId))];
+  const { data: menuRows } = await adminDb
+    .from('menu_items')
+    .select('id, name, price, is_available, restaurant_id')
+    .in('id', itemIds);
+
+  const menuMap = new Map(
+    (menuRows ?? []).map((m: { id: string; name: string; price: number; is_available: boolean; restaurant_id: string }) => [
+      m.id,
+      m,
+    ]),
+  );
 
   let subtotal = 0;
   const orderItems = params.items.map((item, index) => {
-    const totalPrice = item.unitPrice * item.quantity;
+    const menuItem = menuMap.get(item.menuItemId);
+    if (!menuItem || menuItem.restaurant_id !== params.restaurantId) {
+      throw new Error(`Menu item ${item.menuItemId} not found for this restaurant`);
+    }
+    if (menuItem.is_available === false) {
+      throw new Error(`Menu item "${menuItem.name}" is not available`);
+    }
+    const unitPrice = Number(menuItem.price);
+    const totalPrice = unitPrice * item.quantity;
     subtotal += totalPrice;
     return {
       id: `item_${Date.now()}_${index}`,
       menuItemId: item.menuItemId,
-      name: item.name,
+      name: menuItem.name,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
+      unitPrice,
       totalPrice,
       notes: item.notes ?? null,
-      modifications: item.modifications ?? null,
     };
   });
 
   const tax = 0;
-  const deliveryFee = params.type === 'delivery' ? restaurantConfig.deliveryFee : 0;
+  const deliveryFee = Number(
+    (business.metadata as Record<string, unknown> | null)?.delivery_fee ?? 0,
+  );
   const tip = params.tip ?? 0;
   const total = subtotal + tax + deliveryFee + tip;
 
-  if (subtotal < restaurantConfig.minimumOrder) {
-    throw new Error(`Minimum order amount is ${restaurantConfig.minimumOrder}`);
+  const minimumOrder = Number(restaurantRow.minimum_order ?? 0);
+  if (subtotal < minimumOrder) {
+    throw new Error(`Minimum order amount is ${minimumOrder}`);
   }
 
-  const estimatedDeliveryTime = params.type === 'delivery' ? maxPrepTime + 20 : maxPrepTime;
+  const estimatedDeliveryTime = maxPrepTime + 20;
+  const destination = params.deliveryLocation;
+  const pickupAddress = (business.address as { formatted?: string } | null)?.formatted ?? restaurantName;
 
-  const now = new Date().toISOString();
-  const { data: orderRow, error } = await supabase
-    .from('restaurant_orders' as never)
+  const { data: orderRow, error: insertError } = await supabase
+    .from('ridely_food_deliveries')
     .insert({
-      restaurant_id: params.restaurantId,
       customer_id: params.customerId,
-      customer_name: params.customerName,
-      customer_phone: params.customerPhone,
+      restaurant_id: params.restaurantId,
+      restaurant_name: restaurantName,
       items: orderItems,
       subtotal,
-      tax,
       delivery_fee: deliveryFee,
-      tip,
+      tax,
       total,
-      currency_code: 'XAF',
-      status: 'received',
-      type: params.type,
-      delivery_address: params.deliveryAddress ?? null,
-      delivery_location: params.deliveryLocation ?? null,
+      status: 'requesting',
+      delivery_type: 'food',
+      pickup_lat: pickup.lat,
+      pickup_lng: pickup.lng,
+      pickup_address: pickupAddress,
+      destination_lat: destination.lat,
+      destination_lng: destination.lng,
+      destination_address: params.deliveryAddress ?? null,
       estimated_prep_time: maxPrepTime,
       estimated_delivery_time: estimatedDeliveryTime,
       special_instructions: params.specialInstructions ?? null,
-      payment_method: params.paymentMethod,
-      payment_status: 'pending',
-      created_at: now,
-      updated_at: now,
-    } as never)
+      payment_type: params.paymentMethod,
+      metadata: {
+        tip,
+        customer_name: params.customerName,
+        customer_phone: params.customerPhone,
+      },
+    })
     .select()
-    .single() as unknown as {
-    data: RestaurantOrderRow | null;
-    error: { message: string } | null;
-  };
+    .single();
 
-  if (error) {
-    throw new Error(`Failed to create order: ${error.message}`);
+  if (insertError) {
+    throw new Error(`Failed to create order: ${insertError.message}`);
   }
 
-  if (restaurantConfig.autoAcceptOrders) {
-    await acceptOrder(orderRow!.id, params.restaurantId);
-  }
+  await addToKitchenDisplay(orderRow.id);
 
-  if (params.type === 'delivery') {
-    await initRideLyDispatch(orderRow!.id, params.restaurantId);
-  }
+  await initRideLyDispatch(orderRow.id);
 
-  return rowToOrder(orderRow!);
+  return rowToOrder(orderRow);
 }
 
 export async function acceptOrder(
   orderId: string,
   restaurantId: string,
 ): Promise<RestaurantOrder> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
   const { data: existing } = await supabase
-    .from('restaurant_orders' as never)
+    .from('ridely_food_deliveries')
     .select('status, restaurant_id')
     .eq('id', orderId)
     .single() as unknown as {
@@ -320,24 +325,22 @@ export async function acceptOrder(
 
   const now = new Date().toISOString();
   const { data, error } = await supabase
-    .from('restaurant_orders' as never)
+    .from('ridely_food_deliveries')
     .update({
       status: 'accepted',
-      accepted_at: now,
+      restaurant_accepted_at: now,
       updated_at: now,
-    } as never)
+    })
     .eq('id', orderId)
     .select()
     .single() as unknown as {
-    data: RestaurantOrderRow | null;
+    data: FoodDeliveryRow | null;
     error: { message: string } | null;
   };
 
   if (error) {
     throw new Error(`Failed to accept order: ${error.message}`);
   }
-
-  await addToKitchenDisplay(orderId);
 
   return rowToOrder(data!);
 }
@@ -347,10 +350,10 @@ export async function updateOrderStatus(
   status: RestaurantOrderStatus,
   metadata?: OrderStatusMetadata,
 ): Promise<RestaurantOrder> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
   const { data: existing } = await supabase
-    .from('restaurant_orders' as never)
+    .from('ridely_food_deliveries')
     .select('status')
     .eq('id', orderId)
     .single() as unknown as { data: { status: RestaurantOrderStatus } | null };
@@ -374,7 +377,10 @@ export async function updateOrderStatus(
     updateData[timestampField] = now;
   }
 
-  if (status === 'driver_assigned' && metadata?.driverId) {
+  if (
+    metadata?.driverId &&
+    ['picked_up', 'in_transit', 'at_dropoff', 'delivered'].includes(status)
+  ) {
     updateData.driver_id = metadata.driverId;
   }
 
@@ -383,12 +389,12 @@ export async function updateOrderStatus(
   }
 
   const { data, error } = await supabase
-    .from('restaurant_orders' as never)
-    .update(updateData as never)
+    .from('ridely_food_deliveries')
+    .update(updateData)
     .eq('id', orderId)
     .select()
     .single() as unknown as {
-    data: RestaurantOrderRow | null;
+    data: FoodDeliveryRow | null;
     error: { message: string } | null;
   };
 
@@ -400,17 +406,17 @@ export async function updateOrderStatus(
 }
 
 export async function markOrderReady(orderId: string): Promise<RestaurantOrder> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
   const { data: existing } = await supabase
-    .from('restaurant_orders' as never)
-    .select('status, type, restaurant_id')
+    .from('ridely_food_deliveries')
+    .select('status, restaurant_id, restaurant_accepted_at')
     .eq('id', orderId)
     .single() as unknown as {
     data: {
       status: RestaurantOrderStatus;
-      type: string;
       restaurant_id: string;
+      restaurant_accepted_at: string | null;
     } | null;
   };
 
@@ -418,59 +424,25 @@ export async function markOrderReady(orderId: string): Promise<RestaurantOrder> 
     throw new Error('Order not found');
   }
 
-  if (!VALID_STATUS_TRANSITIONS[existing.status]?.includes('ready')) {
+  if (!VALID_STATUS_TRANSITIONS[existing.status]?.includes('at_pickup')) {
     throw new Error(`Cannot mark order as ready from status: ${existing.status}`);
   }
 
   const now = new Date().toISOString();
 
-  const { data: kitchenItem } = await supabase
-    .from('kitchen_display' as never)
-    .select('id')
-    .eq('order_id', orderId)
-    .single() as unknown as { data: { id: string } | null };
-
-  if (kitchenItem) {
-    await supabase
-      .from('kitchen_display' as never)
-      .update({
-        status: 'ready',
-        actual_ready_at: now,
-        updated_at: now,
-      } as never)
-      .eq('id', kitchenItem.id);
-  }
-
-  const { data: prepTime } = await supabase
-    .from('restaurant_orders' as never)
-    .select('preparing_at')
-    .eq('id', orderId)
-    .single() as unknown as { data: { preparing_at: string | null } | null };
-
-  let actualPrepTime: number | undefined;
-  if (prepTime?.preparing_at) {
-    actualPrepTime = Math.round(
-      (new Date(now).getTime() - new Date(prepTime.preparing_at).getTime()) / 60000,
-    );
-  }
-
   const updateData: Record<string, unknown> = {
-    status: 'ready',
-    ready_at: now,
+    status: 'at_pickup',
+    restaurant_ready_at: now,
     updated_at: now,
   };
 
-  if (actualPrepTime !== undefined) {
-    updateData.actual_prep_time = actualPrepTime;
-  }
-
   const { data, error } = await supabase
-    .from('restaurant_orders' as never)
-    .update(updateData as never)
+    .from('ridely_food_deliveries')
+    .update(updateData)
     .eq('id', orderId)
     .select()
     .single() as unknown as {
-    data: RestaurantOrderRow | null;
+    data: FoodDeliveryRow | null;
     error: { message: string } | null;
   };
 
@@ -478,9 +450,7 @@ export async function markOrderReady(orderId: string): Promise<RestaurantOrder> 
     throw new Error(`Failed to mark order ready: ${error.message}`);
   }
 
-  if (existing.type === 'delivery') {
-    await initRideLyDispatch(orderId, existing.restaurant_id);
-  }
+  await initRideLyDispatch(orderId);
 
   return rowToOrder(data!);
 }
@@ -490,19 +460,14 @@ export async function cancelOrder(
   reason: string,
   cancelledBy: OrderCancelledBy,
 ): Promise<RestaurantOrder> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
   const { data: existing } = await supabase
-    .from('restaurant_orders' as never)
-    .select('status, payment_status, total, payment_method')
+    .from('ridely_food_deliveries')
+    .select('status, metadata')
     .eq('id', orderId)
     .single() as unknown as {
-    data: {
-      status: RestaurantOrderStatus;
-      payment_status: string;
-      total: number;
-      payment_method: string;
-    } | null;
+    data: { status: RestaurantOrderStatus; metadata: Record<string, unknown> | null } | null;
   };
 
   if (!existing) {
@@ -516,36 +481,22 @@ export async function cancelOrder(
   const now = new Date().toISOString();
   const updateData: Record<string, unknown> = {
     status: 'cancelled',
-    cancelled_at: now,
-    cancel_reason: reason,
     updated_at: now,
+    metadata: {
+      ...(existing.metadata ?? {}),
+      cancelled_at: now,
+      cancel_reason: reason,
+      cancelled_by: cancelledBy,
+    },
   };
 
-  const shouldRefund =
-    existing.payment_status === 'paid' &&
-    cancelledBy !== 'customer';
-
-  if (shouldRefund) {
-    updateData.payment_status = 'refunded';
-    updateData.status = 'refunded';
-
-    await supabase.from('payment_refunds' as never).insert({
-      order_id: orderId,
-      amount: existing.total,
-      reason,
-      status: 'pending',
-      initiated_by: cancelledBy,
-      created_at: now,
-    } as never);
-  }
-
   const { data, error } = await supabase
-    .from('restaurant_orders' as never)
-    .update(updateData as never)
+    .from('ridely_food_deliveries')
+    .update(updateData)
     .eq('id', orderId)
     .select()
     .single() as unknown as {
-    data: RestaurantOrderRow | null;
+    data: FoodDeliveryRow | null;
     error: { message: string } | null;
   };
 
@@ -562,11 +513,11 @@ export async function getRestaurantOrders(
   page: number = 1,
   limit: number = 20,
 ): Promise<{ orders: RestaurantOrder[]; total: number; page: number; limit: number }> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
   const offset = (page - 1) * limit;
 
   let query = supabase
-    .from('restaurant_orders' as never)
+    .from('ridely_food_deliveries')
     .select('*', { count: 'exact' })
     .eq('restaurant_id', restaurantId);
 
@@ -577,7 +528,7 @@ export async function getRestaurantOrders(
   const { data, count, error } = await query
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1) as unknown as {
-    data: RestaurantOrderRow[] | null;
+    data: FoodDeliveryRow[] | null;
     count: number | null;
     error: { message: string } | null;
   };
@@ -595,14 +546,14 @@ export async function getRestaurantOrders(
 }
 
 export async function getOrderById(orderId: string): Promise<RestaurantOrder> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
   const { data, error } = await supabase
-    .from('restaurant_orders' as never)
+    .from('ridely_food_deliveries')
     .select('*')
     .eq('id', orderId)
     .single() as unknown as {
-    data: RestaurantOrderRow | null;
+    data: FoodDeliveryRow | null;
     error: { message: string } | null;
   };
 
@@ -620,22 +571,21 @@ export interface OrderTimelineEvent {
 }
 
 export async function getOrderTimeline(orderId: string): Promise<OrderTimelineEvent[]> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
   const { data } = await supabase
-    .from('restaurant_orders' as never)
-    .select('status, accepted_at, preparing_at, ready_at, picked_up_at, delivered_at, cancelled_at, cancel_reason')
+    .from('ridely_food_deliveries')
+    .select('status, requested_at, restaurant_accepted_at, restaurant_ready_at, driver_picked_up_at, delivered_at, metadata')
     .eq('id', orderId)
     .single() as unknown as {
     data: {
       status: RestaurantOrderStatus;
-      accepted_at: string | null;
-      preparing_at: string | null;
-      ready_at: string | null;
-      picked_up_at: string | null;
+      requested_at: string;
+      restaurant_accepted_at: string | null;
+      restaurant_ready_at: string | null;
+      driver_picked_up_at: string | null;
       delivered_at: string | null;
-      cancelled_at: string | null;
-      cancel_reason: string | null;
+      metadata: Record<string, unknown> | null;
     } | null;
   };
 
@@ -644,22 +594,22 @@ export async function getOrderTimeline(orderId: string): Promise<OrderTimelineEv
   }
 
   const timeline: OrderTimelineEvent[] = [
-    { status: 'received', timestamp: '' },
+    { status: 'requesting', timestamp: data.requested_at },
   ];
 
   const statusTimestamps: { status: RestaurantOrderStatus; timestamp: string | null; note?: string }[] = [
-    { status: 'accepted', timestamp: data.accepted_at },
-    { status: 'preparing', timestamp: data.preparing_at },
-    { status: 'ready', timestamp: data.ready_at },
-    { status: 'picked_up', timestamp: data.picked_up_at },
+    { status: 'accepted', timestamp: data.restaurant_accepted_at },
+    { status: 'at_pickup', timestamp: data.restaurant_ready_at },
+    { status: 'picked_up', timestamp: data.driver_picked_up_at },
     { status: 'delivered', timestamp: data.delivered_at },
   ];
 
-  if (data.cancelled_at) {
+  const cancelledAt = data.metadata?.cancelled_at as string | undefined;
+  if (cancelledAt) {
     statusTimestamps.push({
       status: 'cancelled',
-      timestamp: data.cancelled_at,
-      note: data.cancel_reason ?? undefined,
+      timestamp: cancelledAt,
+      note: (data.metadata?.cancel_reason as string | undefined) ?? undefined,
     });
   }
 

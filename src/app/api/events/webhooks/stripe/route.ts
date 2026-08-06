@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+async function getAdminDb() {
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient() as any;
+}
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_EVENTS ?? process.env.STRIPE_WEBHOOK_SECRET!;
 
-function generateTicketCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 8; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
 // Find-or-create the organizer's wallet (event organizers have no business,
 // so business_id is NULL) and credit it with the net amount after fees.
 async function creditOrganizerWallet(
+  supabase: any,
   organizerId: string,
   netAmount: number,
   eventId: string,
@@ -61,75 +52,9 @@ async function creditOrganizerWallet(
   }
 }
 
-async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  const { registration_id, event_id, user_id, ticket_code } = paymentIntent.metadata;
-
-  if (!registration_id) return;
-
-  const { data: registration } = await supabase
-    .from('ticket_purchases')
-    .select('id, event_id, quantity, ticket_type_id, buyer_email, subtotal, platform_fee, processing_fee')
-    .eq('id', registration_id)
-    .single();
-
-  if (!registration) return;
-
-  await supabase
-    .from('ticket_purchases')
-    .update({
-      payment_status: 'completed',
-      order_status: 'confirmed',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', registration_id);
-
-  // Credit the organizer's wallet ledger with the net amount after the
-  // platform fee deduction (funds themselves are transferred via Stripe
-  // Connect destination charges; this keeps the AfriBook wallet in sync).
-  if (event_id) {
-    const organizerId = paymentIntent.metadata.afribook_organizer_id;
-    const netAmount =
-      Number(paymentIntent.metadata.afribook_net_to_organizer ?? 0) ||
-      Math.max(
-        Number(registration.subtotal ?? 0),
-        Number((registration.subtotal ?? 0) - (registration.platform_fee ?? 0) - (registration.processing_fee ?? 0)),
-      );
-
-    if (organizerId) {
-      await creditOrganizerWallet(organizerId, netAmount, event_id);
-    }
-  }
-
-  const qrCodeUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${event_id}/ticket/${ticket_code}`;
-
-  await supabase
-    .from('ticket_purchases')
-    .update({ qr_code_url: qrCodeUrl })
-    .eq('id', registration_id);
-
-  if (user_id) {
-    await supabase.from('notifications').insert({
-      user_id,
-      type: 'payment_confirmed',
-      title: 'Payment Confirmed',
-      body: `Your payment for the event has been confirmed. Your ticket code is ${ticket_code}.`,
-      data: { event_id, registration_id, ticket_code, payment_intent_id: paymentIntent.id },
-    });
-  }
-
-  if (registration.buyer_email) {
-    await supabase.from('notifications').insert({
-      user_id: user_id ?? '',
-      type: 'ticket_confirmed',
-      title: 'Ticket Confirmed',
-      body: `Your ticket is confirmed! Ticket code: ${ticket_code}. Present this code at the event entrance.`,
-      data: { event_id, registration_id, ticket_code },
-    });
-  }
-}
-
 // Debit the organizer's wallet ledger by the net amount (full-refund reverse).
 async function debitOrganizerWallet(
+  supabase: any,
   organizerId: string,
   netAmount: number,
 ): Promise<void> {
@@ -155,80 +80,171 @@ async function debitOrganizerWallet(
     .eq('id', existing.id);
 }
 
-async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  const { registration_id, event_id, user_id } = paymentIntent.metadata;
-  const failureMessage = paymentIntent.last_payment_error?.message ?? 'Payment failed';
-
+async function handlePaymentSucceeded(
+  supabase: any,
+  paymentIntent: Stripe.PaymentIntent,
+) {
+  const { registration_id } = paymentIntent.metadata;
   if (!registration_id) return;
 
+  const { data: registration } = await supabase
+    .from('event_registrations')
+    .select('id, event_id, user_id, user_name, user_email, quantity, ticket_tier_id, ticket_tier_name, subtotal, platform_fee, processing_fee, total, status, payment_status')
+    .eq('id', registration_id)
+    .single();
+
+  if (!registration) return;
+
+  // Idempotency guard: never re-confirm an already-confirmed registration.
+  if (registration.payment_status === 'completed' || registration.status === 'confirmed') {
+    return;
+  }
+
   await supabase
-    .from('ticket_purchases')
+    .from('event_registrations')
     .update({
-      payment_status: 'failed',
-      order_status: 'pending',
-      metadata: { failure_message: failureMessage, failed_at: new Date().toISOString() },
+      payment_status: 'completed',
+      status: 'confirmed',
+      payment_method: 'card',
       updated_at: new Date().toISOString(),
     })
     .eq('id', registration_id);
 
-  const { data: registration } = await supabase
-    .from('ticket_purchases')
-    .select('quantity, ticket_type_id')
-    .eq('id', registration_id)
+  // 003's counter trigger only handles confirmed<->cancelled transitions, so
+  // a pending->confirmed flip must increment counters explicitly.
+  const { data: tier } = await supabase
+    .from('event_ticket_tiers')
+    .select('sold')
+    .eq('id', registration.ticket_tier_id)
     .single();
 
-  if (registration) {
+  if (tier) {
     await supabase
-      .from('events')
-      .update({
-        tickets_sold: Math.max(0, (await supabase.from('events').select('tickets_sold').eq('id', event_id).single()).data?.tickets_sold ?? 0 - registration.quantity),
-      })
-      .eq('id', event_id);
-
-    const { data: tt } = await supabase
-      .from('event_ticket_types')
-      .select('quantity_sold')
-      .eq('id', registration.ticket_type_id)
-      .single();
-
-    if (tt) {
-      await supabase
-        .from('event_ticket_types')
-        .update({ quantity_sold: Math.max(0, (tt.quantity_sold ?? 0) - registration.quantity) })
-        .eq('id', registration.ticket_type_id);
-    }
+      .from('event_ticket_tiers')
+      .update({ sold: (tier.sold ?? 0) + registration.quantity })
+      .eq('id', registration.ticket_tier_id);
   }
 
-  if (user_id) {
+  const { data: eventCount } = await supabase
+    .from('events')
+    .select('tickets_sold')
+    .eq('id', registration.event_id)
+    .single();
+
+  if (eventCount) {
+    await supabase
+      .from('events')
+      .update({ tickets_sold: (eventCount.tickets_sold ?? 0) + registration.quantity })
+      .eq('id', registration.event_id);
+  }
+
+  // Create individual tickets (QR codes auto-generated by DB trigger).
+  const { data: evt } = await supabase
+    .from('events')
+    .select('title, start_date, end_date')
+    .eq('id', registration.event_id)
+    .single();
+
+  const ticketRows = Array.from({ length: registration.quantity }).map(() => ({
+    registration_id: registration.id,
+    event_id: registration.event_id,
+    user_id: registration.user_id,
+    tier_name: registration.ticket_tier_name,
+    attendee_name: registration.user_name,
+    attendee_email: registration.user_email,
+    status: 'active',
+    qr_code_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${registration.event_id}/ticket/${registration.id}`,
+    valid_from: evt?.start_date ?? null,
+    valid_until: evt?.end_date ?? null,
+  }));
+
+  const { data: createdTickets } = await supabase
+    .from('event_tickets')
+    .insert(ticketRows)
+    .select('ticket_code');
+
+  // Credit the organizer's wallet ledger with the net amount after the
+  // platform fee deduction (funds themselves are transferred via Stripe
+  // Connect destination charges; this keeps the AfriBook wallet in sync).
+  const organizerId = paymentIntent.metadata.afribook_organizer_id;
+  const netAmount = Number(paymentIntent.metadata.afribook_net_to_organizer ?? 0);
+
+  if (organizerId && netAmount > 0) {
+    await creditOrganizerWallet(supabase, organizerId, netAmount, registration.event_id);
+  }
+
+  if (registration.user_id) {
+    const ticketCodes = (createdTickets ?? []).map((t: { ticket_code: string }) => t.ticket_code);
     await supabase.from('notifications').insert({
-      user_id,
-      type: 'payment_failed',
-      title: 'Payment Failed',
-      body: `Your payment could not be processed: ${failureMessage}. Please try again.`,
-      data: { event_id, registration_id, failure_message: failureMessage },
+      user_id: registration.user_id,
+      type: 'payment',
+      title: 'Payment Confirmed',
+      body: `Your payment for ${evt?.title ?? 'the event'} has been confirmed.`,
+      data: {
+        event_id: registration.event_id,
+        registration_id: registration.id,
+        ticket_codes: ticketCodes,
+        payment_intent_id: paymentIntent.id,
+      },
     });
   }
 }
 
-async function handleRefund(charge: Stripe.Charge) {
+async function handlePaymentFailed(
+  supabase: any,
+  paymentIntent: Stripe.PaymentIntent,
+) {
+  const { registration_id } = paymentIntent.metadata;
+  const failureMessage = paymentIntent.last_payment_error?.message ?? 'Payment failed';
+
+  if (!registration_id) return;
+
+  const { data: registration } = await supabase
+    .from('event_registrations')
+    .select('user_id')
+    .eq('id', registration_id)
+    .single();
+
+  await supabase
+    .from('event_registrations')
+    .update({
+      payment_status: 'failed',
+      payment_method: 'card',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', registration_id);
+
+  if (registration?.user_id) {
+    await supabase.from('notifications').insert({
+      user_id: registration.user_id,
+      type: 'payment',
+      title: 'Payment Failed',
+      body: `Your payment could not be processed: ${failureMessage}. Please try again.`,
+      data: { registration_id, payment_intent_id: paymentIntent.id, failure_message: failureMessage },
+    });
+  }
+}
+
+async function handleRefund(supabase: any, charge: Stripe.Charge) {
   const paymentIntentId = charge.payment_intent as string;
   if (!paymentIntentId) return;
 
   const { data: registration } = await supabase
-    .from('ticket_purchases')
-    .select('id, event_id, buyer_id, quantity, ticket_type_id, total, platform_fee, processing_fee')
+    .from('event_registrations')
+    .select('id, event_id, user_id, quantity, total, subtotal, platform_fee, processing_fee, status, payment_status, refund_amount')
     .eq('payment_intent_id', paymentIntentId)
     .single();
 
   if (!registration) return;
 
   const refundAmount = (charge.amount_refunded ?? 0) / 100;
-  const isFullRefund = refundAmount >= registration.total;
+  const isFullRefund = refundAmount >= Number(registration.total ?? 0);
 
   await supabase
-    .from('ticket_purchases')
+    .from('event_registrations')
     .update({
-      payment_status: isFullRefund ? 'refunded' : 'partially_refunded',
+      payment_status: isFullRefund ? 'refunded' : 'completed',
+      status: isFullRefund ? 'cancelled' : registration.status,
       refund_amount: refundAmount,
       refunded_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -236,13 +252,9 @@ async function handleRefund(charge: Stripe.Charge) {
     .eq('id', registration.id);
 
   if (isFullRefund) {
-    await supabase
-      .from('ticket_purchases')
-      .update({ order_status: 'cancelled' })
-      .eq('id', registration.id);
-
-    // Debit the organizer's wallet ledger for a full refund so balances stay
-    // reconciled with the Stripe Connect transfer that will be reversed.
+    // status confirmed->cancelled: 003 trigger decrements tier/event counters.
+    // Debit the organizer's wallet ledger so balances stay reconciled with the
+    // Stripe Connect transfer that will be reversed.
     const { data: evt } = await supabase
       .from('events')
       .select('organizer_id')
@@ -254,40 +266,19 @@ async function handleRefund(charge: Stripe.Charge) {
         Number(registration.total ?? 0) - Number(registration.platform_fee ?? 0) - Number(registration.processing_fee ?? 0),
         0,
       );
-      await debitOrganizerWallet(evt.organizer_id, netRefund);
+      await debitOrganizerWallet(supabase, evt.organizer_id, netRefund);
     }
 
-    const { data: event } = await supabase
-      .from('events')
-      .select('tickets_sold')
-      .eq('id', registration.event_id)
-      .single();
-
-    if (event) {
-      await supabase
-        .from('events')
-        .update({ tickets_sold: Math.max(0, event.tickets_sold - registration.quantity) })
-        .eq('id', registration.event_id);
-    }
-
-    const { data: tt } = await supabase
-      .from('event_ticket_types')
-      .select('quantity_sold')
-      .eq('id', registration.ticket_type_id)
-      .single();
-
-    if (tt) {
-      await supabase
-        .from('event_ticket_types')
-        .update({ quantity_sold: Math.max(0, (tt.quantity_sold ?? 0) - registration.quantity) })
-        .eq('id', registration.ticket_type_id);
-    }
+    await supabase
+      .from('event_tickets')
+      .update({ status: 'cancelled' })
+      .eq('registration_id', registration.id);
   }
 
-  if (registration.buyer_id) {
+  if (registration.user_id) {
     await supabase.from('notifications').insert({
-      user_id: registration.buyer_id,
-      type: 'refund_processed',
+      user_id: registration.user_id,
+      type: 'payment',
       title: 'Refund Processed',
       body: `A refund of ${refundAmount} has been processed for your ticket.`,
       data: { registration_id: registration.id, event_id: registration.event_id, refund_amount: refundAmount },
@@ -319,17 +310,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    const supabase = await getAdminDb();
+
     switch (event.type) {
       case 'payment_intent.succeeded':
-        await handlePaymentSucceeded(event.data.object as Stripe.PaymentIntent);
+        await handlePaymentSucceeded(supabase, event.data.object as Stripe.PaymentIntent);
         break;
 
       case 'payment_intent.payment_failed':
-        await handlePaymentFailed(event.data.object as Stripe.PaymentIntent);
+        await handlePaymentFailed(supabase, event.data.object as Stripe.PaymentIntent);
         break;
 
       case 'charge.refunded':
-        await handleRefund(event.data.object as Stripe.Charge);
+        await handleRefund(supabase, event.data.object as Stripe.Charge);
         break;
 
       default:

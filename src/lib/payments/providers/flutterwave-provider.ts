@@ -279,7 +279,8 @@ export class FlutterwaveProvider implements PaymentProvider {
   // ─── Webhook Verification ────────────────────────────────────
 
   verifyWebhook(payload: unknown, signature: string): boolean {
-    const hashSecret = process.env.FLUTTERWAVE_WEBHOOK_HASH;
+    const hashSecret =
+      process.env.FLUTTERWAVE_WEBHOOK_SECRET ?? process.env.FLUTTERWAVE_WEBHOOK_HASH;
     if (!hashSecret) return false;
 
     try {

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(
   req: NextRequest,
@@ -12,56 +7,65 @@ export async function POST(
 ) {
   try {
     const { id: eventId } = await params;
-    const body = await req.json();
-    const { userId, imageUrl, caption } = body;
+    const supabase = await createClient() as any;
 
-    if (!userId || !imageUrl) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: userId, imageUrl' },
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const body = await req.json();
+    const { imageUrl, caption } = body;
+
+    if (!imageUrl) {
+      return NextResponse.json(
+        { success: false, error: 'Missing required field: imageUrl' },
         { status: 400 }
       );
     }
 
-    const { data: event, error: eventError } = await supabase
+    const { data: event } = await supabase
       .from('events')
-      .select('id, start_date, end_date')
+      .select('id, start_date')
       .eq('id', eventId)
       .single();
 
-    if (eventError || !event) {
+    if (!event) {
       return NextResponse.json(
         { success: false, error: 'Event not found' },
         { status: 404 }
       );
     }
 
-    const { data: user } = await supabase
-      .from('users')
-      .select('id, full_name, email, avatar_url')
-      .eq('id', userId)
-      .single();
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', user.id)
+      .maybeSingle();
 
     const now = new Date().toISOString();
     const uploadedBeforeEvent = new Date(now) < new Date(event.start_date);
 
-    const photoData = {
-      event_id: eventId,
-      user_id: userId,
-      user_name: user?.full_name ?? user?.email ?? 'Anonymous',
-      image_url: imageUrl,
-      thumbnail_url: imageUrl,
-      caption: caption ?? null,
-      status: 'approved' as const,
-      is_cover: false,
-      uploaded_before_event: uploadedBeforeEvent,
-      download_count: 0,
-      share_count: 0,
-      created_at: now,
-    };
-
     const { data: photo, error: photoError } = await supabase
       .from('event_photos')
-      .insert(photoData)
+      .insert({
+        event_id: eventId,
+        user_id: user.id,
+        user_name: profile?.full_name ?? profile?.email ?? 'Guest',
+        image_url: imageUrl,
+        thumbnail_url: imageUrl,
+        caption: caption ?? null,
+        status: 'pending',
+        is_cover: false,
+        uploaded_before_event: uploadedBeforeEvent,
+        download_count: 0,
+        share_count: 0,
+      })
       .select()
       .single();
 
@@ -73,7 +77,7 @@ export async function POST(
     }
 
     return NextResponse.json(
-      { success: true, data: photo, message: 'Photo uploaded successfully' },
+      { success: true, data: photo, message: 'Photo submitted for review' },
       { status: 201 }
     );
   } catch (error) {
@@ -96,6 +100,8 @@ export async function GET(
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const offset = (page - 1) * limit;
+
+    const supabase = await createClient() as any;
 
     const { data: event } = await supabase
       .from('events')

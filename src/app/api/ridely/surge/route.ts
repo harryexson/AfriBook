@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import {
   RIDE_TYPE_CONFIG,
   type RideType,
 } from '@/types/ridely';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+async function getAdminDb() {
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient() as any;
+}
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
@@ -57,20 +56,21 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data: surgeArea } = await supabase
-      .from('ridely_surge_areas')
-      .select('multiplier, reason, active')
-      .contains('bounds', JSON.stringify([lng, lat]))
-      .eq('active', true)
-      .maybeSingle();
+    const adminDb = await getAdminDb();
 
-    if (surgeArea) {
+    const { data: surgeMultiplier } = await adminDb.rpc(
+      'get_surge_multiplier' as never,
+      { p_lat: lat, p_lng: lng } as never,
+    );
+    const multiplierFromZone = (surgeMultiplier as number | null) ?? 1;
+
+    if (multiplierFromZone > 1) {
       const cfg = RIDE_TYPE_CONFIG[rideType];
       return NextResponse.json({
         success: true,
         data: {
-          multiplier: surgeArea.multiplier,
-          reason: surgeArea.reason ?? 'High demand in area',
+          multiplier: multiplierFromZone,
+          reason: 'High demand in area',
           activeDrivers: 0,
           activeRequests: 0,
           estimatedFare: {
@@ -78,8 +78,8 @@ export async function GET(req: NextRequest) {
             perKmRate: cfg.perKmRate,
             perMinRate: cfg.perMinRate,
             minimumFare: cfg.minimumFare,
-            surgeMultiplier: surgeArea.multiplier,
-            estimatedFare: Math.round(cfg.baseFare * surgeArea.multiplier),
+            surgeMultiplier: multiplierFromZone,
+            estimatedFare: Math.round(cfg.baseFare * multiplierFromZone),
             currencyCode: 'XAF',
           },
         },
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest) {
     }
 
     const searchRadius = 3;
-    const { data: nearbyDrivers } = await supabase.rpc(
+    const { data: nearbyDrivers } = await adminDb.rpc(
       'ridely_find_nearby_drivers' as never,
       {
         p_lat: lat,
@@ -100,7 +100,7 @@ export async function GET(req: NextRequest) {
     const activeDrivers = nearbyDrivers?.length ?? 0;
 
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { count: activeRequests } = await supabase
+    const { count: activeRequests } = await adminDb
       .from('ridely_rides')
       .select('id', { count: 'exact', head: true })
       .in('status', ['requesting', 'searching'])

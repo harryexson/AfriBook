@@ -12,8 +12,8 @@ export async function GET(req: NextRequest) {
   const txRef = searchParams.get('tx_ref');
   const status = searchParams.get('status');
 
-  const { createClient } = await import('@/lib/supabase/server');
-  const supabase = await createClient();
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  const supabase = createAdminClient();
 
   if (txRef) {
     const { PayChanguProvider } = await import(

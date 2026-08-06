@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server';
-import type { RestaurantConfig, PrepTimeEstimate } from './types';
 
 const PEAK_HOUR_MODIFIERS: Record<number, number> = {
   11: 0.2,
@@ -12,33 +11,41 @@ const PEAK_HOUR_MODIFIERS: Record<number, number> = {
 
 const WEEKEND_MODIFIER = 0.1;
 
-const COMPLEXITY_BASE_TIMES: Record<string, number> = {
-  simple: 5,
-  moderate: 10,
-  complex: 18,
-};
+const DEFAULT_BASE_TIME = 10;
+
+export interface PrepTimeEstimate {
+  menuItemId: string;
+  baseTimeMin: number;
+  complexity: 'simple' | 'moderate' | 'complex';
+  currentLoad: number;
+  estimatedTimeMin: number;
+}
 
 export async function estimatePrepTime(
   orderItems: { menuItemId: string; quantity: number; notes?: string }[],
-  restaurantConfig: RestaurantConfig,
+  restaurantId: string,
+  basePrepTime: number = DEFAULT_BASE_TIME,
 ): Promise<PrepTimeEstimate[]> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
 
   const menuItemIds = [...new Set(orderItems.map((i) => i.menuItemId))];
   const { data: menuItems } = await supabase
-    .from('menu_items' as never)
-    .select('id, prep_time_min, complexity')
-    .in('id', menuItemIds) as unknown as {
-    data: { id: string; prep_time_min: number; complexity: string }[] | null;
-  };
+    .from('menu_items')
+    .select('id, preparation_time')
+    .in('id', menuItemIds);
 
-  const itemMap = new Map(menuItems?.map((m) => [m.id, m]) ?? []);
+  const itemMap = new Map(
+    (menuItems ?? []).map((m: { id: string; preparation_time: number | null }) => [
+      m.id,
+      m.preparation_time ?? basePrepTime,
+    ]),
+  );
 
   const { count: activeOrders } = await supabase
-    .from('restaurant_orders' as never)
+    .from('ridely_food_deliveries')
     .select('id', { count: 'exact', head: true })
-    .eq('restaurant_id', restaurantConfig.id)
-    .in('status', ['received', 'accepted', 'preparing']) as unknown as { count: number | null };
+    .eq('restaurant_id', restaurantId)
+    .in('status', ['requesting', 'searching', 'matched', 'accepted', 'en_route_to_pickup']);
 
   const currentLoad = activeOrders ?? 0;
   const now = new Date();
@@ -48,12 +55,11 @@ export async function estimatePrepTime(
   const estimates: PrepTimeEstimate[] = [];
 
   for (const item of orderItems) {
-    const menuItem = itemMap.get(item.menuItemId);
-    const baseTime = menuItem?.prep_time_min ?? COMPLEXITY_BASE_TIMES.moderate;
-    const complexity = (menuItem?.complexity as PrepTimeEstimate['complexity']) ?? 'moderate';
+    const baseTime = itemMap.get(item.menuItemId) ?? basePrepTime;
+    const complexity: PrepTimeEstimate['complexity'] = baseTime >= 18 ? 'complex' : baseTime >= 10 ? 'moderate' : 'simple';
 
     let estimatedTime = baseTime * item.quantity;
-    estimatedTime = adjustForCurrentLoad(estimatedTime, currentLoad, restaurantConfig.maxOrdersPerHour);
+    estimatedTime = adjustForCurrentLoad(estimatedTime, currentLoad, 12);
     estimatedTime = adjustForTimeOfDay(estimatedTime, currentHour);
     if (isWeekend) {
       estimatedTime = Math.ceil(estimatedTime * (1 + WEEKEND_MODIFIER));
@@ -72,14 +78,14 @@ export async function estimatePrepTime(
 }
 
 export async function getMenuItemPrepTime(menuItemId: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
   const { data } = await supabase
-    .from('menu_items' as never)
-    .select('prep_time_min')
+    .from('menu_items')
+    .select('preparation_time')
     .eq('id', menuItemId)
-    .single() as unknown as { data: { prep_time_min: number } | null };
+    .single();
 
-  return data?.prep_time_min ?? COMPLEXITY_BASE_TIMES.moderate;
+  return data?.preparation_time ?? DEFAULT_BASE_TIME;
 }
 
 export function calculateComplexityScore(
@@ -133,31 +139,31 @@ export async function getHistoricalAveragePrepTime(
   restaurantId: string,
   days: number = 30,
 ): Promise<number> {
-  const supabase = await createClient();
+  const supabase = await createClient() as any;
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
 
   const { data } = await supabase
-    .from('restaurant_orders' as never)
-    .select('actual_prep_time')
+    .from('ridely_food_deliveries')
+    .select('requested_at, restaurant_ready_at')
     .eq('restaurant_id', restaurantId)
-    .not('actual_prep_time', 'is', null)
-    .gte('created_at', cutoffDate.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(100) as unknown as {
-    data: { actual_prep_time: number }[] | null;
-  };
+    .not('restaurant_ready_at', 'is', null)
+    .gte('requested_at', cutoffDate.toISOString())
+    .order('requested_at', { ascending: false })
+    .limit(100);
 
   if (!data || data.length === 0) {
-    return COMPLEXITY_BASE_TIMES.moderate;
+    return DEFAULT_BASE_TIME;
   }
 
-  const total = data.reduce((sum, d) => sum + d.actual_prep_time, 0);
-  return Math.round(total / data.length);
-}
+  let total = 0;
+  let count = 0;
+  for (const d of data) {
+    if (d.restaurant_ready_at) {
+      total += (new Date(d.restaurant_ready_at).getTime() - new Date(d.requested_at).getTime()) / 60000;
+      count += 1;
+    }
+  }
 
-export function getComplexityBaseTime(
-  level: 'simple' | 'moderate' | 'complex',
-): number {
-  return COMPLEXITY_BASE_TIMES[level];
+  return count > 0 ? Math.round(total / count) : DEFAULT_BASE_TIME;
 }

@@ -14,12 +14,12 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role, country_code')
     .eq('id', user.id)
     .single() as unknown as { data: { role: string; country_code: string } | null };
 
-  if (!profile || !['vendor', 'admin', 'super_admin'].includes(profile.role)) {
+  if (!profile || !['vendor', 'super_admin'].includes(profile.role)) {
     return NextResponse.json({ error: 'Only vendors can onboard' }, { status: 403 });
   }
 

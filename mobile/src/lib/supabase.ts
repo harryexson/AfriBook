@@ -25,3 +25,5 @@ export function createClient(): ReturnType<typeof createClient<Database>> {
   });
   return client;
 }
+
+export const supabase = createClient();

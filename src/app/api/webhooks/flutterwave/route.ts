@@ -8,8 +8,8 @@ function verifySignature(signature: string, secret: string): boolean {
 }
 
 async function getSupabase() {
-  const { createClient } = await import('@/lib/supabase/server');
-  return createClient();
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient();
 }
 
 interface FlutterwaveChargeData {

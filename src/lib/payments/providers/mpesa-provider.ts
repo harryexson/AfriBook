@@ -72,7 +72,7 @@ export class MpesaProvider implements PaymentProvider {
     this.baseUrl = config.baseUrl;
     this.shortcode = config.shortcode;
     this.passkey = config.passkey;
-    this.callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/mpesa/callback`;
+    this.callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/mpesa`;
 
     if (!this.consumerKey || !this.consumerSecret) {
       throw new Error(

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import {
   RideType,
   RIDE_TYPE_CONFIG,
@@ -7,10 +6,15 @@ import {
   type RidePricing,
 } from '@/types/ridely';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+async function getDb() {
+  const { createClient } = await import('@/lib/supabase/server');
+  return createClient() as any;
+}
+
+async function getAdminDb() {
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient() as any;
+}
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
@@ -52,9 +56,21 @@ function estimatePricing(
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await getDb();
+    const adminDb = await getAdminDb();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const {
-      riderId,
       rideType = 'economy',
       pickup,
       pickupAddress,
@@ -63,9 +79,9 @@ export async function POST(req: NextRequest) {
       paymentType = 'cash',
     } = body;
 
-    if (!riderId || !pickup || !destination) {
+    if (!pickup || !destination) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: riderId, pickup, destination' },
+        { success: false, error: 'Missing required fields: pickup, destination' },
         { status: 400 },
       );
     }
@@ -92,20 +108,18 @@ export async function POST(req: NextRequest) {
     const distanceKm = haversineKm(pickup, destination);
     const durationMin = Math.max(1, Math.round(distanceKm * 2.5));
 
-    const { data: surgeRow } = await supabase
-      .from('ridely_surge_areas')
-      .select('multiplier')
-      .contains('bounds', JSON.stringify([pickup.lng, pickup.lat]))
-      .eq('active', true)
-      .maybeSingle();
+    const { data: surgeMultiplier } = await adminDb.rpc(
+      'get_surge_multiplier' as never,
+      { p_lat: pickup.lat, p_lng: pickup.lng } as never,
+    );
 
-    const surgeMultiplier = surgeRow?.multiplier ?? 1;
-    const pricing = estimatePricing(rideType as RideType, distanceKm, durationMin, surgeMultiplier);
+    const multiplier = (surgeMultiplier as number | null) ?? 1;
+    const pricing = estimatePricing(rideType as RideType, distanceKm, durationMin, multiplier);
 
     const { data: ride, error } = await supabase
       .from('ridely_rides')
       .insert({
-        rider_id: riderId,
+        rider_id: user.id,
         ride_type: rideType,
         status: 'requesting',
         pickup_lat: pickup.lat,
@@ -130,7 +144,7 @@ export async function POST(req: NextRequest) {
     }
 
     Promise.resolve(
-      supabase.rpc('ridely_dispatch' as never, {
+      adminDb.rpc('ridely_dispatch' as never, {
         p_ride_id: ride.id,
       } as never),
     ).catch(() => {});
@@ -141,7 +155,7 @@ export async function POST(req: NextRequest) {
         data: {
           ...ride,
           estimatedFare: pricing.estimatedFare,
-          surgeMultiplier,
+          surgeMultiplier: multiplier,
         },
       },
       { status: 201 },
@@ -154,24 +168,28 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await getDb();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
     const status = searchParams.get('status');
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const offset = (page - 1) * limit;
 
-    if (!userId) {
-      return NextResponse.json(
-        { success: false, error: 'userId query parameter is required' },
-        { status: 400 },
-      );
-    }
-
     let query = supabase
       .from('ridely_rides')
       .select('*', { count: 'exact' })
-      .eq('rider_id', userId);
+      .eq('rider_id', user.id);
 
     if (status) {
       if (!RIDE_STATUS_TRANSITIONS[status as keyof typeof RIDE_STATUS_TRANSITIONS] && status !== 'requesting') {

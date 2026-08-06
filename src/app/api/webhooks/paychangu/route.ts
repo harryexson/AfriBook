@@ -51,8 +51,8 @@ function verifySignature(rawBody: string, signature: string): boolean {
 }
 
 async function getSupabase() {
-  const { createClient } = await import('@/lib/supabase/server');
-  return createClient();
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient();
 }
 
 async function handleChargeWebhook(data: PayChanguChargeWebhook) {

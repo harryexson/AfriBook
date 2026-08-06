@@ -1,15 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import {
   RIDE_TYPE_CONFIG,
   FOOD_DELIVERY_STATUS_TRANSITIONS,
   type RideType,
 } from '@/types/ridely';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+async function getDb() {
+  const { createClient } = await import('@/lib/supabase/server');
+  return createClient() as any;
+}
+
+async function getAdminDb() {
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient() as any;
+}
+
+function parseWktPoint(location: unknown): { lat: number; lng: number } | null {
+  if (!location) return null;
+  const str = String(location);
+  const match = str.match(/POINT\((-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\)/);
+  if (!match) return null;
+  return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
+}
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
@@ -46,9 +58,21 @@ function estimatePricing(distanceKm: number, durationMin: number) {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await getDb();
+    const adminDb = await getAdminDb();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
     const body = await req.json();
     const {
-      customerId,
       restaurantId,
       items = [],
       destination,
@@ -57,11 +81,11 @@ export async function POST(req: NextRequest) {
       paymentType = 'cash',
     } = body;
 
-    if (!customerId || !restaurantId || !items.length || !destination) {
+    if (!restaurantId || !items.length || !destination) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields: customerId, restaurantId, items, destination',
+          error: 'Missing required fields: restaurantId, items, destination',
         },
         { status: 400 },
       );
@@ -74,31 +98,34 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: restaurant, error: restError } = await supabase
-      .from('businesses')
-      .select('id, name, address, location')
+    const { data: restaurant, error: restError } = await adminDb
+      .from('restaurants')
+      .select('id, business_id, businesses!inner(id, name, owner_id, address, location)')
       .eq('id', restaurantId)
       .single();
 
-    if (restError || !restaurant) {
+    const business = (restaurant as { businesses?: Record<string, unknown> } | null)?.businesses as
+      | Record<string, unknown>
+      | null
+      | undefined;
+
+    if (restError || !restaurant || !business) {
       return NextResponse.json(
         { success: false, error: 'Restaurant not found' },
         { status: 404 },
       );
     }
 
-    const restaurantLoc = restaurant.location as { latitude?: number; longitude?: number } | null;
-    const pickupLat = restaurantLoc?.latitude ?? (restaurant as unknown as Record<string, unknown>).pickup_lat as number ?? 0;
-    const pickupLng = restaurantLoc?.longitude ?? (restaurant as unknown as Record<string, unknown>).pickup_lng as number ?? 0;
-
-    if (!pickupLat || !pickupLng) {
+    const restaurantName = (business.name as string) ?? 'Restaurant';
+    const location = parseWktPoint(business.location);
+    if (!location) {
       return NextResponse.json(
         { success: false, error: 'Restaurant location not available' },
         { status: 400 },
       );
     }
 
-    const pickup = { lat: pickupLat, lng: pickupLng };
+    const pickup = { lat: location.lat, lng: location.lng };
     const distanceKm = haversineKm(pickup, destination);
     const estimatedPrepTime = Math.max(10, Math.round(items.length * 5));
     const durationMin = Math.max(1, Math.round(distanceKm * 3)) + estimatedPrepTime;
@@ -108,12 +135,18 @@ export async function POST(req: NextRequest) {
       (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,
       0,
     );
+    const deliveryFee = pricing.estimatedFare;
+    const tax = 0;
+    const total = totalItemPrice + deliveryFee + tax;
+
+    const address = (business.address as { formatted?: string } | null) ?? null;
 
     const { data: foodDelivery, error } = await supabase
       .from('ridely_food_deliveries')
       .insert({
-        customer_id: customerId,
+        customer_id: user.id,
         restaurant_id: restaurantId,
+        restaurant_name: restaurantName,
         status: 'requesting',
         items: items.map((item: { name: string; quantity: number; price: number; specialInstructions?: string }) => ({
           name: item.name,
@@ -121,9 +154,13 @@ export async function POST(req: NextRequest) {
           price: item.price,
           specialInstructions: item.specialInstructions ?? null,
         })),
+        subtotal: totalItemPrice,
+        delivery_fee: deliveryFee,
+        tax,
+        total,
         pickup_lat: pickup.lat,
         pickup_lng: pickup.lng,
-        pickup_address: restaurant.address?.formatted ?? restaurant.name ?? null,
+        pickup_address: address?.formatted ?? restaurantName,
         destination_lat: destination.lat,
         destination_lng: destination.lng,
         destination_address: destinationAddress ?? null,
@@ -145,18 +182,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    Promise.resolve(
-      supabase.from('notifications').insert({
-        user_id: restaurantId,
-        type: 'order',
-        title: 'New Food Order',
-        body: `New order received with ${items.length} item(s).`,
-        data: { food_delivery_id: foodDelivery.id },
-      }),
-    ).catch(() => {});
+    const ownerId = business.owner_id as string;
+    if (ownerId) {
+      Promise.resolve(
+        adminDb.from('notifications').insert({
+          user_id: ownerId,
+          type: 'order',
+          title: 'New Food Order',
+          body: `New order received with ${items.length} item(s).`,
+          data: { food_delivery_id: foodDelivery.id },
+        }),
+      ).catch(() => {});
+    }
 
     Promise.resolve(
-      supabase.rpc('ridely_dispatch_delivery' as never, {
+      adminDb.rpc('ridely_dispatch_delivery' as never, {
         p_delivery_id: foodDelivery.id,
         p_table: 'ridely_food_deliveries',
       } as never),
@@ -181,30 +221,44 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await getDb();
+    const adminDb = await getAdminDb();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
-    const restaurantId = searchParams.get('restaurantId');
     const status = searchParams.get('status');
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10));
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const offset = (page - 1) * limit;
 
-    if (!userId && !restaurantId) {
-      return NextResponse.json(
-        { success: false, error: 'userId or restaurantId query parameter is required' },
-        { status: 400 },
-      );
-    }
+    let query = supabase.from('ridely_food_deliveries').select('*', { count: 'exact' });
 
-    let query = supabase
-      .from('ridely_food_deliveries')
-      .select('*', { count: 'exact' });
-
-    if (userId) {
-      query = query.eq('customer_id', userId);
-    }
+    const restaurantId = searchParams.get('restaurantId');
     if (restaurantId) {
+      const { data: owned } = await adminDb
+        .from('businesses')
+        .select('id')
+        .eq('owner_id', user.id)
+        .eq('id', restaurantId)
+        .maybeSingle();
+      if (!owned) {
+        return NextResponse.json(
+          { success: false, error: 'Not authorized for this restaurant' },
+          { status: 403 },
+        );
+      }
       query = query.eq('restaurant_id', restaurantId);
+    } else {
+      query = query.eq('customer_id', user.id);
     }
 
     if (status) {

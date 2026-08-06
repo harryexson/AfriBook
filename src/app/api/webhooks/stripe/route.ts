@@ -6,8 +6,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 async function getSupabase() {
-  const { createClient } = await import('@/lib/supabase/server');
-  return createClient();
+  const { createAdminClient } = await import('@/lib/supabase/admin');
+  return createAdminClient();
 }
 
 async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {

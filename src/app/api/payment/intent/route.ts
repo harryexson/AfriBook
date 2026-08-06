@@ -30,10 +30,10 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('users')
-    .select('name, email')
+    .from('profiles')
+    .select('full_name, email')
     .eq('id', user.id)
-    .single() as unknown as { data: { name: string; email: string } | null };
+    .single() as unknown as { data: { full_name: string; email: string } | null };
 
   try {
     const orchestrator = getPaymentOrchestrator();
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       method,
       customer: {
         email: profile?.email ?? '',
-        name: profile?.name ?? '',
+        name: profile?.full_name ?? '',
       },
       description: description ?? 'AfriBook Payment',
       bookingId: bookingId ?? undefined,
