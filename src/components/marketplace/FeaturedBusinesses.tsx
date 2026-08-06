@@ -103,7 +103,7 @@ export default function FeaturedBusinesses() {
               className="shrink-0 snap-start"
             >
               <Link
-                href={`/business/${business.id}`}
+                href="/marketplace"
                 className="group flex h-full w-[300px] flex-col overflow-hidden rounded-3xl border border-border bg-surface transition-all duration-300 hover:-translate-y-1.5 hover:border-amber-500/40 hover:shadow-xl sm:w-[340px]"
               >
                 {/* Cover */}

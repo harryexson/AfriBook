@@ -21,7 +21,7 @@ export default function PrimePage() {
 
   const handleSubscribe = useCallback(async () => {
     if (!user) {
-      router.push('/auth/login')
+      router.push('/login')
       return
     }
 

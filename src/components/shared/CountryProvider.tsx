@@ -31,10 +31,18 @@ function readStorage(): string {
   }
 }
 
-function resolveCountry(pathname: string): string {
+function countryFromPathname(pathname: string): string {
   const segment = pathname.split('/')[1]?.toUpperCase()
   if (segment && COUNTRIES[segment]) return segment
-  return readCookie() || readStorage() || 'NG'
+  return ''
+}
+
+function resolveCountry(pathname: string): string {
+  return countryFromPathname(pathname) || readCookie() || readStorage() || 'NG'
+}
+
+function resolveServerCountry(pathname: string): string {
+  return countryFromPathname(pathname) || 'NG'
 }
 
 function noopSubscribe(): () => void {
@@ -45,7 +53,15 @@ export function CountryProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
   const getSnapshot = useCallback(() => resolveCountry(pathname), [pathname])
-  const countryCode = useSyncExternalStore(noopSubscribe, getSnapshot, getSnapshot)
+  const getServerSnapshot = useCallback(
+    () => resolveServerCountry(pathname),
+    [pathname],
+  )
+  const countryCode = useSyncExternalStore(
+    noopSubscribe,
+    getSnapshot,
+    getServerSnapshot,
+  )
 
   const setCountry = useCallback((code: string) => {
     const normalized = code.toUpperCase()

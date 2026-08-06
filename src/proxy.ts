@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 const COUNTRY_CODES = ['us', 'ca', 'gb', 'fr', 'de', 'ae', 'in', 'ng', 'gh', 'ke', 'tz', 'ug', 'mw', 'za', 'eg', 'ar', 'am'] as const;
 type CountryCode = typeof COUNTRY_CODES[number];
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/api', '/_next', '/favicon.ico', '/images'];
-const AUTH_PROTECTED_ROUTES = ['/vendor', '/admin', '/driver', '/checkout', '/bookings', '/orders', '/profile', '/payments'];
+const AUTH_PROTECTED_ROUTES = ['/vendor', '/admin', '/driver', '/checkout', '/bookings', '/orders', '/profile', '/payments', '/account'];
 const VENDOR_ROUTES = ['/vendor'];
 const ADMIN_ROUTES = ['/admin'];
 const DRIVER_ROUTES = ['/driver'];

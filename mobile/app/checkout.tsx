@@ -5,11 +5,14 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../src/theme';
 import Button from '../src/components/ui/Button';
+import { API_BASE } from '../src/lib/api';
+import * as SecureStore from 'expo-secure-store';
 
 const PAYMENT_METHODS = [
   { id: 'card', label: 'Credit/Debit Card', icon: '💳' },
@@ -24,10 +27,39 @@ export default function CheckoutScreen() {
   const [processing, setProcessing] = useState(false);
 
   const handlePay = async () => {
+    if (processing) return;
     setProcessing(true);
-    await new Promise((r) => setTimeout(r, 2000));
-    setProcessing(false);
-    router.replace('/(tabs)/bookings');
+    try {
+      const token = await SecureStore.getItemAsync('afribook-token');
+      const response = await fetch(`${API_BASE}/api/payment/intent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          amount: 5500,
+          currency: 'NGN',
+          countryCode: 'NG',
+          method: selectedMethod,
+          description: 'AfriBook checkout',
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? 'Payment failed');
+      }
+
+      router.replace('/(tabs)/bookings');
+    } catch (err) {
+      Alert.alert(
+        'Payment failed',
+        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
+      );
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (

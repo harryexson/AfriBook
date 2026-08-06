@@ -34,11 +34,10 @@ export async function estimatePrepTime(
     .select('id, preparation_time')
     .in('id', menuItemIds);
 
-  const itemMap = new Map(
-    (menuItems ?? []).map((m: { id: string; preparation_time: number | null }) => [
-      m.id,
-      m.preparation_time ?? basePrepTime,
-    ]),
+  const itemMap = new Map<string, number>(
+    ((menuItems ?? []) as { id: string; preparation_time: number | null }[]).map(
+      (m) => [m.id, m.preparation_time ?? basePrepTime],
+    ),
   );
 
   const { count: activeOrders } = await supabase

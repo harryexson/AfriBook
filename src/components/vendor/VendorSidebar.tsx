@@ -25,7 +25,7 @@ const NAV_ITEMS = [
   { label: 'Analytics', href: '/vendor/analytics', icon: BarChart3 },
   { label: 'Payouts', href: '/vendor/payouts', icon: Wallet },
   { label: 'QR Codes', href: '/vendor/qr', icon: QrCode },
-  { label: 'Settings', href: '/vendor/settings', icon: Settings },
+  { label: 'Settings', href: '/account/settings', icon: Settings },
 ]
 
 interface VendorSidebarProps {

@@ -2,6 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.afribook.com';
 
+export { API_BASE };
+
 class ApiClient {
   private baseUrl: string;
 

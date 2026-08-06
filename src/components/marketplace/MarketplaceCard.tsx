@@ -42,7 +42,7 @@ export default function MarketplaceCard({
       className="group"
     >
       <Link
-        href={`/marketplace/${listing.id}`}
+        href="/marketplace"
         className="premium-card block overflow-hidden ring-focus focus:outline-none"
       >
         {/* Cover */}

@@ -208,11 +208,16 @@ export async function createRestaurantOrder(
     .select('id, name, price, is_available, restaurant_id')
     .in('id', itemIds);
 
-  const menuMap = new Map(
-    (menuRows ?? []).map((m: { id: string; name: string; price: number; is_available: boolean; restaurant_id: string }) => [
-      m.id,
-      m,
-    ]),
+  type MenuItemRow = {
+    id: string;
+    name: string;
+    price: number;
+    is_available: boolean;
+    restaurant_id: string;
+  };
+
+  const menuMap = new Map<string, MenuItemRow>(
+    ((menuRows ?? []) as MenuItemRow[]).map((m) => [m.id, m]),
   );
 
   let subtotal = 0;

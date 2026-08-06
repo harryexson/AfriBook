@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+import { API_BASE } from '../lib/api';
 import { useRealtime } from './useRealtime';
 import { useLocation } from './useLocation';
 
@@ -115,7 +116,7 @@ export function useRide(): UseRideReturn {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch('/api/ridely/rides', {
+      const response = await fetch(`${API_BASE}/api/ridely/rides`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(request),
@@ -156,7 +157,7 @@ export function useRide(): UseRideReturn {
 
     try {
       setIsLoading(true);
-      await fetch(`/api/ridely/rides/${rideIdRef.current}`, {
+      await fetch(`${API_BASE}/api/ridely/rides/${rideIdRef.current}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -179,7 +180,7 @@ export function useRide(): UseRideReturn {
 
     try {
       setIsLoading(true);
-      await fetch(`/api/ridely/rides/${rideIdRef.current}/rate`, {
+      await fetch(`${API_BASE}/api/ridely/rides/${rideIdRef.current}/rate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rating, review }),

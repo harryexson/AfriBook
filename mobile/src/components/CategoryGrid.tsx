@@ -45,7 +45,7 @@ export default function CategoryGrid({ categories }: CategoryGridProps) {
             key={name}
             style={styles.item}
             activeOpacity={0.7}
-            onPress={() => router.push(`/search?category=${encodeURIComponent(name)}`)}
+            onPress={() => router.push(`/(tabs)/search?category=${encodeURIComponent(name)}`)}
           >
             <View style={[styles.iconContainer, { backgroundColor: gradient[0] }]}>
               <Text style={styles.iconEmoji}>{CATEGORY_EMOJI[name] || '📌'}</Text>

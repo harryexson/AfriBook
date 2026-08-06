@@ -354,7 +354,7 @@ function CountryMarkerMesh({
                 padding: '6px 12px',
                 color: 'white',
                 fontSize: '12px',
-                fontFamily: 'Manrope, system-ui, sans-serif',
+                fontFamily: 'Inter, system-ui, sans-serif',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.4)',

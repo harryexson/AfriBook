@@ -56,9 +56,9 @@ export async function PATCH(
   }
 
   const validStatuses: RestaurantOrderStatus[] = [
-    'accepted', 'preparing', 'ready', 'driver_assigned',
-    'driver_arriving', 'picked_up', 'in_transit', 'delivered',
-    'cancelled', 'refunded',
+    'accepted', 'en_route_to_pickup', 'at_pickup',
+    'picked_up', 'in_transit', 'at_dropoff', 'delivered',
+    'cancelled',
   ];
 
   if (!validStatuses.includes(body.status)) {

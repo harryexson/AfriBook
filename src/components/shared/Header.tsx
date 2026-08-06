@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, Search, X, Menu, ChevronDown, ShoppingBag,
@@ -21,6 +22,33 @@ const NAV_LINKS = [
   { label: 'Deliveries', href: '/search', icon: Package, category: 'Logistics' },
 ]
 
+// Routes that have a dark hero behind the header and rely on the
+// transparent (light-on-dark) treatment. Everything else gets a solid header.
+const TRANSPARENT_HEADER_PATHS = new Set([
+  '/',
+  '/about',
+  '/business',
+  '/deliveries',
+  '/events',
+  '/events/my-events',
+  '/events/subscriptions',
+  '/events/tickets',
+  '/features',
+  '/food',
+  '/marketplace',
+  '/marketplace/products',
+  '/marketplace/services',
+  '/rides',
+  '/rides/prime',
+  '/sell',
+])
+
+function shouldUseTransparentHeader(pathname: string): boolean {
+  if (TRANSPARENT_HEADER_PATHS.has(pathname)) return true
+  // Country home pages (e.g. /US) have a dark hero.
+  return pathname.split('/').filter(Boolean).length === 1
+}
+
 export default function Header() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -30,8 +58,12 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
 
   const userMenuRef = useRef<HTMLDivElement>(null)
+  const pathname = usePathname()
   const { user, authenticated, signOut } = useAuth()
   const { countryCode, country: selectedCountry } = useCountry()
+
+  const isHeroRoute = shouldUseTransparentHeader(pathname ?? '')
+  const solid = scrolled || !isHeroRoute
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 10)
@@ -54,7 +86,7 @@ export default function Header() {
       <header
         className={cn(
           'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
-          scrolled
+          solid
             ? 'bg-white/80 dark:bg-dark-300/80 backdrop-blur-xl shadow-sm border-b border-border/50'
             : 'bg-transparent'
         )}
@@ -63,10 +95,10 @@ export default function Header() {
           <div className="flex items-center justify-between h-16 md:h-20 gap-4">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 shrink-0">
-              <Globe className={cn('w-7 h-7 text-amber-500', scrolled ? '' : 'text-white')} />
+              <Globe className={cn('w-7 h-7 text-amber-500', solid ? '' : 'text-white')} />
               <span className={cn(
                 'text-xl font-bold font-heading tracking-tight',
-                scrolled ? 'text-dark-300 dark:text-white' : 'text-white'
+                solid ? 'text-dark-300 dark:text-white' : 'text-white'
               )}>
                 AfriBook
               </span>
@@ -80,7 +112,7 @@ export default function Header() {
                   href={`/${countryCode}${link.href}${link.category ? `?category=${encodeURIComponent(link.category)}` : ''}`}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                    scrolled
+                    solid
                       ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
                   )}
@@ -93,7 +125,7 @@ export default function Header() {
                 href="/sell"
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  scrolled
+                  solid
                     ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                 )}
@@ -110,7 +142,7 @@ export default function Header() {
                 onClick={() => setSearchOpen(!searchOpen)}
                 className={cn(
                   'p-2 rounded-lg transition-colors',
-                  scrolled
+                  solid
                     ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                 )}
@@ -124,7 +156,7 @@ export default function Header() {
                 onClick={() => setCountryModalOpen(true)}
                 className={cn(
                   'hidden sm:flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors',
-                  scrolled
+                  solid
                     ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                 )}
@@ -136,7 +168,7 @@ export default function Header() {
               {/* Currency display */}
               <span className={cn(
                 'hidden md:block text-sm font-mono font-medium',
-                scrolled ? 'text-text-secondary' : 'text-white/60'
+                solid ? 'text-text-secondary' : 'text-white/60'
               )}>
                 {selectedCountry?.currency.symbol ?? '$'}
               </span>
@@ -149,7 +181,7 @@ export default function Header() {
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
                       className={cn(
                         'flex items-center gap-2 p-1.5 rounded-lg transition-colors',
-                        scrolled
+                        solid
                           ? 'hover:bg-surface-secondary'
                           : 'hover:bg-white/10'
                       )}
@@ -160,7 +192,7 @@ export default function Header() {
                       <ChevronDown className={cn(
                         'w-4 h-4 transition-transform',
                         userMenuOpen ? 'rotate-180' : '',
-                        scrolled ? 'text-text-secondary' : 'text-white/70'
+                        solid ? 'text-text-secondary' : 'text-white/70'
                       )} />
                     </button>
                     <AnimatePresence>
@@ -213,7 +245,7 @@ export default function Header() {
                       href="/login"
                       className={cn(
                         'text-sm font-medium transition-colors',
-                        scrolled ? 'text-text-secondary hover:text-text-primary' : 'text-white/80 hover:text-white'
+                        solid ? 'text-text-secondary hover:text-text-primary' : 'text-white/80 hover:text-white'
                       )}
                     >
                       Sign In
@@ -234,7 +266,7 @@ export default function Header() {
                 onClick={() => setMobileMenuOpen(true)}
                 className={cn(
                   'lg:hidden p-2 rounded-lg transition-colors',
-                  scrolled
+                  solid
                     ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                 )}

@@ -34,6 +34,8 @@
   --color-text-secondary: #6E6A63;
   --color-text-tertiary: #A6A199;
   --color-text-inverse: #ffffff;
+
+  --font-heading: var(--font-sans);
 }
 
 .dark {
@@ -89,8 +91,8 @@
   --color-primary-light: var(--color-amber-100);
   --color-primary-dark: var(--color-amber-700);
 
-  --font-sans: 'Manrope', system-ui, -apple-system, sans-serif;
-  --font-heading: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-heading: var(--font-sans);
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, monospace;
 
   --radius-sm: 0.5rem;

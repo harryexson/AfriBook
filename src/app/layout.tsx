@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Space_Grotesk, Manrope, Geist_Mono } from 'next/font/google'
+import { Inter, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
 import Footer from '@/components/shared/Footer'
@@ -7,13 +7,7 @@ import ClientProviders from '@/components/providers/ClientProviders'
 import ServiceWorkerRegister from '@/components/shared/ServiceWorkerRegister'
 import { InlineScript } from '@/components/shared/InlineScript'
 
-const spaceGrotesk = Space_Grotesk({
-  subsets: ['latin'],
-  variable: '--font-heading',
-  display: 'swap',
-})
-
-const manrope = Manrope({
+const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
@@ -81,7 +75,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${spaceGrotesk.variable} ${manrope.variable} ${geistMono.variable} h-full`}
+      className={`${inter.variable} ${geistMono.variable} h-full`}
     >
       <head>
         <InlineScript
