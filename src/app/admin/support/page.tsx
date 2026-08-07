@@ -77,7 +77,7 @@ const CATEGORIES: TicketCategory[] = ['billing', 'technical', 'account', 'disput
 
 const PRIORITIES: TicketPriority[] = ['critical', 'high', 'medium', 'low']
 
-const STATUSES: TicketStatus[] = ['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed']
+const STATUSES: DisplayStatus[] = ['open', 'in_progress', 'waiting_on_customer', 'resolved', 'closed']
 
 const PRIORITY_STYLES: Record<TicketPriority, string> = {
   critical: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
@@ -86,7 +86,7 @@ const PRIORITY_STYLES: Record<TicketPriority, string> = {
   low: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 }
 
-const STATUS_STYLES: Record<TicketStatus, string> = {
+const STATUS_STYLES: Record<DisplayStatus, string> = {
   open: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
   in_progress: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
   waiting_on_customer: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
@@ -160,7 +160,7 @@ export default function AdminSupportPage() {
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | 'all'>('all')
+  const [statusFilter, setStatusFilter] = useState<DisplayStatus | 'all'>('all')
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | 'all'>('all')
   const [categoryFilter, setCategoryFilter] = useState<TicketCategory | 'all'>('all')
   const [agentFilter, setAgentFilter] = useState<string>('all')
@@ -196,7 +196,7 @@ export default function AdminSupportPage() {
     loadTickets()
   }, [loadTickets])
 
-  const openTickets = tickets.filter((t) => t.status === 'open' || t.status === 'in_progress' || t.status === 'waiting_on_customer').length
+  const openTickets = tickets.filter((t) => t.status !== 'resolved' && t.status !== 'closed').length
   const escalatedTickets = tickets.filter((t) => t.priority === 'critical').length
 
   const filteredTickets = useMemo(() => {
