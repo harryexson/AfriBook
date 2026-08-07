@@ -23,13 +23,40 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const handleRegister = async () => {
+    setFormError(null);
     if (!name || !email || !password) return;
     if (password !== confirmPassword) return;
+    if (!acceptedTerms) {
+      setFormError('You must accept the Terms of Service to create an account');
+      return;
+    }
     const result = await signUp(email, password, { name, phone } as any);
     if (!('error' in result)) {
+      await recordTermsConsent(result.data?.user?.id);
       router.replace('/(tabs)');
+    }
+  };
+
+  const recordTermsConsent = async (userId?: string) => {
+    if (!userId) return;
+    try {
+      const { createClient } = await import('../../src/lib/supabase');
+      await (createClient().from('user_consents') as any).upsert(
+        {
+          user_id: userId,
+          consent_type: 'terms_of_service',
+          consent_version: '1',
+          context: 'signup',
+          granted: true,
+        },
+        { onConflict: 'user_id,consent_type' },
+      );
+    } catch {
+      // Consent recording must never block account creation.
     }
   };
 
@@ -94,6 +121,22 @@ export default function RegisterScreen() {
             />
 
             {error && <Text style={styles.error}>{error}</Text>}
+            {formError && <Text style={styles.error}>{formError}</Text>}
+
+            <TouchableOpacity
+              style={styles.termsRow}
+              onPress={() => setAcceptedTerms(!acceptedTerms)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, acceptedTerms && styles.checkboxActive]}>
+                {acceptedTerms && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <Text style={styles.termsText}>
+                I agree to the{' '}
+                <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
 
             <Button
               title="Create Account"
@@ -166,6 +209,40 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.error,
     textAlign: 'center',
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: borderRadius.sm,
+    borderWidth: 2,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  checkmark: {
+    color: colors.surface,
+    fontSize: typography.fontSize.sm,
+    fontWeight: '700',
+  },
+  termsText: {
+    flex: 1,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: colors.primary,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',

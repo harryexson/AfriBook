@@ -35,9 +35,10 @@ export async function estimatePrepTime(
     .in('id', menuItemIds);
 
   const itemMap = new Map<string, number>(
-    ((menuItems ?? []) as { id: string; preparation_time: number | null }[]).map(
-      (m) => [m.id, m.preparation_time ?? basePrepTime],
-    ),
+    ((menuItems ?? []) as Array<Record<string, unknown>>).map((m) => [
+      String(m.id),
+      Number(m.preparation_time ?? basePrepTime),
+    ]),
   );
 
   const { count: activeOrders } = await supabase

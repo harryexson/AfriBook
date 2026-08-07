@@ -22,7 +22,7 @@ interface UseRealtimeOptions {
   enabled?: boolean;
 }
 
-interface UseRealtimeReturn<T extends Record<string, any> = Record<string, any>> {
+interface UseRealtimeReturn<T = any> {
   /** Latest payload from the subscription. */
   payload: RealtimePostgresChangesPayload<T> | null;
   /** All payloads received since subscription started. */
@@ -37,7 +37,7 @@ interface UseRealtimeReturn<T extends Record<string, any> = Record<string, any>>
   clearPayloads: () => void;
 }
 
-export function useRealtime<T extends Record<string, any> = Record<string, any>>(
+export function useRealtime<T = any>(
   options: UseRealtimeOptions,
 ): UseRealtimeReturn<T> {
   const {

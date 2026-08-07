@@ -1,8 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
+import { createClient } from './supabase';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.afribook.com';
-
-export { API_BASE };
 
 class ApiClient {
   private baseUrl: string;
@@ -11,18 +10,40 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
+  private async getAccessToken(): Promise<string | null> {
+    try {
+      const { data } = await createClient().auth.getSession();
+      if (data.session?.access_token) return data.session.access_token;
+    } catch {
+      // fall through to the legacy SecureStore key
+    }
+    return SecureStore.getItemAsync('afribook-token');
+  }
+
   private async getHeaders(): Promise<Record<string, string>> {
-    const token = await SecureStore.getItemAsync('afribook-token');
+    const token = await this.getAccessToken();
     return {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   }
 
+  private async throwResponseError(path: string, res: Response): Promise<never> {
+    let message = `${res.method ?? ''} ${path} failed: ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body?.error) message = body.error;
+      else if (body?.message) message = body.message;
+    } catch {
+      // non-JSON error body — keep the generic message
+    }
+    throw new Error(message);
+  }
+
   async get<T>(path: string): Promise<T> {
     const headers = await this.getHeaders();
     const res = await fetch(`${this.baseUrl}${path}`, { method: 'GET', headers });
-    if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
+    if (!res.ok) await this.throwResponseError(path, res);
     return res.json();
   }
 
@@ -33,7 +54,7 @@ class ApiClient {
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
+    if (!res.ok) await this.throwResponseError(path, res);
     return res.json();
   }
 
@@ -44,14 +65,18 @@ class ApiClient {
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
+    if (!res.ok) await this.throwResponseError(path, res);
     return res.json();
   }
 
-  async delete<T>(path: string): Promise<T> {
+  async delete<T>(path: string, body?: unknown): Promise<T> {
     const headers = await this.getHeaders();
-    const res = await fetch(`${this.baseUrl}${path}`, { method: 'DELETE', headers });
-    if (!res.ok) throw new Error(`DELETE ${path} failed: ${res.status}`);
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: 'DELETE',
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) await this.throwResponseError(path, res);
     return res.json();
   }
 }

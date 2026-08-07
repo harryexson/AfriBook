@@ -4,10 +4,8 @@
 // ──────────────────────────────────────────────────────────────
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../lib/supabase';
-import { API_BASE } from '../lib/api';
+import { api } from '../lib/api';
 import { useRealtime } from './useRealtime';
-import { useLocation } from './useLocation';
 
 interface RideRequest {
   pickup: { lat: number; lng: number };
@@ -116,31 +114,30 @@ export function useRide(): UseRideReturn {
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`${API_BASE}/api/ridely/rides`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      });
+      const response = await api.post<{
+        success: boolean;
+        data?: any;
+        error?: string;
+      }>('/api/ridely/rides', request);
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error ?? 'Failed to create ride');
+      if (!response.success || !response.data) {
+        throw new Error(response.error ?? 'Failed to create ride');
       }
 
-      const { ride: newRide } = await response.json();
+      const newRide = response.data;
       rideIdRef.current = newRide.id;
 
       setRide({
         rideId: newRide.id,
         status: newRide.status,
-        driverId: newRide.driverId ?? null,
-        driverName: newRide.driverName ?? null,
-        driverRating: newRide.driverRating ?? null,
-        vehicleInfo: newRide.vehicleInfo ?? null,
-        etaMinutes: newRide.etaMinutes ?? null,
-        estimatedFare: newRide.pricing?.estimatedFare ?? null,
+        driverId: newRide.driver_id ?? null,
+        driverName: null,
+        driverRating: null,
+        vehicleInfo: null,
+        etaMinutes: null,
+        estimatedFare: newRide.pricing?.estimatedFare ?? newRide.estimatedFare ?? null,
         currencyCode: newRide.pricing?.currencyCode ?? null,
-        routePolyline: newRide.routePolyline ?? null,
+        routePolyline: newRide.route_polyline ?? null,
       });
 
       return newRide.id;
@@ -157,13 +154,9 @@ export function useRide(): UseRideReturn {
 
     try {
       setIsLoading(true);
-      await fetch(`${API_BASE}/api/ridely/rides/${rideIdRef.current}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          status: 'cancelled',
-          cancelReason: reason ?? 'Rider cancelled',
-        }),
+      await api.delete<{ success: boolean }>(`/api/ridely/rides/${rideIdRef.current}`, {
+        reason: reason ?? 'Rider cancelled',
+        cancelledBy: 'rider',
       });
 
       setRide(INITIAL_RIDE_STATE);
@@ -180,10 +173,9 @@ export function useRide(): UseRideReturn {
 
     try {
       setIsLoading(true);
-      await fetch(`${API_BASE}/api/ridely/rides/${rideIdRef.current}/rate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating, review }),
+      await api.post<{ success: boolean }>(`/api/ridely/rides/${rideIdRef.current}/rate`, {
+        rating,
+        review,
       });
 
       setRide(INITIAL_RIDE_STATE);

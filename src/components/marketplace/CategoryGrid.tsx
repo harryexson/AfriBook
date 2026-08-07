@@ -1,32 +1,43 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { motion } from 'framer-motion'
+import Link from "next/link";
+import { motion } from "framer-motion";
 import {
-  Sparkles, Heart, Car, Utensils, Truck, Home, Music,
-  GraduationCap, ShoppingBag, Bike, Smile, Wrench, ArrowUpRight,
-} from 'lucide-react'
+  Sparkles,
+  Heart,
+  Car,
+  Utensils,
+  Truck,
+  Home,
+  Music,
+  GraduationCap,
+  ShoppingBag,
+  Bike,
+  Smile,
+  Wrench,
+  ArrowUpRight,
+} from "lucide-react";
 
 interface Category {
-  name: string
-  href: string
-  icon: React.ComponentType<{ className?: string }>
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
 }
 
 const CATEGORIES: Category[] = [
-  { name: 'Beauty', href: '/marketplace/beauty', icon: Sparkles },
-  { name: 'Health', href: '/marketplace/health', icon: Heart },
-  { name: 'Automotive', href: '/marketplace/automotive', icon: Car },
-  { name: 'Food', href: '/food', icon: Utensils },
-  { name: 'Rides', href: '/rides', icon: Truck },
-  { name: 'Home Services', href: '/marketplace/home-services', icon: Home },
-  { name: 'Events', href: '/marketplace/events', icon: Music },
-  { name: 'Education', href: '/marketplace/education', icon: GraduationCap },
-  { name: 'Shopping', href: '/marketplace/shopping', icon: ShoppingBag },
-  { name: 'Delivery', href: '/deliveries', icon: Bike },
-  { name: 'Wellness', href: '/marketplace/wellness', icon: Smile },
-  { name: 'Repairs', href: '/marketplace/repairs', icon: Wrench },
-]
+  { name: "Beauty", href: "/marketplace/beauty", icon: Sparkles },
+  { name: "Health", href: "/marketplace/health", icon: Heart },
+  { name: "Automotive", href: "/marketplace/automotive", icon: Car },
+  { name: "Food", href: "/food", icon: Utensils },
+  { name: "Rides", href: "/rides", icon: Truck },
+  { name: "Home Services", href: "/marketplace/home-services", icon: Home },
+  { name: "Events", href: "/marketplace/events", icon: Music },
+  { name: "Education", href: "/marketplace/education", icon: GraduationCap },
+  { name: "Shopping", href: "/marketplace/shopping", icon: ShoppingBag },
+  { name: "Delivery", href: "/deliveries", icon: Bike },
+  { name: "Wellness", href: "/marketplace/wellness", icon: Smile },
+  { name: "Repairs", href: "/marketplace/repairs", icon: Wrench },
+];
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -34,16 +45,19 @@ const containerVariants = {
     opacity: 1,
     transition: { staggerChildren: 0.05 },
   },
-}
+};
 
 const itemVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
-    transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] },
+    transition: {
+      duration: 0.4,
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+    },
   },
-}
+};
 
 export default function CategoryGrid() {
   return (
@@ -52,7 +66,7 @@ export default function CategoryGrid() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, margin: "-100px" }}
           className="mb-12 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
         >
           <div>
@@ -79,7 +93,7 @@ export default function CategoryGrid() {
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, margin: "-100px" }}
           className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 sm:gap-4"
         >
           {CATEGORIES.map((category) => (
@@ -95,7 +109,9 @@ export default function CategoryGrid() {
                   <span className="text-sm font-semibold leading-tight text-text-primary transition-colors group-hover:text-amber-600">
                     {category.name}
                   </span>
-                  <p className="mt-2 text-xs text-text-secondary">Trusted vendors, curated services, and easy booking.</p>
+                  <p className="mt-2 text-xs text-text-secondary">
+                    Trusted vendors, curated services, and easy booking.
+                  </p>
                 </div>
               </Link>
             </motion.div>
@@ -103,5 +119,5 @@ export default function CategoryGrid() {
         </motion.div>
       </div>
     </section>
-  )
+  );
 }

@@ -13,7 +13,6 @@ import {
   ChevronRight,
   User,
 } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth-store';
 
 const navItems = [
   { href: '/account', label: 'Overview', icon: LayoutDashboard },

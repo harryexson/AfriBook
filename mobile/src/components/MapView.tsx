@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text, Platform } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, Region } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_DEFAULT, Region } from 'react-native-maps';
 import { colors, borderRadius, spacing, typography } from '../theme';
 import type { GeoPoint } from '../types';
+import { decodePolyline } from '../lib/polyline';
 
 interface MapViewProps {
   region?: {
@@ -28,6 +29,7 @@ interface MapViewProps {
 export default function AfriBookMapView({
   region = { latitude: 6.5244, longitude: 3.3792, latitudeDelta: 0.05, longitudeDelta: 0.05 },
   markers = [],
+  routePolyline,
   style,
   showsUserLocation = true,
   showsMyLocationButton = true,
@@ -41,6 +43,11 @@ export default function AfriBookMapView({
       longitudeDelta: region.longitudeDelta ?? 0.05,
     }),
     [region.latitude, region.longitude, region.latitudeDelta, region.longitudeDelta],
+  );
+
+  const routeCoords = useMemo(
+    () => (routePolyline ? decodePolyline(routePolyline) : []),
+    [routePolyline],
   );
 
   return (
@@ -59,6 +66,14 @@ export default function AfriBookMapView({
         }
       }}
     >
+      {routeCoords.length > 1 && (
+        <Polyline
+          coordinates={routeCoords}
+          strokeColor={colors.primary}
+          strokeWidth={4}
+          lineDashPattern={[0]}
+        />
+      )}
       {markers.map((marker) => (
         <Marker
           key={marker.id}

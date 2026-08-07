@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
@@ -17,7 +17,7 @@ import {
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const ITEM = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } } }
 
-type DiscountType = 'percentage' | 'fixed'
+type DiscountType = 'percentage' | 'fixed' | 'free_delivery'
 type CodeStatus = 'active' | 'expired' | 'disabled'
 
 interface PromoCode {
@@ -40,161 +40,46 @@ interface PromoCode {
   dailyRedemptions: { date: string; count: number }[]
 }
 
-const PROMO_CODES: PromoCode[] = [
-  {
-    id: 'pc_001', code: 'WELCOME20', description: 'Welcome bonus for new users — 20% off first order',
-    discountType: 'percentage', discountValue: 20, minOrder: 5000, maxUses: 50000, usedCount: 18420,
-    maxPerUser: 1, validFrom: '2026-01-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['CM', 'NG', 'KE', 'GH', 'ZA'], categories: ['All'],
-    revenueImpact: 18960000,
-    topUsers: [{ name: 'Jean-Pierre Mbarga', uses: 1 }, { name: 'Amina Bello', uses: 1 }, { name: 'Kofi Mensah', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 142 }, { date: 'Jul 8', count: 168 }, { date: 'Jul 9', count: 155 }, { date: 'Jul 10', count: 190 }, { date: 'Jul 11', count: 174 }, { date: 'Jul 12', count: 203 }, { date: 'Jul 13', count: 181 }],
-  },
-  {
-    id: 'pc_002', code: 'FREEDEL', description: 'Free delivery on all orders above 10,000 XAF',
-    discountType: 'fixed', discountValue: 2500, minOrder: 10000, maxUses: 30000, usedCount: 12890,
-    maxPerUser: 3, validFrom: '2026-03-01', validUntil: '2026-09-30', status: 'active',
-    countries: ['CM', 'NG'], categories: ['Food & Dining', 'Groceries'],
-    revenueImpact: 32225000,
-    topUsers: [{ name: 'Emmanuel Nkoulou', uses: 3 }, { name: 'Fatima Abubakar', uses: 2 }, { name: 'David Okafor', uses: 3 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 230 }, { date: 'Jul 8', count: 265 }, { date: 'Jul 9', count: 248 }, { date: 'Jul 10', count: 290 }, { date: 'Jul 11', count: 275 }, { date: 'Jul 12', count: 310 }, { date: 'Jul 13', count: 256 }],
-  },
-  {
-    id: 'pc_003', code: 'REFER5', description: 'Referral reward — 500 XAF credit for both referrer and referee',
-    discountType: 'fixed', discountValue: 500, minOrder: 0, maxUses: 100000, usedCount: 34560,
-    maxPerUser: 50, validFrom: '2026-01-15', validUntil: '2026-12-31', status: 'active',
-    countries: ['All'], categories: ['All'],
-    revenueImpact: 17280000,
-    topUsers: [{ name: 'Grace Adeyemi', uses: 42 }, { name: 'Samuel Owusu', uses: 38 }, { name: 'Chantal Fouda', uses: 31 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 480 }, { date: 'Jul 8', count: 510 }, { date: 'Jul 9', count: 495 }, { date: 'Jul 10', count: 520 }, { date: 'Jul 11', count: 505 }, { date: 'Jul 12', count: 490 }, { date: 'Jul 13', count: 515 }],
-  },
-  {
-    id: 'pc_004', code: 'WEEKEND15', description: 'Weekend special — 15% off every Saturday and Sunday',
-    discountType: 'percentage', discountValue: 15, minOrder: 3000, maxUses: 25000, usedCount: 8920,
-    maxPerUser: 2, validFrom: '2026-04-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['CM', 'KE', 'GH'], categories: ['Food & Dining', 'Salon & Beauty', 'Fitness'],
-    revenueImpact: 14500000,
-    topUsers: [{ name: 'Pauline Njoroge', uses: 2 }, { name: 'Ibrahim Sow', uses: 2 }, { name: 'Thandiwe Mokoena', uses: 2 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 320 }, { date: 'Jul 8', count: 85 }, { date: 'Jul 9', count: 78 }, { date: 'Jul 10', count: 82 }, { date: 'Jul 11', count: 90 }, { date: 'Jul 12', count: 345 }, { date: 'Jul 13', count: 360 }],
-  },
-  {
-    id: 'pc_005', code: 'NEWUSER', description: 'New user exclusive — flat 2,000 XAF off first booking',
-    discountType: 'fixed', discountValue: 2000, minOrder: 5000, maxUses: 40000, usedCount: 15670,
-    maxPerUser: 1, validFrom: '2026-02-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['NG', 'ZA', 'TZ'], categories: ['All'],
-    revenueImpact: 31340000,
-    topUsers: [{ name: 'Tunde Adebayo', uses: 1 }, { name: 'Naledi Dlamini', uses: 1 }, { name: 'Aisha Mwangi', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 198 }, { date: 'Jul 8', count: 215 }, { date: 'Jul 9', count: 203 }, { date: 'Jul 10', count: 228 }, { date: 'Jul 11', count: 210 }, { date: 'Jul 12', count: 242 }, { date: 'Jul 13', count: 219 }],
-  },
-  {
-    id: 'pc_006', code: 'VIP50', description: 'VIP tier exclusive — 50% off premium services',
-    discountType: 'percentage', discountValue: 50, minOrder: 20000, maxUses: 5000, usedCount: 1890,
-    maxPerUser: 1, validFrom: '2026-06-01', validUntil: '2026-08-31', status: 'active',
-    countries: ['CM', 'NG'], categories: ['Consulting', 'Photography', 'Fitness'],
-    revenueImpact: 18900000,
-    topUsers: [{ name: 'Patrice Atangana', uses: 1 }, { name: 'Ngozi Eze', uses: 1 }, { name: 'Brian Kimani', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 12 }, { date: 'Jul 8', count: 15 }, { date: 'Jul 9', count: 14 }, { date: 'Jul 10', count: 18 }, { date: 'Jul 11', count: 16 }, { date: 'Jul 12', count: 20 }, { date: 'Jul 13', count: 17 }],
-  },
-  {
-    id: 'pc_007', code: 'STUDENT20', description: 'Student discount — 20% off with valid student ID verification',
-    discountType: 'percentage', discountValue: 20, minOrder: 2000, maxUses: 15000, usedCount: 4560,
-    maxPerUser: 5, validFrom: '2026-01-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['KE', 'NG', 'GH', 'TZ', 'UG'], categories: ['Fitness', 'Salon & Beauty', 'Food & Dining'],
-    revenueImpact: 9120000,
-    topUsers: [{ name: 'Kevin Omondi', uses: 5 }, { name: 'Blessing Okoro', uses: 4 }, { name: 'Yaa Asantewaa', uses: 4 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 55 }, { date: 'Jul 8', count: 62 }, { date: 'Jul 9', count: 58 }, { date: 'Jul 10', count: 68 }, { date: 'Jul 11', count: 64 }, { date: 'Jul 12', count: 72 }, { date: 'Jul 13', count: 60 }],
-  },
-  {
-    id: 'pc_008', code: 'FIRSTBOOK', description: 'First booking bonus — 3,000 XAF off your very first reservation',
-    discountType: 'fixed', discountValue: 3000, minOrder: 8000, maxUses: 20000, usedCount: 7840,
-    maxPerUser: 1, validFrom: '2026-01-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['All'], categories: ['All'],
-    revenueImpact: 23520000,
-    topUsers: [{ name: 'Mariam Diallo', uses: 1 }, { name: 'Oluwaseun Adeyemi', uses: 1 }, { name: 'Zainab Hassan', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 92 }, { date: 'Jul 8', count: 105 }, { date: 'Jul 9', count: 98 }, { date: 'Jul 10', count: 112 }, { date: 'Jul 11', count: 107 }, { date: 'Jul 12', count: 118 }, { date: 'Jul 13', count: 101 }],
-  },
-  {
-    id: 'pc_009', code: 'BUSINESS25', description: 'Business account signup — 25% off first 3 months of premium',
-    discountType: 'percentage', discountValue: 25, minOrder: 15000, maxUses: 8000, usedCount: 2340,
-    maxPerUser: 1, validFrom: '2026-03-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['CM', 'NG', 'KE', 'ZA'], categories: ['Business Services', 'Consulting'],
-    revenueImpact: 11700000,
-    topUsers: [{ name: 'TechHub Cameroon', uses: 1 }, { name: 'Lagos Connect Ltd', uses: 1 }, { name: 'Nairobi Digital', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 8 }, { date: 'Jul 8', count: 11 }, { date: 'Jul 9', count: 9 }, { date: 'Jul 10', count: 14 }, { date: 'Jul 11', count: 12 }, { date: 'Jul 12', count: 15 }, { date: 'Jul 13', count: 10 }],
-  },
-  {
-    id: 'pc_010', code: 'HOLIDAY30', description: 'Holiday season special — 30% off during festive periods',
-    discountType: 'percentage', discountValue: 30, minOrder: 10000, maxUses: 20000, usedCount: 11200,
-    maxPerUser: 2, validFrom: '2026-12-15', validUntil: '2027-01-05', status: 'active',
-    countries: ['All'], categories: ['Food & Dining', 'Salon & Beauty', 'Photography'],
-    revenueImpact: 33600000,
-    topUsers: [{ name: 'Celestine Biyick', uses: 2 }, { name: 'Adaeze Obi', uses: 2 }, { name: 'Peter Wanjiku', uses: 2 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 0 }, { date: 'Jul 8', count: 0 }, { date: 'Jul 9', count: 0 }, { date: 'Jul 10', count: 0 }, { date: 'Jul 11', count: 0 }, { date: 'Jul 12', count: 0 }, { date: 'Jul 13', count: 0 }],
-  },
-  {
-    id: 'pc_011', code: 'FLASH10', description: 'Flash sale exclusive — 10% off during 24-hour flash events',
-    discountType: 'percentage', discountValue: 10, minOrder: 1000, maxUses: 50000, usedCount: 22100,
-    maxPerUser: 3, validFrom: '2026-06-15', validUntil: '2026-07-15', status: 'active',
-    countries: ['NG', 'KE', 'CM'], categories: ['All'],
-    revenueImpact: 22100000,
-    topUsers: [{ name: 'Chidinma Eze', uses: 3 }, { name: 'Wangari Muthoni', uses: 3 }, { name: 'Alain Biya', uses: 2 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 580 }, { date: 'Jul 8', count: 620 }, { date: 'Jul 9', count: 595 }, { date: 'Jul 10', count: 640 }, { date: 'Jul 11', count: 610 }, { date: 'Jul 12', count: 660 }, { date: 'Jul 13', count: 625 }],
-  },
-  {
-    id: 'pc_012', code: 'LOYALTY20', description: 'Loyalty reward — 20% off for users with 10+ completed bookings',
-    discountType: 'percentage', discountValue: 20, minOrder: 5000, maxUses: 30000, usedCount: 8900,
-    maxPerUser: 1, validFrom: '2026-04-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['All'], categories: ['All'],
-    revenueImpact: 17800000,
-    topUsers: [{ name: 'Mariama Camara', uses: 1 }, { name: 'Emeka Nwosu', uses: 1 }, { name: 'Amina Juma', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 42 }, { date: 'Jul 8', count: 48 }, { date: 'Jul 9', count: 45 }, { date: 'Jul 10', count: 52 }, { date: 'Jul 11', count: 49 }, { date: 'Jul 12', count: 55 }, { date: 'Jul 13', count: 46 }],
-  },
-  {
-    id: 'pc_013', code: 'PARTNER15', description: 'Partner business co-promotion — 15% off at partner locations',
-    discountType: 'percentage', discountValue: 15, minOrder: 3000, maxUses: 10000, usedCount: 3450,
-    maxPerUser: 2, validFrom: '2026-05-01', validUntil: '2026-09-30', status: 'active',
-    countries: ['CM', 'NG'], categories: ['Food & Dining', 'Salon & Beauty'],
-    revenueImpact: 6900000,
-    topUsers: [{ name: 'Jacques Kamga', uses: 2 }, { name: 'Blessing Onuoha', uses: 2 }, { name: 'Sandrine Tchinda', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 28 }, { date: 'Jul 8', count: 32 }, { date: 'Jul 9', count: 30 }, { date: 'Jul 10', count: 35 }, { date: 'Jul 11', count: 33 }, { date: 'Jul 12', count: 38 }, { date: 'Jul 13', count: 31 }],
-  },
-  {
-    id: 'pc_014', code: 'MEDIA20', description: 'Media & influencer campaign — 20% off via social media link referrals',
-    discountType: 'percentage', discountValue: 20, minOrder: 5000, maxUses: 12000, usedCount: 5670,
-    maxPerUser: 1, validFrom: '2026-06-01', validUntil: '2026-08-31', status: 'active',
-    countries: ['NG', 'KE', 'ZA'], categories: ['Food & Dining', 'Fitness', 'Salon & Beauty'],
-    revenueImpact: 11340000,
-    topUsers: [{ name: 'Bella Okonkwo', uses: 1 }, { name: 'Kevin Hart Jr', uses: 1 }, { name: 'Zuri Kariuki', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 72 }, { date: 'Jul 8', count: 85 }, { date: 'Jul 9', count: 78 }, { date: 'Jul 10', count: 92 }, { date: 'Jul 11', count: 88 }, { date: 'Jul 12', count: 95 }, { date: 'Jul 13', count: 82 }],
-  },
-  {
-    id: 'pc_015', code: 'GROUP10', description: 'Group booking discount — 10% off when booking for 4+ people',
-    discountType: 'percentage', discountValue: 10, minOrder: 15000, maxUses: 8000, usedCount: 1890,
-    maxPerUser: 5, validFrom: '2026-03-01', validUntil: '2026-12-31', status: 'active',
-    countries: ['All'], categories: ['Fitness', 'Photography', 'Consulting'],
-    revenueImpact: 5670000,
-    topUsers: [{ name: 'Team AfriBook', uses: 5 }, { name: 'Lagos Social Club', uses: 4 }, { name: 'Nairobi Runners', uses: 3 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 15 }, { date: 'Jul 8', count: 18 }, { date: 'Jul 9', count: 16 }, { date: 'Jul 10', count: 22 }, { date: 'Jul 11', count: 19 }, { date: 'Jul 12', count: 24 }, { date: 'Jul 13', count: 17 }],
-  },
-  {
-    id: 'pc_016', code: 'EXPIRED_OLD', description: 'Expired legacy code from Q1 2025 campaign',
-    discountType: 'percentage', discountValue: 25, minOrder: 5000, maxUses: 10000, usedCount: 10000,
-    maxPerUser: 1, validFrom: '2025-01-01', validUntil: '2025-03-31', status: 'expired',
-    countries: ['CM'], categories: ['Food & Dining'],
-    revenueImpact: 25000000,
-    topUsers: [{ name: 'Legacy User 1', uses: 1 }, { name: 'Legacy User 2', uses: 1 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 0 }, { date: 'Jul 8', count: 0 }, { date: 'Jul 9', count: 0 }, { date: 'Jul 10', count: 0 }, { date: 'Jul 11', count: 0 }, { date: 'Jul 12', count: 0 }, { date: 'Jul 13', count: 0 }],
-  },
-  {
-    id: 'pc_017', code: 'TESTCODE', description: 'Internal testing code — disabled after QA sign-off',
-    discountType: 'fixed', discountValue: 1000, minOrder: 0, maxUses: 100, usedCount: 42,
-    maxPerUser: 10, validFrom: '2026-01-01', validUntil: '2026-12-31', status: 'disabled',
-    countries: ['All'], categories: ['All'],
-    revenueImpact: 42000,
-    topUsers: [{ name: 'QA Tester', uses: 10 }, { name: 'Dev Team', uses: 8 }],
-    dailyRedemptions: [{ date: 'Jul 7', count: 0 }, { date: 'Jul 8', count: 0 }, { date: 'Jul 9', count: 0 }, { date: 'Jul 10', count: 0 }, { date: 'Jul 11', count: 0 }, { date: 'Jul 12', count: 0 }, { date: 'Jul 13', count: 0 }],
-  },
-]
+interface ApiPromoRow {
+  id: string
+  code: string
+  description: string | null
+  discount_type: string | null
+  discount_value: number | null
+  currency_code: string | null
+  applies_to: string | null
+  min_order_amount: number | null
+  max_redemptions: number | null
+  per_user_limit: number | null
+  starts_at: string | null
+  expires_at: string | null
+  is_active: boolean
+}
+
+function mapPromoCode(row: ApiPromoRow): PromoCode {
+  const isExpired = !!row.expires_at && new Date(row.expires_at).getTime() < Date.now()
+  const status: CodeStatus = isExpired ? 'expired' : row.is_active === false ? 'disabled' : 'active'
+  const appliesTo = row.applies_to ?? 'all'
+  return {
+    id: row.id,
+    code: row.code,
+    description: row.description ?? '',
+    discountType: (row.discount_type ?? 'percentage') as DiscountType,
+    discountValue: row.discount_value ?? 0,
+    minOrder: row.min_order_amount ?? 0,
+    maxUses: row.max_redemptions ?? 0,
+    usedCount: 0,
+    maxPerUser: row.per_user_limit ?? 1,
+    validFrom: row.starts_at ? row.starts_at.slice(0, 10) : '',
+    validUntil: row.expires_at ? row.expires_at.slice(0, 10) : '',
+    status,
+    countries: appliesTo === 'all' ? ['All'] : [appliesTo],
+    categories: [],
+    revenueImpact: 0,
+    topUsers: [],
+    dailyRedemptions: [],
+  }
+}
 
 const STATUS_STYLES: Record<CodeStatus, string> = {
   active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -212,6 +97,10 @@ export default function AdminPromoCodesPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
+  const [codes, setCodes] = useState<PromoCode[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   const [newCode, setNewCode] = useState({
     code: '', description: '', discountType: 'percentage' as DiscountType,
     discountValue: 10, minOrder: 0, maxUses: 1000, maxPerUser: 1,
@@ -222,17 +111,42 @@ export default function AdminPromoCodesPage() {
   const [bulkCount, setBulkCount] = useState(10)
   const [bulkGenerated, setBulkGenerated] = useState<string[]>([])
 
+  const loadCodes = useCallback(async () => {
+    setLoading(true)
+    const params = new URLSearchParams({ page: '1', limit: '100' })
+    if (search) params.set('q', search)
+    if (statusFilter === 'active') params.set('active', 'true')
+    else if (statusFilter === 'disabled') params.set('active', 'false')
+    try {
+      const res = await fetch(`/api/admin/promos?${params.toString()}`)
+      if (!res.ok) throw new Error('Failed to load promo codes')
+      const json = await res.json()
+      setCodes((json.data ?? []).map(mapPromoCode))
+      setFetchError(null)
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to load promo codes')
+    } finally {
+      setLoading(false)
+    }
+  }, [search, statusFilter])
+
+  useEffect(() => {
+    loadCodes()
+  }, [loadCodes])
+
   const filtered = useMemo(() => {
-    return PROMO_CODES.filter((c) => {
+    return codes.filter((c) => {
       if (statusFilter !== 'all' && c.status !== statusFilter) return false
       if (search && !c.code.toLowerCase().includes(search.toLowerCase()) && !c.description.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
-  }, [statusFilter, search])
+  }, [codes, statusFilter, search])
 
-  const totalRedemptions = PROMO_CODES.reduce((sum, c) => sum + c.usedCount, 0)
-  const totalRevenueImpact = PROMO_CODES.reduce((sum, c) => sum + c.revenueImpact, 0)
-  const activeCodes = PROMO_CODES.filter((c) => c.status === 'active').length
+  const totalRedemptions = codes.reduce((sum, c) => sum + c.usedCount, 0)
+  const totalRevenueImpact = codes.reduce((sum, c) => sum + c.revenueImpact, 0)
+  const activeCodes = codes.filter((c) => c.status === 'active').length
+  const totalMaxUses = codes.reduce((sum, c) => sum + c.maxUses, 0)
+  const avgRedemptionRate = totalMaxUses > 0 ? (totalRedemptions / totalMaxUses) * 100 : 0
 
   const handleCopy = (code: string) => {
     navigator.clipboard.writeText(code).catch(() => {})
@@ -251,16 +165,44 @@ export default function AdminPromoCodesPage() {
     setTimeout(() => setToast(null), 3000)
   }
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newCode.code) {
       setToast({ type: 'error', message: 'Promo code is required' })
       setTimeout(() => setToast(null), 3000)
       return
     }
-    setToast({ type: 'success', message: `Promo code "${newCode.code}" created successfully` })
-    setShowCreateForm(false)
-    setNewCode({ code: '', description: '', discountType: 'percentage', discountValue: 10, minOrder: 0, maxUses: 1000, maxPerUser: 1, validFrom: '', validUntil: '', countries: 'All', categories: 'All' })
-    setTimeout(() => setToast(null), 3000)
+    try {
+      const res = await fetch('/api/admin/promos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: newCode.code,
+          description: newCode.description || null,
+          discountType: newCode.discountType,
+          discountValue: newCode.discountValue,
+          currencyCode: 'XAF',
+          appliesTo: newCode.countries === 'All' ? 'all' : newCode.countries,
+          minOrderAmount: newCode.minOrder,
+          maxRedemptions: newCode.maxUses,
+          perUserLimit: newCode.maxPerUser,
+          startsAt: newCode.validFrom || null,
+          expiresAt: newCode.validUntil || null,
+          isActive: true,
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        throw new Error(json?.error || 'Failed to create promo code')
+      }
+      setToast({ type: 'success', message: `Promo code "${newCode.code}" created successfully` })
+      setShowCreateForm(false)
+      setNewCode({ code: '', description: '', discountType: 'percentage', discountValue: 10, minOrder: 0, maxUses: 1000, maxPerUser: 1, validFrom: '', validUntil: '', countries: 'All', categories: 'All' })
+      await loadCodes()
+      setTimeout(() => setToast(null), 3000)
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Failed to create promo code' })
+      setTimeout(() => setToast(null), 3000)
+    }
   }
 
   return (
@@ -290,7 +232,7 @@ export default function AdminPromoCodesPage() {
         <AdminStatCard label="Active Codes" value={String(activeCodes)} icon={Tag} change={10.2} accent="bg-amber-500" />
         <AdminStatCard label="Total Redemptions" value={totalRedemptions.toLocaleString()} icon={TrendingUp} change={18.4} accent="bg-emerald-500" />
         <AdminStatCard label="Revenue Impact" value={formatCurrency(totalRevenueImpact, 'XAF')} icon={DollarSign} change={26.7} accent="bg-purple-500" />
-        <AdminStatCard label="Avg Redemption Rate" value="34.2%" icon={BarChart3} change={5.3} accent="bg-blue-500" />
+        <AdminStatCard label="Avg Redemption Rate" value={`${avgRedemptionRate.toFixed(1)}%`} icon={BarChart3} change={5.3} accent="bg-blue-500" />
       </motion.div>
 
       {/* Create form */}
@@ -529,7 +471,24 @@ export default function AdminPromoCodesPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((code) => {
+              {loading ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm text-text-secondary">Loading promo codes...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : fetchError ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-red-500">{fetchError}</td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="px-4 py-8 text-center text-sm text-text-secondary">No promo codes found.</td>
+                </tr>
+              ) : filtered.map((code) => {
                 const usagePct = code.maxUses > 0 ? (code.usedCount / code.maxUses) * 100 : 0
                 const isExpanded = expandedCode === code.id
                 return (

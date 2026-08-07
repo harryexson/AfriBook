@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   Search, Filter, ChevronDown, ChevronUp, X, Download, Mail,
-  Ban, Trash2, ChevronRight, User, ShoppingCart, MessageSquare,
-  Clock, FileText, Star, Phone, Globe, Calendar, DollarSign,
-  ArrowUpDown, Eye, MoreHorizontal,
+  Ban, Trash2, Phone, Globe, Calendar, DollarSign,
+  ShoppingCart, Clock, ArrowUpDown, Eye,
 } from 'lucide-react'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
@@ -32,313 +31,47 @@ interface Customer {
   notes: string
 }
 
-const CUSTOMERS: Customer[] = [
-  {
-    id: 'CUS-001', name: 'Amina Diallo', email: 'amina.diallo@gmail.com', phone: '+221776543210',
-    country: 'Senegal', countryCode: 'SN', joinDate: '2024-03-15', totalOrders: 47,
-    lifetimeValue: 2840.50, status: 'active', lastActive: '2026-07-13T08:22:00Z', avatar: 'AD',
-    orders: [
-      { id: 'ORD-8901', date: '2026-07-10', amount: 85.00, item: 'Dinner for 2 — Savannah Grille' },
-      { id: 'ORD-8744', date: '2026-06-28', amount: 120.00, item: 'Full spa treatment — Dakar Wellness' },
-      { id: 'ORD-8601', date: '2026-06-15', amount: 45.00, item: 'Hair styling — Chez Awa' },
-      { id: 'ORD-8412', date: '2026-05-30', amount: 200.00, item: 'Weekend retreat package' },
-    ],
-    tickets: [
-      { id: 'TKT-4821', subject: 'Billing inquiry for June invoice', status: 'open', date: '2026-07-12' },
-    ],
-    activity: [
-      { action: 'Placed order ORD-8901', time: '2026-07-10T14:30:00Z', type: 'order' },
-      { action: 'Left 5-star review', time: '2026-07-10T15:00:00Z', type: 'review' },
-      { action: 'Submitted support ticket', time: '2026-07-12T09:15:00Z', type: 'support' },
-      { action: 'Updated profile photo', time: '2026-06-28T11:00:00Z', type: 'profile' },
-    ],
-    notes: 'VIP customer. Prefers French communication. Very engaged — attends platform events.',
-  },
-  {
-    id: 'CUS-002', name: 'Kwame Asante', email: 'kwame.asante@yahoo.com', phone: '+233201234567',
-    country: 'Ghana', countryCode: 'GH', joinDate: '2024-01-22', totalOrders: 63,
-    lifetimeValue: 4120.75, status: 'active', lastActive: '2026-07-13T07:45:00Z', avatar: 'KA',
-    orders: [
-      { id: 'ORD-8890', date: '2026-07-12', amount: 150.00, item: 'Corporate lunch — Accra Eats' },
-      { id: 'ORD-8756', date: '2026-07-01', amount: 75.00, item: 'Barber appointment — Kings Cut' },
-      { id: 'ORD-8623', date: '2026-06-18', amount: 320.00, item: 'Team building event package' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8890', time: '2026-07-12T12:00:00Z', type: 'order' },
-      { action: 'Left 5-star review', time: '2026-07-12T13:30:00Z', type: 'review' },
-      { action: 'Referred 2 friends', time: '2026-07-01T10:00:00Z', type: 'referral' },
-    ],
-    notes: 'High-value customer. Business owner — frequently books for his team. Refers other business owners.',
-  },
-  {
-    id: 'CUS-003', name: 'Sarah O\'Brien', email: 'sarah.obrien@outlook.com', phone: '+447912345678',
-    country: 'United Kingdom', countryCode: 'GB', joinDate: '2024-06-10', totalOrders: 12,
-    lifetimeValue: 580.00, status: 'active', lastActive: '2026-07-12T18:30:00Z', avatar: 'SO',
-    orders: [
-      { id: 'ORD-8834', date: '2026-07-05', amount: 95.00, item: 'Photography session — Studio London' },
-      { id: 'ORD-8501', date: '2026-06-01', amount: 40.00, item: 'Yoga class — Zen Studio' },
-    ],
-    tickets: [
-      { id: 'TKT-4820', subject: 'Request for refund on order ORD-8501', status: 'pending', date: '2026-07-12' },
-      { id: 'TKT-4756', subject: 'Question about booking reschedule policy', status: 'resolved', date: '2026-06-20' },
-    ],
-    activity: [
-      { action: 'Submitted support ticket', time: '2026-07-12T16:00:00Z', type: 'support' },
-      { action: 'Placed order ORD-8834', time: '2026-07-05T09:00:00Z', type: 'order' },
-    ],
-    notes: 'International customer. Traveling to West Africa next month — may book more services.',
-  },
-  {
-    id: 'CUS-004', name: 'Chidi Okafor', email: 'chidi.okafor@gmail.com', phone: '+2348031234567',
-    country: 'Nigeria', countryCode: 'NG', joinDate: '2023-11-05', totalOrders: 89,
-    lifetimeValue: 6230.00, status: 'active', lastActive: '2026-07-13T06:10:00Z', avatar: 'CO',
-    orders: [
-      { id: 'ORD-8910', date: '2026-07-13', amount: 250.00, item: 'Pro subscription renewal' },
-      { id: 'ORD-8800', date: '2026-07-02', amount: 180.00, item: 'Premium event tickets — Lagos Tech Summit' },
-      { id: 'ORD-8655', date: '2026-06-20', amount: 95.00, item: 'Haircut — Lagos Hair Studio' },
-      { id: 'ORD-8500', date: '2026-06-05', amount: 310.00, item: 'Business workshop — 3 sessions' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Renewed Pro subscription', time: '2026-07-13T06:00:00Z', type: 'upgrade' },
-      { action: 'Placed order ORD-8800', time: '2026-07-02T11:30:00Z', type: 'order' },
-      { action: 'Left 4-star review', time: '2026-06-20T16:00:00Z', type: 'review' },
-    ],
-    notes: 'Power user. Pro subscriber since 2024. Active in Lagos business community.',
-  },
-  {
-    id: 'CUS-005', name: 'Fatima Hassan', email: 'fatima.h@proton.me', phone: '+254712345678',
-    country: 'Kenya', countryCode: 'KE', joinDate: '2024-09-18', totalOrders: 28,
-    lifetimeValue: 1540.25, status: 'active', lastActive: '2026-07-13T05:50:00Z', avatar: 'FH',
-    orders: [
-      { id: 'ORD-8895', date: '2026-07-11', amount: 65.00, item: 'Meal prep service — Nairobi Kitchen' },
-      { id: 'ORD-8730', date: '2026-06-25', amount: 110.00, item: 'Fitness membership — Nairobi Fit Hub' },
-      { id: 'ORD-8600', date: '2026-06-10', amount: 40.00, item: 'Manicure & pedicure — Glam Nails' },
-    ],
-    tickets: [
-      { id: 'TKT-4815', subject: 'Unable to apply promo code', status: 'resolved', date: '2026-07-11' },
-    ],
-    activity: [
-      { action: 'Placed order ORD-8895', time: '2026-07-11T10:00:00Z', type: 'order' },
-      { action: 'Referred friend Amina', time: '2026-07-05T14:00:00Z', type: 'referral' },
-      { action: 'Referred friend Zainab', time: '2026-06-30T09:00:00Z', type: 'referral' },
-      { action: 'Referred friend Halima', time: '2026-06-22T11:00:00Z', type: 'referral' },
-    ],
-    notes: 'Top referrer — 3 successful referrals this month. Active on social media.',
-  },
-  {
-    id: 'CUS-006', name: 'James Mwangi', email: 'j.mwangi@gmail.com', phone: '+254723456789',
-    country: 'Kenya', countryCode: 'KE', joinDate: '2023-08-12', totalOrders: 41,
-    lifetimeValue: 2190.00, status: 'inactive', lastActive: '2026-06-10T14:20:00Z', avatar: 'JM',
-    orders: [
-      { id: 'ORD-8420', date: '2026-06-01', amount: 55.00, item: 'Car wash — Clean Ride Nairobi' },
-      { id: 'ORD-8200', date: '2026-05-15', amount: 120.00, item: 'Weekend safari package' },
-    ],
-    tickets: [
-      { id: 'TKT-4789', subject: 'Cancelled subscription — reason: too expensive', status: 'resolved', date: '2026-06-10' },
-    ],
-    activity: [
-      { action: 'Cancelled subscription', time: '2026-06-10T14:00:00Z', type: 'churn' },
-      { action: 'Placed order ORD-8420', time: '2026-06-01T08:00:00Z', type: 'order' },
-    ],
-    notes: 'Churned — cited pricing. Consider sending win-back offer with discount.',
-  },
-  {
-    id: 'CUS-007', name: 'Ngozi Eze', email: 'ngozi.eze@outlook.com', phone: '+2348167890123',
-    country: 'Nigeria', countryCode: 'NG', joinDate: '2024-02-28', totalOrders: 55,
-    lifetimeValue: 3870.50, status: 'active', lastActive: '2026-07-12T20:15:00Z', avatar: 'NE',
-    orders: [
-      { id: 'ORD-8878', date: '2026-07-08', amount: 200.00, item: 'Full treatment — Lagos Hair Studio' },
-      { id: 'ORD-8720', date: '2026-06-22', amount: 85.00, item: 'Dinner reservation — Buka Lagos' },
-      { id: 'ORD-8590', date: '2026-06-08', amount: 150.00, item: 'Gym membership — FitNaija' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8878', time: '2026-07-08T15:00:00Z', type: 'order' },
-      { action: 'Left 5-star review', time: '2026-07-08T16:30:00Z', type: 'review' },
-    ],
-    notes: 'Loyal customer. Prefers booking via mobile app. Responds well to push notifications.',
-  },
-  {
-    id: 'CUS-008', name: 'Ethan Brooks', email: 'ethan.brooks@gmail.com', phone: '+14155551234',
-    country: 'United States', countryCode: 'US', joinDate: '2025-01-14', totalOrders: 8,
-    lifetimeValue: 320.00, status: 'active', lastActive: '2026-07-11T22:00:00Z', avatar: 'EB',
-    orders: [
-      { id: 'ORD-8845', date: '2026-07-06', amount: 60.00, item: 'Online consultation — Tech Tutor' },
-      { id: 'ORD-8600', date: '2026-06-12', amount: 45.00, item: 'Language lesson — Swahili 101' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8845', time: '2026-07-06T18:00:00Z', type: 'order' },
-      { action: 'Verified email', time: '2025-01-14T10:00:00Z', type: 'signup' },
-    ],
-    notes: 'International user based in SF. Interested in African culture and services.',
-  },
-  {
-    id: 'CUS-009', name: 'Aisha Mohammed', email: 'aisha.mohammed@hotmail.com', phone: '+2349023456789',
-    country: 'Nigeria', countryCode: 'NG', joinDate: '2024-07-03', totalOrders: 19,
-    lifetimeValue: 980.75, status: 'active', lastActive: '2026-07-12T15:40:00Z', avatar: 'AM',
-    orders: [
-      { id: 'ORD-8860', date: '2026-07-09', amount: 45.00, item: 'Tailoring — Aso Oke Boutique' },
-      { id: 'ORD-8700', date: '2026-06-20', amount: 80.00, item: 'Bridal makeup trial' },
-    ],
-    tickets: [
-      { id: 'TKT-4818', subject: 'Refund request for order ORD-8600', status: 'open', date: '2026-07-12' },
-    ],
-    activity: [
-      { action: 'Submitted refund request', time: '2026-07-12T15:30:00Z', type: 'support' },
-      { action: 'Placed order ORD-8860', time: '2026-07-09T11:00:00Z', type: 'order' },
-    ],
-    notes: 'Pending refund of $45. Escalate if not resolved by end of week.',
-  },
-  {
-    id: 'CUS-010', name: 'Tendai Moyo', email: 'tendai.moyo@gmail.com', phone: '+263771234567',
-    country: 'Zimbabwe', countryCode: 'ZW', joinDate: '2024-04-20', totalOrders: 33,
-    lifetimeValue: 1720.00, status: 'active', lastActive: '2026-07-13T04:30:00Z', avatar: 'TM',
-    orders: [
-      { id: 'ORD-8888', date: '2026-07-11', amount: 90.00, item: 'Monthly gym pass — Harare Fitness' },
-      { id: 'ORD-8710', date: '2026-06-24', amount: 140.00, item: 'Team lunch — The Grill House' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8888', time: '2026-07-11T07:00:00Z', type: 'order' },
-      { action: 'Left 4-star review', time: '2026-07-11T08:00:00Z', type: 'review' },
-    ],
-    notes: 'Consistent monthly spender. Gym enthusiast — upsell annual membership.',
-  },
-  {
-    id: 'CUS-011', name: 'Priya Sharma', email: 'priya.sharma@gmail.com', phone: '+12025551987',
-    country: 'United States', countryCode: 'US', joinDate: '2025-03-08', totalOrders: 5,
-    lifetimeValue: 210.00, status: 'inactive', lastActive: '2026-05-20T12:00:00Z', avatar: 'PS',
-    orders: [
-      { id: 'ORD-8350', date: '2026-05-15', amount: 50.00, item: 'Virtual cooking class — West African Cuisine' },
-      { id: 'ORD-8100', date: '2026-04-10', amount: 35.00, item: 'Online drum lesson' },
-    ],
-    tickets: [
-      { id: 'TKT-4700', subject: 'How to cancel recurring booking', status: 'resolved', date: '2026-05-20' },
-    ],
-    activity: [
-      { action: 'Cancelled recurring booking', time: '2026-05-20T11:00:00Z', type: 'churn' },
-      { action: 'Placed order ORD-8350', time: '2026-05-15T14:00:00Z', type: 'order' },
-    ],
-    notes: 'Low engagement. Only used online services. Send re-engagement email with free class offer.',
-  },
-  {
-    id: 'CUS-012', name: 'Olumide Adeyemi', email: 'olumide.adeyemi@yahoo.com', phone: '+2348056789012',
-    country: 'Nigeria', countryCode: 'NG', joinDate: '2023-12-01', totalOrders: 72,
-    lifetimeValue: 5100.25, status: 'active', lastActive: '2026-07-12T21:00:00Z', avatar: 'OA',
-    orders: [
-      { id: 'ORD-8905', date: '2026-07-12', amount: 175.00, item: 'Birthday party venue — The Garden Lagos' },
-      { id: 'ORD-8780', date: '2026-07-03', amount: 90.00, item: 'Haircut & grooming — Gentleman\'s Den' },
-      { id: 'ORD-8650', date: '2026-06-18', amount: 280.00, item: 'Catering for 20 — Buka Express' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8905', time: '2026-07-12T17:00:00Z', type: 'order' },
-      { action: 'Left 5-star review', time: '2026-07-12T18:30:00Z', type: 'review' },
-      { action: 'Referred 1 friend', time: '2026-07-03T09:00:00Z', type: 'referral' },
-    ],
-    notes: 'Enterprise-adjacent. Books for large groups. Consider enterprise account upgrade.',
-  },
-  {
-    id: 'CUS-013', name: 'Zainab Al-Rashid', email: 'zainab.rashid@outlook.com', phone: '+971501234567',
-    country: 'United Arab Emirates', countryCode: 'AE', joinDate: '2024-11-12', totalOrders: 15,
-    lifetimeValue: 890.00, status: 'active', lastActive: '2026-07-11T13:20:00Z', avatar: 'ZR',
-    orders: [
-      { id: 'ORD-8840', date: '2026-07-07', amount: 120.00, item: 'Virtual wellness consultation' },
-      { id: 'ORD-8690', date: '2026-06-22', amount: 85.00, item: 'Artisan craft delivery — 3 items' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8840', time: '2026-07-07T10:00:00Z', type: 'order' },
-    ],
-    notes: 'Diaspora customer. High interest in African artisan products. Good candidate for gift bundles.',
-  },
-  {
-    id: 'CUS-014', name: 'Samuel Kiprop', email: 'samuel.kiprop@gmail.com', phone: '+254734567890',
-    country: 'Kenya', countryCode: 'KE', joinDate: '2025-02-05', totalOrders: 22,
-    lifetimeValue: 1340.50, status: 'suspended', lastActive: '2026-06-28T09:00:00Z', avatar: 'SK',
-    orders: [
-      { id: 'ORD-8680', date: '2026-06-25', amount: 60.00, item: 'Mobile phone repair — TechFix Nairobi' },
-      { id: 'ORD-8500', date: '2026-06-05', amount: 100.00, item: 'Event tickets — Nairobi Comedy Night' },
-    ],
-    tickets: [
-      { id: 'TKT-4800', subject: 'Account suspended — suspicious activity', status: 'open', date: '2026-06-28' },
-    ],
-    activity: [
-      { action: 'Account suspended', time: '2026-06-28T09:00:00Z', type: 'suspension' },
-      { action: 'Placed order ORD-8680', time: '2026-06-25T14:00:00Z', type: 'order' },
-    ],
-    notes: 'Suspended for suspicious login activity. Awaiting identity verification.',
-  },
-  {
-    id: 'CUS-015', name: 'Grace Mensah', email: 'grace.mensah@gmail.com', phone: '+233245678901',
-    country: 'Ghana', countryCode: 'GH', joinDate: '2024-08-22', totalOrders: 37,
-    lifetimeValue: 2450.75, status: 'active', lastActive: '2026-07-12T17:45:00Z', avatar: 'GM',
-    orders: [
-      { id: 'ORD-8870', date: '2026-07-10', amount: 75.00, item: 'Full body massage — Accra Spa' },
-      { id: 'ORD-8705', date: '2026-06-21', amount: 130.00, item: 'Catering — traditional Ghanaian feast' },
-      { id: 'ORD-8555', date: '2026-06-01', amount: 50.00, item: 'Fitness class — 10 sessions' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8870', time: '2026-07-10T11:00:00Z', type: 'order' },
-      { action: 'Left 5-star review', time: '2026-07-10T12:00:00Z', type: 'review' },
-    ],
-    notes: 'Wellness enthusiast. Books spa and fitness regularly. Upsell annual wellness package.',
-  },
-  {
-    id: 'CUS-016', name: 'David Ochieng', email: 'david.ochieng@yahoo.com', phone: '+254745678901',
-    country: 'Kenya', countryCode: 'KE', joinDate: '2023-06-15', totalOrders: 94,
-    lifetimeValue: 7820.00, status: 'active', lastActive: '2026-07-13T09:00:00Z', avatar: 'DO',
-    orders: [
-      { id: 'ORD-8915', date: '2026-07-13', amount: 350.00, item: 'Enterprise catering — Nairobi Tech Hub launch' },
-      { id: 'ORD-8850', date: '2026-07-08', amount: 200.00, item: 'Photography & videography package' },
-      { id: 'ORD-8720', date: '2026-06-25', amount: 125.00, item: 'Team dinner — Carnivore Nairobi' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8915', time: '2026-07-13T08:30:00Z', type: 'order' },
-      { action: 'Left 5-star review', time: '2026-07-13T09:00:00Z', type: 'review' },
-    ],
-    notes: 'Highest LTV customer. Corporate accounts manager. Priority support — VIP treatment.',
-  },
-  {
-    id: 'CUS-017', name: 'Abena Boateng', email: 'abena.boateng@gmail.com', phone: '+233501234567',
-    country: 'Ghana', countryCode: 'GH', joinDate: '2025-05-10', totalOrders: 9,
-    lifetimeValue: 420.00, status: 'inactive', lastActive: '2026-05-30T16:00:00Z', avatar: 'AB',
-    orders: [
-      { id: 'ORD-8380', date: '2026-05-25', amount: 55.00, item: 'Hair braiding — Kinky Crown' },
-      { id: 'ORD-8200', date: '2026-05-01', amount: 30.00, item: 'Smoothie subscription — Fresh Start' },
-    ],
-    tickets: [
-      { id: 'TKT-4720', subject: 'Service was below expectations', status: 'resolved', date: '2026-05-30' },
-    ],
-    activity: [
-      { action: 'Completed support ticket', time: '2026-05-30T15:00:00Z', type: 'support' },
-      { action: 'Placed order ORD-8380', time: '2026-05-25T10:00:00Z', type: 'order' },
-    ],
-    notes: 'Had a bad experience. Customer service issued full refund. Needs re-engagement outreach.',
-  },
-  {
-    id: 'CUS-018', name: 'Michael Adekunle', email: 'michael.adekunle@outlook.com', phone: '+2348187654321',
-    country: 'Nigeria', countryCode: 'NG', joinDate: '2024-05-01', totalOrders: 31,
-    lifetimeValue: 1890.25, status: 'active', lastActive: '2026-07-11T19:30:00Z', avatar: 'MA',
-    orders: [
-      { id: 'ORD-8855', date: '2026-07-09', amount: 80.00, item: 'Barber session — Fade Nation Lagos' },
-      { id: 'ORD-8700', date: '2026-06-20', amount: 150.00, item: 'Concert tickets — Afrobeats Night' },
-    ],
-    tickets: [],
-    activity: [
-      { action: 'Placed order ORD-8855', time: '2026-07-09T13:00:00Z', type: 'order' },
-      { action: 'Left 4-star review', time: '2026-07-09T14:00:00Z', type: 'review' },
-    ],
-    notes: 'Regular customer. Active in Lagos nightlife scene. Good for event promotions.',
-  },
-]
+interface ApiCustomer {
+  id: string
+  email: string
+  full_name: string | null
+  phone: string | null
+  avatar_url: string | null
+  country_code: string | null
+  role: string | null
+  is_verified: boolean
+  kyc_status: string | null
+  created_at: string
+}
 
-const COUNTRIES = [...new Set(CUSTOMERS.map((c) => c.country))].sort()
+const LIMIT = 50
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+}
+
+function mapRow(row: ApiCustomer): Customer {
+  const name = row.full_name || row.email
+  return {
+    id: row.id,
+    name,
+    email: row.email,
+    phone: row.phone || '—',
+    country: row.country_code || '—',
+    countryCode: row.country_code || '',
+    joinDate: row.created_at,
+    totalOrders: 0,
+    lifetimeValue: 0,
+    status: row.is_verified ? 'active' : 'inactive',
+    lastActive: row.created_at,
+    avatar: initials(name),
+    orders: [],
+    tickets: [],
+    activity: [],
+    notes: '',
+  }
+}
+
 const STATUSES: Customer['status'][] = ['active', 'inactive', 'suspended']
 
 type SortKey = keyof Customer
@@ -372,10 +105,52 @@ export default function AdminCustomersPage() {
   const [drawerTab, setDrawerTab] = useState<'profile' | 'orders' | 'tickets' | 'activity' | 'notes'>('profile')
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [countries, setCountries] = useState<string[]>([])
+  const [count, setCount] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ type, message })
     setTimeout(() => setToast(null), 3000)
   }
+
+  const loadCustomers = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const params = new URLSearchParams()
+      if (search) params.set('q', search)
+      if (countryFilter) params.set('country', countryFilter)
+      params.set('page', String(page))
+      params.set('limit', String(LIMIT))
+      const res = await fetch(`/api/admin/customers?${params.toString()}`)
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error || 'Failed to load customers')
+      setCustomers((body.data ?? []).map(mapRow))
+      setCount(body.count ?? 0)
+      setCountries((prev) => {
+        const next = new Set(prev)
+        ;(body.data ?? []).forEach((row: ApiCustomer) => {
+          if (row.country_code) next.add(row.country_code)
+        })
+        return Array.from(next).sort()
+      })
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load customers')
+    } finally {
+      setLoading(false)
+    }
+  }, [search, countryFilter, page])
+
+  useEffect(() => {
+    const t = setTimeout(() => loadCustomers(), 350)
+    return () => clearTimeout(t)
+  }, [loadCustomers])
+
+  const totalPages = Math.max(1, Math.ceil(count / LIMIT))
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
@@ -404,15 +179,8 @@ export default function AdminCustomersPage() {
   }
 
   const filtered = useMemo(() => {
-    let result = [...CUSTOMERS]
+    let result = [...customers]
 
-    if (search) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q)
-      )
-    }
-    if (countryFilter) result = result.filter((c) => c.country === countryFilter)
     if (statusFilter) result = result.filter((c) => c.status === statusFilter)
     if (dateFrom) result = result.filter((c) => c.joinDate >= dateFrom)
     if (dateTo) result = result.filter((c) => c.joinDate <= dateTo)
@@ -432,7 +200,7 @@ export default function AdminCustomersPage() {
     })
 
     return result
-  }, [search, countryFilter, statusFilter, dateFrom, dateTo, clvMin, clvMax, sortKey, sortDir])
+  }, [customers, statusFilter, dateFrom, dateTo, clvMin, clvMax, sortKey, sortDir])
 
   const SortIcon = ({ col }: { col: SortKey }) => {
     if (sortKey !== col) return <ArrowUpDown className="w-3 h-3 text-text-tertiary" />
@@ -447,6 +215,13 @@ export default function AdminCustomersPage() {
       </motion.div>
 
       <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border p-6">
+        {loadError && (
+          <div className="mb-4 px-4 py-3 rounded-xl bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 text-sm flex items-center justify-between">
+            <span>{loadError}</span>
+            <button onClick={loadCustomers} className="text-xs font-medium underline">Retry</button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
           <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
@@ -454,7 +229,7 @@ export default function AdminCustomersPage() {
               type="text"
               placeholder="Search by name, email, or phone..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
               className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface-secondary border border-border text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-amber-500/50 transition-colors"
             />
           </div>
@@ -494,11 +269,11 @@ export default function AdminCustomersPage() {
                   <label className="text-xs font-medium text-text-secondary mb-1 block">Country</label>
                   <select
                     value={countryFilter}
-                    onChange={(e) => setCountryFilter(e.target.value)}
+                    onChange={(e) => { setCountryFilter(e.target.value); setPage(1) }}
                     className="w-full px-3 py-2 rounded-lg bg-surface-secondary border border-border text-sm text-text-primary focus:outline-none focus:border-amber-500/50"
                   >
                     <option value="">All countries</option>
-                    {COUNTRIES.map((c) => (
+                    {countries.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
@@ -664,8 +439,12 @@ export default function AdminCustomersPage() {
                   <td className="py-3 pr-4 text-sm text-text-secondary whitespace-nowrap">{customer.phone}</td>
                   <td className="py-3 pr-4 text-sm text-text-secondary whitespace-nowrap">{customer.country}</td>
                   <td className="py-3 pr-4 text-sm text-text-secondary whitespace-nowrap">{new Date(customer.joinDate).toLocaleDateString()}</td>
-                  <td className="py-3 pr-4 text-sm font-medium text-text-primary text-right">{customer.totalOrders}</td>
-                  <td className="py-3 pr-4 text-sm font-semibold text-text-primary text-right">${customer.lifetimeValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  <td className="py-3 pr-4 text-sm font-medium text-text-primary text-right">
+                    {customer.totalOrders > 0 ? customer.totalOrders : '—'}
+                  </td>
+                  <td className="py-3 pr-4 text-sm font-semibold text-text-primary text-right">
+                    {customer.lifetimeValue > 0 ? `$${customer.lifetimeValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—'}
+                  </td>
                   <td className="py-3 pr-4">
                     <span className={cn('inline-flex px-2 py-0.5 rounded-full text-xs font-medium capitalize', STATUS_STYLES[customer.status])}>
                       {customer.status}
@@ -684,7 +463,14 @@ export default function AdminCustomersPage() {
                   </td>
                 </tr>
               ))}
-              {filtered.length === 0 && (
+              {loading && filtered.length === 0 && (
+                <tr>
+                  <td colSpan={11} className="py-12 text-center text-sm text-text-tertiary">
+                    Loading customers…
+                  </td>
+                </tr>
+              )}
+              {!loading && filtered.length === 0 && (
                 <tr>
                   <td colSpan={11} className="py-12 text-center text-sm text-text-tertiary">
                     No customers match your filters.
@@ -696,7 +482,24 @@ export default function AdminCustomersPage() {
         </div>
 
         <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-          <span className="text-xs text-text-tertiary">Showing {filtered.length} of {CUSTOMERS.length} customers</span>
+          <span className="text-xs text-text-tertiary">Showing {filtered.length} of {count.toLocaleString()} customers</span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 rounded-lg bg-surface-secondary border border-border text-xs font-medium text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <span className="text-xs text-text-tertiary">Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 rounded-lg bg-surface-secondary border border-border text-xs font-medium text-text-secondary hover:text-text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </motion.div>
 
@@ -758,8 +561,8 @@ export default function AdminCustomersPage() {
                         { icon: Phone, label: 'Phone', value: drawerCustomer.phone },
                         { icon: Globe, label: 'Country', value: drawerCustomer.country },
                         { icon: Calendar, label: 'Joined', value: new Date(drawerCustomer.joinDate).toLocaleDateString() },
-                        { icon: DollarSign, label: 'Lifetime Value', value: `$${drawerCustomer.lifetimeValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` },
-                        { icon: ShoppingCart, label: 'Total Orders', value: drawerCustomer.totalOrders.toString() },
+                        { icon: DollarSign, label: 'Lifetime Value', value: drawerCustomer.lifetimeValue > 0 ? `$${drawerCustomer.lifetimeValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '—' },
+                        { icon: ShoppingCart, label: 'Total Orders', value: drawerCustomer.totalOrders > 0 ? drawerCustomer.totalOrders.toString() : '—' },
                         { icon: Clock, label: 'Last Active', value: new Date(drawerCustomer.lastActive).toLocaleDateString() },
                       ].map((item) => {
                         const Icon = item.icon

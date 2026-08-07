@@ -37,6 +37,7 @@ import {
   type CalendarEvent,
 } from '@/lib/events/calendar';
 import { validatePromoCode } from '@/lib/events/pricing';
+import MapEmbed from '@/components/shared/MapEmbed';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -436,13 +437,8 @@ export default function EventDetailPage() {
                   Open in Maps
                 </a>
               </div>
-              <div className="mt-4 rounded-xl border border-border overflow-hidden h-48">
-                <iframe
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${EVENT_LNG - 0.01},${EVENT_LAT - 0.01},${EVENT_LNG + 0.01},${EVENT_LAT + 0.01}&layer=mapnik&marker=${EVENT_LAT},${EVENT_LNG}`}
-                  className="w-full h-full border-0"
-                  loading="lazy"
-                  title="Event location map"
-                />
+              <div className="mt-4">
+                <MapEmbed center={{ latitude: EVENT_LAT, longitude: EVENT_LNG }} heightClass="h-48" title="Event location map" />
               </div>
             </motion.section>
 

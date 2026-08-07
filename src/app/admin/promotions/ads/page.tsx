@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
@@ -38,112 +38,50 @@ interface AdCampaign {
   dailyData: { date: string; impressions: number; clicks: number }[]
 }
 
-const AD_CAMPAIGNS: AdCampaign[] = [
-  {
-    id: 'ad_001', name: 'Homepage Hero', targetUrl: '/', targetPage: 'Homepage',
-    gradient: 'from-amber-500 via-orange-500 to-red-500',
-    impressions: 456000, clicks: 34200, cost: 2800000, dailyBudget: 150000, totalBudget: 5000000,
-    status: 'active', startDate: '2026-06-01', endDate: '2026-09-30',
-    countries: ['All'], categories: ['All'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 18200, clicks: 1360 }, { date: 'Jul 8', impressions: 19500, clicks: 1480 },
-      { date: 'Jul 9', impressions: 18800, clicks: 1420 }, { date: 'Jul 10', impressions: 21000, clicks: 1620 },
-      { date: 'Jul 11', impressions: 20400, clicks: 1550 }, { date: 'Jul 12', impressions: 22100, clicks: 1710 },
-      { date: 'Jul 13', impressions: 19800, clicks: 1490 },
-    ],
-  },
-  {
-    id: 'ad_002', name: 'Events Banner', targetUrl: '/events', targetPage: 'Events',
-    gradient: 'from-purple-500 via-violet-500 to-indigo-500',
-    impressions: 189000, clicks: 12300, cost: 1200000, dailyBudget: 80000, totalBudget: 2500000,
-    status: 'active', startDate: '2026-05-15', endDate: '2026-08-15',
-    countries: ['CM', 'NG', 'KE'], categories: ['Events', 'Entertainment'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 7800, clicks: 510 }, { date: 'Jul 8', impressions: 8200, clicks: 540 },
-      { date: 'Jul 9', impressions: 7900, clicks: 520 }, { date: 'Jul 10', impressions: 8600, clicks: 570 },
-      { date: 'Jul 11', impressions: 8400, clicks: 555 }, { date: 'Jul 12', impressions: 9100, clicks: 600 },
-      { date: 'Jul 13', impressions: 8000, clicks: 530 },
-    ],
-  },
-  {
-    id: 'ad_003', name: 'Food Delivery Promo', targetUrl: '/categories/food', targetPage: 'Food & Dining',
-    gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
-    impressions: 312000, clicks: 28100, cost: 2100000, dailyBudget: 120000, totalBudget: 4000000,
-    status: 'active', startDate: '2026-06-10', endDate: '2026-07-31',
-    countries: ['NG', 'CM', 'GH'], categories: ['Food & Dining'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 14200, clicks: 1280 }, { date: 'Jul 8', impressions: 15100, clicks: 1360 },
-      { date: 'Jul 9', impressions: 14600, clicks: 1310 }, { date: 'Jul 10', impressions: 16000, clicks: 1440 },
-      { date: 'Jul 11', impressions: 15500, clicks: 1400 }, { date: 'Jul 12', impressions: 16800, clicks: 1520 },
-      { date: 'Jul 13', impressions: 14900, clicks: 1340 },
-    ],
-  },
-  {
-    id: 'ad_004', name: 'Rides Discount', targetUrl: '/rides', targetPage: 'Rides',
-    gradient: 'from-blue-500 via-sky-500 to-cyan-400',
-    impressions: 145000, clicks: 8700, cost: 890000, dailyBudget: 60000, totalBudget: 2000000,
-    status: 'active', startDate: '2026-06-20', endDate: '2026-08-20',
-    countries: ['NG', 'KE'], categories: ['Transportation'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 5800, clicks: 348 }, { date: 'Jul 8', impressions: 6200, clicks: 372 },
-      { date: 'Jul 9', impressions: 6000, clicks: 360 }, { date: 'Jul 10', impressions: 6500, clicks: 390 },
-      { date: 'Jul 11', impressions: 6300, clicks: 378 }, { date: 'Jul 12', impressions: 6900, clicks: 414 },
-      { date: 'Jul 13', impressions: 6100, clicks: 366 },
-    ],
-  },
-  {
-    id: 'ad_005', name: 'Business Signup', targetUrl: '/business/register', targetPage: 'Business Registration',
-    gradient: 'from-rose-500 via-pink-500 to-fuchsia-500',
-    impressions: 98000, clicks: 5200, cost: 750000, dailyBudget: 50000, totalBudget: 1800000,
-    status: 'paused', startDate: '2026-04-01', endDate: '2026-07-31',
-    countries: ['CM', 'NG', 'KE', 'ZA', 'GH'], categories: ['Business Services'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 3200, clicks: 170 }, { date: 'Jul 8', impressions: 3500, clicks: 185 },
-      { date: 'Jul 9', impressions: 3300, clicks: 175 }, { date: 'Jul 10', impressions: 3700, clicks: 196 },
-      { date: 'Jul 11', impressions: 3400, clicks: 180 }, { date: 'Jul 12', impressions: 3800, clicks: 201 },
-      { date: 'Jul 13', impressions: 3100, clicks: 164 },
-    ],
-  },
-  {
-    id: 'ad_006', name: 'App Download', targetUrl: '/download', targetPage: 'App Store',
-    gradient: 'from-indigo-500 via-purple-500 to-violet-600',
-    impressions: 520000, clicks: 42000, cost: 3500000, dailyBudget: 200000, totalBudget: 6000000,
-    status: 'active', startDate: '2026-01-15', endDate: '2026-12-31',
-    countries: ['All'], categories: ['All'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 21000, clicks: 1680 }, { date: 'Jul 8', impressions: 22500, clicks: 1800 },
-      { date: 'Jul 9', impressions: 21800, clicks: 1744 }, { date: 'Jul 10', impressions: 24000, clicks: 1920 },
-      { date: 'Jul 11', impressions: 23200, clicks: 1856 }, { date: 'Jul 12', impressions: 25100, clicks: 2008 },
-      { date: 'Jul 13', impressions: 22000, clicks: 1760 },
-    ],
-  },
-  {
-    id: 'ad_007', name: 'Seasonal Sale', targetUrl: '/promotions', targetPage: 'Promotions',
-    gradient: 'from-yellow-400 via-amber-500 to-orange-500',
-    impressions: 0, clicks: 0, cost: 0, dailyBudget: 100000, totalBudget: 3000000,
-    status: 'scheduled', startDate: '2026-07-20', endDate: '2026-08-20',
-    countries: ['All'], categories: ['All'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 0, clicks: 0 }, { date: 'Jul 8', impressions: 0, clicks: 0 },
-      { date: 'Jul 9', impressions: 0, clicks: 0 }, { date: 'Jul 10', impressions: 0, clicks: 0 },
-      { date: 'Jul 11', impressions: 0, clicks: 0 }, { date: 'Jul 12', impressions: 0, clicks: 0 },
-      { date: 'Jul 13', impressions: 0, clicks: 0 },
-    ],
-  },
-  {
-    id: 'ad_008', name: 'Featured Vendor', targetUrl: '/vendors/featured', targetPage: 'Featured Vendors',
-    gradient: 'from-teal-400 via-emerald-500 to-green-600',
-    impressions: 167000, clicks: 11200, cost: 980000, dailyBudget: 70000, totalBudget: 2200000,
-    status: 'active', startDate: '2026-06-01', endDate: '2026-09-30',
-    countries: ['CM', 'NG'], categories: ['Salon & Beauty', 'Fitness', 'Photography'],
-    dailyData: [
-      { date: 'Jul 7', impressions: 6800, clicks: 456 }, { date: 'Jul 8', impressions: 7200, clicks: 482 },
-      { date: 'Jul 9', impressions: 7000, clicks: 469 }, { date: 'Jul 10', impressions: 7500, clicks: 502 },
-      { date: 'Jul 11', impressions: 7300, clicks: 489 }, { date: 'Jul 12', impressions: 7900, clicks: 529 },
-      { date: 'Jul 13', impressions: 7100, clicks: 476 },
-    ],
-  },
-]
+interface ApiCampaignRow {
+  id: string
+  name: string
+  status: string
+  budget: number | null
+  spent: number | null
+  starts_at: string | null
+  ends_at: string | null
+  impressions: number | null
+  clicks: number | null
+  targeting: { countries?: string[]; categories?: string[] } | null
+  metadata: Record<string, unknown> | null
+}
+
+function mapAdCampaign(row: ApiCampaignRow): AdCampaign {
+  const raw = row.status ?? 'draft'
+  let status: AdStatus
+  if (raw === 'active') status = 'active'
+  else if (raw === 'paused') status = 'paused'
+  else if (raw === 'draft') status = 'scheduled'
+  else status = 'ended'
+  const targeting = row.targeting ?? {}
+  const metadata = row.metadata ?? {}
+  const countries = Array.isArray(targeting.countries) && targeting.countries.length > 0 ? targeting.countries : ['All']
+  const categories = Array.isArray(targeting.categories) ? targeting.categories : []
+  return {
+    id: row.id,
+    name: row.name ?? '',
+    targetUrl: typeof metadata.targetUrl === 'string' ? metadata.targetUrl : '#',
+    targetPage: typeof metadata.targetPage === 'string' ? metadata.targetPage : 'Campaign',
+    gradient: typeof metadata.gradient === 'string' ? metadata.gradient : 'from-amber-500 via-orange-500 to-red-500',
+    impressions: row.impressions ?? 0,
+    clicks: row.clicks ?? 0,
+    cost: row.spent ?? 0,
+    dailyBudget: typeof metadata.dailyBudget === 'number' ? metadata.dailyBudget : 0,
+    totalBudget: row.budget ?? 0,
+    status,
+    startDate: row.starts_at ? row.starts_at.slice(0, 10) : '',
+    endDate: row.ends_at ? row.ends_at.slice(0, 10) : '',
+    countries,
+    categories,
+    dailyData: Array.isArray(metadata.dailyData) ? metadata.dailyData as AdCampaign['dailyData'] : [],
+  }
+}
 
 const STATUS_STYLES: Record<AdStatus, string> = {
   active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
@@ -159,37 +97,97 @@ export default function AdminAdCampaignsPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  const [campaigns, setCampaigns] = useState<AdCampaign[]>([])
+  const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
   const [newAd, setNewAd] = useState({
     name: '', targetUrl: '', targetPage: '', dailyBudget: 50000,
     totalBudget: 1000000, startDate: '', endDate: '', countries: 'All', categories: 'All',
   })
 
+  const loadCampaigns = useCallback(async () => {
+    setLoading(true)
+    const params = new URLSearchParams({ page: '1', limit: '100' })
+    if (statusFilter === 'active') params.set('status', 'active')
+    else if (statusFilter === 'paused') params.set('status', 'paused')
+    else if (statusFilter === 'scheduled') params.set('status', 'draft')
+    try {
+      const res = await fetch(`/api/admin/ad-campaigns?${params.toString()}`)
+      if (!res.ok) throw new Error('Failed to load campaigns')
+      const json = await res.json()
+      setCampaigns((json.data ?? []).map(mapAdCampaign))
+      setFetchError(null)
+    } catch (err) {
+      setFetchError(err instanceof Error ? err.message : 'Failed to load campaigns')
+    } finally {
+      setLoading(false)
+    }
+  }, [statusFilter])
+
+  useEffect(() => {
+    loadCampaigns()
+  }, [loadCampaigns])
+
   const filtered = useMemo(() => {
-    return AD_CAMPAIGNS.filter((c) => {
+    return campaigns.filter((c) => {
       if (statusFilter !== 'all' && c.status !== statusFilter) return false
       if (search && !c.name.toLowerCase().includes(search.toLowerCase()) && !c.targetPage.toLowerCase().includes(search.toLowerCase())) return false
       return true
     })
-  }, [statusFilter, search])
+  }, [campaigns, statusFilter, search])
 
-  const totalImpressions = AD_CAMPAIGNS.reduce((sum, c) => sum + c.impressions, 0)
-  const totalClicks = AD_CAMPAIGNS.reduce((sum, c) => sum + c.clicks, 0)
-  const totalCost = AD_CAMPAIGNS.reduce((sum, c) => sum + c.cost, 0)
+  const totalImpressions = campaigns.reduce((sum, c) => sum + c.impressions, 0)
+  const totalClicks = campaigns.reduce((sum, c) => sum + c.clicks, 0)
+  const totalCost = campaigns.reduce((sum, c) => sum + c.cost, 0)
   const avgCTR = totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100) : 0
-  const activeAds = AD_CAMPAIGNS.filter((c) => c.status === 'active').length
+  const activeAds = campaigns.filter((c) => c.status === 'active').length
 
-  const selectedData = AD_CAMPAIGNS.find((c) => c.id === selectedCampaign)
+  const selectedData = campaigns.find((c) => c.id === selectedCampaign)
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newAd.name) {
       setToast({ type: 'error', message: 'Campaign name is required' })
       setTimeout(() => setToast(null), 3000)
       return
     }
-    setToast({ type: 'success', message: `Ad campaign "${newAd.name}" created successfully` })
-    setShowCreateForm(false)
-    setNewAd({ name: '', targetUrl: '', targetPage: '', dailyBudget: 50000, totalBudget: 1000000, startDate: '', endDate: '', countries: 'All', categories: 'All' })
-    setTimeout(() => setToast(null), 3000)
+    try {
+      const res = await fetch('/api/admin/ad-campaigns', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newAd.name,
+          platform: 'meta',
+          budget: newAd.totalBudget,
+          spent: 0,
+          currencyCode: 'XAF',
+          startsAt: newAd.startDate || null,
+          endsAt: newAd.endDate || null,
+          targeting: {
+            countries: newAd.countries === 'All' ? ['All'] : [newAd.countries],
+            categories: newAd.categories === 'All' ? [] : [newAd.categories],
+          },
+          metadata: {
+            dailyBudget: newAd.dailyBudget,
+            targetUrl: newAd.targetUrl,
+            targetPage: newAd.targetPage,
+            gradient: 'from-amber-500 via-orange-500 to-red-500',
+          },
+        }),
+      })
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        throw new Error(json?.error || 'Failed to create campaign')
+      }
+      setToast({ type: 'success', message: `Ad campaign "${newAd.name}" created successfully` })
+      setShowCreateForm(false)
+      setNewAd({ name: '', targetUrl: '', targetPage: '', dailyBudget: 50000, totalBudget: 1000000, startDate: '', endDate: '', countries: 'All', categories: 'All' })
+      await loadCampaigns()
+      setTimeout(() => setToast(null), 3000)
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Failed to create campaign' })
+      setTimeout(() => setToast(null), 3000)
+    }
   }
 
   return (
@@ -421,7 +419,16 @@ export default function AdminAdCampaignsPage() {
 
       {/* Campaign cards grid */}
       <motion.div variants={ITEM} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {filtered.map((campaign) => {
+        {loading ? (
+          <div className="col-span-full flex items-center justify-center gap-2 py-16">
+            <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-text-secondary">Loading campaigns...</span>
+          </div>
+        ) : fetchError ? (
+          <div className="col-span-full py-16 text-center text-sm text-red-500">{fetchError}</div>
+        ) : filtered.length === 0 ? (
+          <div className="col-span-full py-16 text-center text-sm text-text-secondary">No ad campaigns found.</div>
+        ) : filtered.map((campaign) => {
           const ctr = campaign.impressions > 0 ? ((campaign.clicks / campaign.impressions) * 100) : 0
           const budgetPct = campaign.totalBudget > 0 ? (campaign.cost / campaign.totalBudget) * 100 : 0
           return (
@@ -527,7 +534,24 @@ export default function AdminAdCampaignsPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => {
+              {loading ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-sm text-text-secondary">Loading campaigns...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : fetchError ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-sm text-red-500">{fetchError}</td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={10} className="px-4 py-8 text-center text-sm text-text-secondary">No ad campaigns found.</td>
+                </tr>
+              ) : filtered.map((c) => {
                 const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100) : 0
                 return (
                   <tr key={c.id} className="border-b border-border/50 hover:bg-surface-secondary/30 transition-colors">

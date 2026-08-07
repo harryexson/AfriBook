@@ -315,6 +315,15 @@ export default function TermsOfServicePage() {
             <p>
               You acknowledge that you enter into transactions with vendors at your own risk. AfriBook facilitates connections but is not responsible for the quality, safety, or legality of products and services offered by vendors.
             </p>
+            <p>
+              <strong className="text-text-primary">Personal responsibility.</strong> You are personally responsible for your own actions, errors, omissions, and negligence when using the Platform, including your interactions with vendors, drivers, hosts, and other users. To the fullest extent permitted by law, AfriBook is not an insurer, guarantor, or joint provider of the products and services you obtain, and you accept that you use the Platform and its services at your own risk.
+            </p>
+            <p>
+              <strong className="text-text-primary">Your due diligence.</strong> You are responsible for conducting your own due diligence before purchasing products or services, including verifying the identity, licences, credentials, insurance, and reputation of the vendor, driver, or host you deal with. You should take reasonable precautions for your own safety, including confirming a driver&apos;s identity and vehicle details before boarding, and reviewing listing, house rules and cancellation terms before booking.
+            </p>
+            <p>
+              <strong className="text-text-primary">Compliance with local law.</strong> You agree to comply with all applicable laws and regulations of your jurisdiction when using the Platform, including but not limited to consumer protection, tax, traffic, seat-belt and child-seat, and age-restriction laws. Any use of the Platform for conduct that violates local law is your sole responsibility.
+            </p>
           </div>
         </motion.section>
 
@@ -489,7 +498,18 @@ export default function TermsOfServicePage() {
               <li>Discriminating against any user on the basis of race, ethnicity, religion, gender, sexual orientation, disability, or any other protected characteristic</li>
               <li>Listing counterfeit, stolen, or illegal products or services</li>
               <li>Engaging in money laundering, terrorist financing, or other financial crimes through the Platform</li>
+              <li>
+                Engaging in, soliciting, facilitating, or condoning <strong className="text-text-primary">SHARFT</strong> — sexual harassment, assault, rape, fraud or trafficking, or any other form of sexual exploitation, abuse or financial crime — against any other user, provider, driver, host, or member of the public
+              </li>
             </ul>
+            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+              <div className="flex items-start gap-2.5">
+                <Ban className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-sm text-text-primary leading-relaxed">
+                  <strong className="font-semibold">Zero tolerance for SHARFT.</strong> AfriBook has a strict and absolute policy that SHARFT — sexual harassment, assault, exploitation, fraud or trafficking — is completely prohibited on the Platform. Any user found to have engaged in, facilitated, solicited, or failed to report SHARFT or any criminal conduct will be immediately and permanently removed from the Platform without notice, may forfeit outstanding payments, will be reported to law enforcement authorities, and may be personally liable for their own conduct.
+                </p>
+              </div>
+            </div>
             <p>
               Violation of these prohibitions may result in immediate account suspension or termination, forfeiture of pending payments, and referral to law enforcement authorities where applicable.
             </p>

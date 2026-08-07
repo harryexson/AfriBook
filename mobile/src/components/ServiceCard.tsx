@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { colors, borderRadius, spacing, typography, shadows } from '../theme';
-import type { Service } from '../types';
-import Badge from './ui/Badge';
+import React from "react";
+import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+import { colors, borderRadius, spacing, typography, shadows } from "../theme";
+import type { Service } from "../types";
+import Badge from "./ui/Badge";
 
 interface ServiceCardProps {
   service: Service;
@@ -44,13 +44,15 @@ export default function ServiceCard({ service, businessId }: ServiceCardProps) {
             </Text>
           </View>
           <Badge
-            label={service.available ? 'Available' : 'Unavailable'}
-            variant={service.available ? 'success' : 'default'}
+            label={service.available ? "Available" : "Unavailable"}
+            variant={service.available ? "success" : "default"}
             style={styles.availabilityBadge}
           />
         </View>
         <View style={styles.detailsRow}>
-          <Text style={styles.duration}>⏱ {formatDuration(service.duration)}</Text>
+          <Text style={styles.duration}>
+            ⏱ {formatDuration(service.duration)}
+          </Text>
           <Text style={styles.price}>
             {service.currencyCode} {service.price.toFixed(2)}
           </Text>
@@ -63,22 +65,22 @@ export default function ServiceCard({ service, businessId }: ServiceCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius['2xl'],
-    overflow: 'hidden',
+    borderRadius: borderRadius["2xl"],
+    overflow: "hidden",
     ...shadows.md,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
+    borderColor: "rgba(15, 23, 42, 0.08)",
   },
   image: {
-    width: '100%',
+    width: "100%",
     height: 140,
-    resizeMode: 'cover',
+    resizeMode: "cover",
   },
   placeholderImage: {
-    width: '100%',
+    width: "100%",
     height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.surfaceSecondary,
   },
   placeholderText: {
@@ -90,9 +92,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: spacing.sm,
   },
   titleBlock: {
@@ -101,7 +103,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: typography.fontSize.lg,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.textPrimary,
   },
   subtext: {
@@ -110,12 +112,12 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   availabilityBadge: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   detailsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: spacing.md,
   },
   duration: {
@@ -123,8 +125,8 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   price: {
-    fontSize: typography.fontSize['xl'],
-    fontWeight: '800',
+    fontSize: typography.fontSize["xl"],
+    fontWeight: "800",
     color: colors.primary,
   },
 });

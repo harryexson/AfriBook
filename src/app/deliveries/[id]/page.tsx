@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
+import MapEmbed from '@/components/shared/MapEmbed';
 import {
-  MapPin,
   Clock,
   Truck,
   Phone,
@@ -205,12 +205,6 @@ export default function DeliveryTrackingPage() {
   const currentStepIndex = getStatusIndex(delivery.status);
   const isDelivered = delivery.status === 'delivered';
 
-  const mapSrc = useMemo(() => {
-    const pickup = `${delivery.pickupLat},${delivery.pickupLng}`;
-    const dropoff = `${delivery.dropoffLat},${delivery.dropoffLng}`;
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${delivery.pickupLng - 0.05},${delivery.pickupLat - 0.03},${delivery.dropoffLng + 0.05},${delivery.dropoffLat + 0.03}&layer=mapnik&marker=${delivery.pickupLat},${delivery.pickupLng}`;
-  }, [delivery]);
-
   return (
     <div className="min-h-screen bg-surface">
       {/* Sticky Header */}
@@ -289,10 +283,16 @@ export default function DeliveryTrackingPage() {
         {/* ── Map Section ────────────────────────────────────── */}
         <motion.div variants={fadeIn} className="rounded-2xl overflow-hidden border border-border">
           <div className="relative bg-surface-secondary aspect-[16/9]">
-            <iframe
-              src={mapSrc}
-              className="w-full h-full border-0"
-              loading="lazy"
+            <MapEmbed
+              bare
+              center={{ latitude: delivery.pickupLat, longitude: delivery.pickupLng }}
+              marker={{ latitude: delivery.pickupLat, longitude: delivery.pickupLng }}
+              bbox={{
+                minLat: Math.min(delivery.pickupLat, delivery.dropoffLat) - 0.03,
+                minLng: Math.min(delivery.pickupLng, delivery.dropoffLng) - 0.05,
+                maxLat: Math.max(delivery.pickupLat, delivery.dropoffLat) + 0.03,
+                maxLng: Math.max(delivery.pickupLng, delivery.dropoffLng) + 0.05,
+              }}
               title="Delivery Route Map"
             />
             <div className="absolute bottom-3 left-3 right-3 flex gap-2">

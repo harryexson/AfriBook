@@ -1,4 +1,4 @@
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import type { Database } from '../types';
 
@@ -11,11 +11,11 @@ const ExpoSecureStoreAdapter = {
   removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
-let client: ReturnType<typeof createSupabaseClient<Database>> | null = null;
+let client: ReturnType<typeof createClient<Database>> | null = null;
 
-export function createClient(): ReturnType<typeof createSupabaseClient<Database>> {
+export function createClient(): ReturnType<typeof createClient<Database>> {
   if (client) return client;
-  client = createSupabaseClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  client = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
       storage: ExpoSecureStoreAdapter,
       autoRefreshToken: true,

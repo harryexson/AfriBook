@@ -61,6 +61,9 @@ export default function LegalLayout({
               <Link href="/legal/cookies" className="hover:text-text-secondary transition-colors">
                 Cookies
               </Link>
+              <Link href="/legal/host-agreement" className="hover:text-text-secondary transition-colors">
+                Host
+              </Link>
               <Link href="/legal/vendor" className="hover:text-text-secondary transition-colors">
                 Vendor
               </Link>

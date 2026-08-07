@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
-import { colors, borderRadius, spacing, typography, shadows } from '../theme';
-import type { Business } from '../types';
-import Badge from './ui/Badge';
+import React, { useState } from "react";
+import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
+import { useRouter } from "expo-router";
+import { colors, borderRadius, spacing, typography, shadows } from "../theme";
+import type { Business } from "../types";
+import Badge from "./ui/Badge";
 
 interface BusinessCardProps {
   business: Business;
   index?: number;
 }
 
-export default function BusinessCard({ business, index = 0 }: BusinessCardProps) {
+export default function BusinessCard({
+  business,
+  index = 0,
+}: BusinessCardProps) {
   const router = useRouter();
   const [isFav, setIsFav] = useState(false);
 
@@ -22,7 +25,10 @@ export default function BusinessCard({ business, index = 0 }: BusinessCardProps)
     >
       <View style={styles.imageContainer}>
         {business.media?.coverUrl ? (
-          <Image source={{ uri: business.media.coverUrl }} style={styles.image} />
+          <Image
+            source={{ uri: business.media.coverUrl }}
+            style={styles.image}
+          />
         ) : (
           <View style={styles.imageFallback}>
             <Text style={styles.imageFallbackText}>
@@ -32,7 +38,11 @@ export default function BusinessCard({ business, index = 0 }: BusinessCardProps)
         )}
         <View style={styles.imageOverlay} />
         {business.deliveryAvailable && (
-          <Badge label="Delivery" variant="success" style={styles.deliveryBadge} />
+          <Badge
+            label="Delivery"
+            variant="success"
+            style={styles.deliveryBadge}
+          />
         )}
         <TouchableOpacity
           style={[styles.favButton, isFav && styles.favButtonActive]}
@@ -40,7 +50,7 @@ export default function BusinessCard({ business, index = 0 }: BusinessCardProps)
           activeOpacity={0.7}
         >
           <Text style={[styles.favIcon, isFav && styles.favIconActive]}>
-            {isFav ? '♥' : '♡'}
+            {isFav ? "♥" : "♡"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -56,18 +66,24 @@ export default function BusinessCard({ business, index = 0 }: BusinessCardProps)
         </Text>
 
         <Text style={styles.description} numberOfLines={2}>
-          {business.address?.formatted ?? business.address?.city ?? 'Top-rated vendor near you.'}
+          {business.address?.formatted ??
+            business.address?.city ??
+            "Top-rated vendor near you."}
         </Text>
 
         <View style={styles.meta}>
           <Text style={styles.metaText}>{business.reviewCount} reviews</Text>
           <Text style={styles.metaDot}>·</Text>
-          <Text style={styles.metaText}>{business.address?.city ?? 'Nearby'}</Text>
+          <Text style={styles.metaText}>
+            {business.address?.city ?? "Nearby"}
+          </Text>
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.hours}>
-            {business.hours?.length ? `${business.hours[0].open} - ${business.hours[0].close}` : 'Open now'}
+            {business.hours?.length
+              ? `${business.hours[0].open} - ${business.hours[0].close}`
+              : "Open now"}
           </Text>
           <Text style={styles.bookNow}>View details</Text>
         </View>
@@ -79,53 +95,53 @@ export default function BusinessCard({ business, index = 0 }: BusinessCardProps)
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius['2xl'],
-    overflow: 'hidden',
+    borderRadius: borderRadius["2xl"],
+    overflow: "hidden",
     ...shadows.md,
     borderWidth: 1,
-    borderColor: 'rgba(15, 23, 42, 0.08)',
+    borderColor: "rgba(15, 23, 42, 0.08)",
   },
   imageContainer: {
     height: 180,
     backgroundColor: colors.surfaceTertiary,
-    position: 'relative',
+    position: "relative",
   },
   image: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: "rgba(0,0,0,0.18)",
   },
   imageFallback: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: colors.primarySurface,
   },
   imageFallbackText: {
-    fontSize: typography.fontSize['4xl'],
-    fontWeight: '700',
+    fontSize: typography.fontSize["4xl"],
+    fontWeight: "700",
     color: colors.primary,
   },
   deliveryBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: spacing.sm,
     left: spacing.sm,
     zIndex: 2,
   },
   favButton: {
-    position: 'absolute',
+    position: "absolute",
     top: spacing.sm,
     right: spacing.sm,
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "rgba(255,255,255,0.9)",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 2,
   },
   favButtonActive: {
@@ -136,38 +152,38 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   favIconActive: {
-    color: '#FFF',
+    color: "#FFF",
   },
   content: {
     padding: spacing.lg,
     gap: spacing.sm,
   },
   titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     gap: spacing.sm,
   },
   category: {
     fontSize: typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
     letterSpacing: 0.6,
   },
   ratingBadge: {
     fontSize: typography.fontSize.xs,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.surface,
     backgroundColor: colors.primary,
     borderRadius: 999,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   name: {
-    fontSize: typography.fontSize['2xl'],
-    fontWeight: '800',
+    fontSize: typography.fontSize["2xl"],
+    fontWeight: "800",
     color: colors.textPrimary,
     marginTop: spacing.xs,
   },
@@ -178,10 +194,10 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   meta: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: spacing.sm,
-    flexWrap: 'wrap',
+    flexWrap: "wrap",
     gap: spacing.xs,
   },
   metaText: {
@@ -193,9 +209,9 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.borderLight,
@@ -207,7 +223,7 @@ const styles = StyleSheet.create({
   },
   bookNow: {
     fontSize: typography.fontSize.sm,
-    fontWeight: '700',
+    fontWeight: "700",
     color: colors.primary,
   },
 });

@@ -14,6 +14,7 @@ import { getCountryConfig } from '@/lib/localization'
 import type { CountryConfig } from '@/lib/localization/countries'
 import ServiceCard from '@/components/marketplace/ServiceCard'
 import ReviewForm from '@/components/marketplace/ReviewForm'
+import MapEmbed from '@/components/shared/MapEmbed'
 import type { Business, Service, Review, Staff } from '@/types'
 import { getCountryBusinesses, getCountryServices } from '@/lib/countries-data'
 import { getWeekdayKey, formatInTimezone } from '@/lib/time'
@@ -563,23 +564,7 @@ export default function BusinessDetailPage() {
 
               {/* Map */}
               <div className="pt-4 border-t border-border">
-                <div className="h-40 rounded-xl overflow-hidden border border-border">
-                  <iframe
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${(business.location.longitude || 3.3792) - 0.01},${(business.location.latitude || 6.5244) - 0.01},${(business.location.longitude || 3.3792) + 0.01},${(business.location.latitude || 6.5244) + 0.01}&layer=mapnik&marker=${business.location.latitude || 6.5244},${business.location.longitude || 3.3792}`}
-                    className="w-full h-full border-0"
-                    loading="lazy"
-                    title="Business location map"
-                  />
-                </div>
-                <a
-                  href={`https://www.google.com/maps?q=${business.location.latitude || 6.5244},${business.location.longitude || 3.3792}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-amber-500 text-xs font-medium hover:text-amber-600 mt-2 transition-colors"
-                >
-                  <MapPin className="w-3 h-3" />
-                  Open in Maps
-                </a>
+                <MapEmbed center={business.location} openInMaps />
               </div>
             </motion.div>
           </div>

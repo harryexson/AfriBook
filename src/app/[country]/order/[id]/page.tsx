@@ -6,8 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft, CheckCircle, Clock, MapPin, Phone, MessageCircle,
   XCircle, AlertTriangle, Truck, Package, ChefHat, ShoppingBag,
-  User, Map, Loader2,
+  User, Loader2,
 } from 'lucide-react'
+import MapEmbed from '@/components/shared/MapEmbed'
 import { cn, formatCurrency, timeAgo } from '@/lib/utils'
 import { getCountryConfig } from '@/lib/localization'
 import type { CountryConfig } from '@/lib/localization/countries'
@@ -77,6 +78,7 @@ export default function OrderTrackingPage() {
   const isCancelled = order.status === 'cancelled'
   const isDelivered = order.status === 'delivered'
   const isLive = order.status === 'out_for_delivery' || order.status === 'preparing'
+  const dropoffGeo = order.deliveryAddress.geoPoint
 
   const handleCancelOrder = () => {
     setCancelling(true)
@@ -117,15 +119,19 @@ export default function OrderTrackingPage() {
             animate={{ opacity: 1, height: 'auto' }}
             className="mb-6"
           >
-            <div className="h-48 rounded-2xl bg-surface-secondary border border-border flex items-center justify-center overflow-hidden relative">
-              <Map className="w-10 h-10 text-text-tertiary absolute" />
-              <div className="text-center relative z-10">
-                <p className="text-sm font-medium text-text-primary">Live tracking</p>
-                <p className="text-xs text-text-secondary mt-1">Driver location updating live</p>
-                <div className="flex items-center justify-center gap-1 mt-2 text-xs text-emerald-500">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Live</span>
-                </div>
+            <div className="h-48 rounded-2xl bg-surface-secondary border border-border relative overflow-hidden">
+              <MapEmbed
+                bare
+                center={{
+                  latitude: dropoffGeo?.latitude ?? 6.4281,
+                  longitude: dropoffGeo?.longitude ?? 3.4219,
+                }}
+                marker={{ latitude: driver.location.latitude, longitude: driver.location.longitude }}
+                title="Order delivery map"
+              />
+              <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm text-[10px] font-medium text-emerald-600 shadow-sm">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Live</span>
               </div>
             </div>
           </motion.div>

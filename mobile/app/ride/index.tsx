@@ -74,6 +74,7 @@ export default function RideRequestScreen() {
             latitudeDelta: 0.02,
             longitudeDelta: 0.02,
           }}
+          routePolyline={ride.routePolyline ?? undefined}
           markers={
             ride.driverId
               ? [{

@@ -108,7 +108,7 @@ export default function BookRidePage() {
   // -- Request ride ------------------------------------------
   const handleRequestRide = useCallback(async () => {
     if (!user) {
-      router.push('/login')
+      router.push('/auth/login')
       return
     }
 

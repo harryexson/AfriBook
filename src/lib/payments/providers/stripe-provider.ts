@@ -468,7 +468,7 @@ export class StripeProvider implements PaymentProvider {
 
     if (!vendorId || !businessId) {
       let businessIdFromRef: string | null = null;
-      let vendorIdFromRef: string | null = null;
+      const vendorIdFromRef: string | null = null;
 
       if (request.orderId) {
         const { data } = await db

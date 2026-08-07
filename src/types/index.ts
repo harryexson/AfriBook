@@ -13,12 +13,13 @@ export type ConsentType =
   | 'communications'
   | 'data_sharing'
   | 'payment_authorization'
-  | 'hold_harmless_waiver';
+  | 'hold_harmless_waiver'
+  | 'host_agreement';
 export type EscrowStatus = 'held' | 'released' | 'refunded' | 'disputed';
 export type DriverStatus = 'offline' | 'available' | 'on_trip' | 'busy';
 export type BusinessStatus = 'active' | 'inactive' | 'suspended' | 'pending_verification';
 export type DisputeStatus = 'open' | 'under_review' | 'resolved' | 'escalated';
-export type NotificationType = 'booking' | 'order' | 'payment' | 'promo' | 'system' | 'reminder';
+export type NotificationType = 'booking' | 'order' | 'payment' | 'promo' | 'system' | 'reminder' | 'invitations_sent';
 export type PayoutStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type Weekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 export type DomainStatus = 'pending' | 'active' | 'failed';
@@ -527,6 +528,21 @@ export interface Notification {
 
 // ─── Audit Log ───────────────────────────────────────────────
 
+export interface NotificationRow {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  data: Record<string, unknown>;
+  channel: string | null;
+  read: boolean;
+  sent_at: string | null;
+  read_at: string | null;
+}
+
+// ─── Audit Log ───────────────────────────────────────────────
+
 export interface AuditLog {
   id: string;
   actorId: string;
@@ -781,6 +797,290 @@ export interface DriverOnlineSessionRow {
   ended_at: string | null;
 }
 
+// ─── Events & Tickets row types (app-facing, snake_case) ─────
+
+export interface ProfileRow {
+  id: string;
+  role: UserRole;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  country_code: string | null;
+  language_code: string | null;
+  kyc_status: string | null;
+  is_verified: boolean;
+  email_verified: boolean;
+  phone_verified: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventRow {
+  id: string;
+  organizer_id: string;
+  organizer_name: string;
+  title: string;
+  slug: string;
+  description: string;
+  short_description: string;
+  category: string;
+  status: string;
+  venue: string | null;
+  address: string | null;
+  city: string | null;
+  country: string | null;
+  country_code: string | null;
+  location: unknown;
+  venue_name: string | null;
+  venue_address: string | null;
+  venue_city: string | null;
+  venue_country: string | null;
+  venue_lat: number | null;
+  venue_lng: number | null;
+  is_virtual: boolean;
+  virtual_link: string | null;
+  start_date: string;
+  end_date: string;
+  timezone: string;
+  doors_open_at: string | null;
+  cover_image_url: string | null;
+  gallery_images: unknown;
+  promo_video_url: string | null;
+  flyer_url: string | null;
+  ticket_type: string;
+  total_capacity: number;
+  tickets_sold: number;
+  waitlist_enabled: boolean;
+  currency_code: string;
+  min_price: number | null;
+  max_price: number | null;
+  is_free: boolean;
+  platform_fee_percent: number;
+  platform_fee_fixed: number;
+  tax_rate: number;
+  requires_approval: boolean;
+  show_guest_list: boolean;
+  allow_refunds: boolean;
+  refund_deadline_days: number;
+  max_guests_per_registration: number;
+  allow_guest_registration: boolean;
+  max_guests_per_ticket: number;
+  meta_title: string | null;
+  meta_description: string | null;
+  share_image_url: string | null;
+  share_url: string | null;
+  tags: unknown;
+  enable_referrals: boolean;
+  enable_waitlist: boolean;
+  referral_code: string | null;
+  view_count: number;
+  share_count: number;
+  favorite_count: number;
+  created_at: string;
+  updated_at: string;
+  event_ticket_types?: EventTicketTypeRow[] | null;
+}
+
+export interface EventTicketTypeRow {
+  id: string;
+  event_id: string;
+  name: string;
+  tier: string;
+  type: string;
+  description: string | null;
+  price: number;
+  original_price: number | null;
+  currency_code: string;
+  quantity_available: number;
+  quantity_sold: number;
+  max_per_order: number;
+  min_per_order: number;
+  sale_starts_at: string | null;
+  sale_ends_at: string | null;
+  includes_guest_registration: boolean;
+  max_guests_per_ticket: number;
+  benefits: unknown;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TicketPurchaseRow {
+  id: string;
+  event_id: string;
+  ticket_type_id: string;
+  buyer_id: string;
+  buyer_name: string;
+  buyer_email: string;
+  buyer_phone: string | null;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+  platform_fee: number;
+  processing_fee: number;
+  total: number;
+  currency_code: string;
+  payment_status: string;
+  payment_method: string | null;
+  payment_intent_id: string | null;
+  order_status: string;
+  ticket_code: string;
+  qr_code_url: string;
+  promo_code: string | null;
+  referral_code: string | null;
+  checked_in_at: string | null;
+  check_in_status: string;
+  transferred_to: string | null;
+  cancelled_at: string | null;
+  refund_amount: number | null;
+  refunded_at: string | null;
+  metadata: unknown;
+  created_at: string;
+  updated_at: string;
+  event_ticket_types?: { name?: string | null; tier?: string | null; price?: number | null } | null;
+}
+
+export interface EventGuestRow {
+  id: string;
+  event_id: string;
+  ticket_purchase_id: string;
+  registration_id: string | null;
+  host_id: string;
+  guest_name: string;
+  guest_email: string;
+  guest_phone: string | null;
+  relationship: string;
+  ticket_code: string;
+  qr_code_url: string;
+  check_in_status: string;
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+  photo_url: string | null;
+  photo_page_url: string | null;
+  dietary_restrictions: string | null;
+  special_requirements: string | null;
+  created_at: string;
+}
+
+export interface EventInvitationRow {
+  id: string;
+  event_id: string;
+  inviter_id: string;
+  inviter_name: string;
+  recipient_name: string | null;
+  recipient_email: string | null;
+  recipient_phone: string | null;
+  platform: string;
+  status: string;
+  custom_message: string | null;
+  referral_code: string | null;
+  referral_discount: number;
+  event_url: string | null;
+  clicked_at: string | null;
+  registered_at: string | null;
+  created_at: string;
+}
+
+export interface EventShareRow {
+  id: string;
+  event_id: string;
+  user_id: string;
+  platform: string;
+  share_url: string | null;
+  clicked: boolean;
+  created_at: string;
+}
+
+export interface EventPhotoRow {
+  id: string;
+  event_id: string;
+  user_id: string | null;
+  uploaded_by: string | null;
+  image_url: string;
+  url: string | null;
+  caption: string | null;
+  status: string;
+  is_cover: boolean;
+  like_count: number;
+  created_at: string;
+}
+
+export interface PhotoShareRow {
+  id: string;
+  photo_id: string;
+  shared_by: string;
+  platform: string;
+  created_at: string;
+}
+
+export interface EventReferralRow {
+  id: string;
+  event_id: string;
+  referrer_id: string;
+  referred_email: string | null;
+  code: string;
+  status: string;
+  created_at: string;
+}
+
+export interface PromoCodeRow {
+  id: string;
+  event_id: string;
+  organizer_id: string;
+  code: string;
+  discount_type: string;
+  discount_value: number;
+  max_uses: number;
+  used_count: number;
+  min_order_amount: number | null;
+  valid_from: string | null;
+  valid_until: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EventIndividualTicketRow {
+  id: string;
+  event_id: string;
+  ticket_purchase_id: string;
+  registration_id: string | null;
+  ticket_type_id: string;
+  user_id: string;
+  ticket_code: string;
+  qr_code_url: string;
+  status: string;
+  created_at: string;
+}
+
+export interface NotificationLogRow {
+  id: string;
+  notification_id: string;
+  channel: string;
+  status: string;
+  error: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export interface EventTicketRow {
+  id: string;
+  event_id: string;
+  ticket_purchase_id: string;
+  registration_id: string | null;
+  ticket_type_id: string;
+  user_id: string;
+  tier_id: string | null;
+  ticket_code: string;
+  qr_code_url: string;
+  status: string;
+  transferred_to: string | null;
+  created_at: string;
+}
+
 // ─── Database row types (mirrors Supabase schema) ────────────
 
 export interface Database {
@@ -810,7 +1110,7 @@ export interface Database {
       payments: { Row: Omit<Payment, never>; Insert: Omit<Payment, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Payment, 'id'>>; Relationships: never[] };
       payouts: { Row: Omit<Payout, never>; Insert: Omit<Payout, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Payout, 'id'>>; Relationships: never[] };
       reviews: { Row: Omit<Review, never>; Insert: Omit<Review, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Review, 'id'>>; Relationships: never[] };
-      notifications: { Row: Omit<Notification, never>; Insert: Omit<Notification, 'id' | 'createdAt'>; Update: Partial<Omit<Notification, 'id'>>; Relationships: never[] };
+      notifications: { Row: Omit<NotificationRow, never>; Insert: Partial<Omit<NotificationRow, 'id' | 'sent_at'>>; Update: Partial<Omit<NotificationRow, 'id'>>; Relationships: never[] };
       audit_logs: { Row: Omit<AuditLog, never>; Insert: Omit<AuditLog, 'id' | 'createdAt'>; Update: never; Relationships: never[] };
       disputes: { Row: Omit<Dispute, never>; Insert: Omit<Dispute, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Dispute, 'id'>>; Relationships: never[] };
       ride_requests: {
@@ -855,18 +1155,90 @@ export interface Database {
         Update: Partial<Omit<DriverOnlineSessionRow, 'id'>>;
         Relationships: never[];
       };
-      ticket_purchases: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      event_individual_tickets: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      event_guests: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      event_photos: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      event_shares: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      photo_shares: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      event_invitations: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      event_referrals: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      notification_logs: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      promo_codes: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      event_tickets: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      events: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
+      ticket_purchases: {
+        Row: Omit<TicketPurchaseRow, never>;
+        Insert: Partial<Omit<TicketPurchaseRow, 'id' | 'created_at' | 'updated_at'>>;
+        Update: Partial<Omit<TicketPurchaseRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_individual_tickets: {
+        Row: Omit<EventIndividualTicketRow, never>;
+        Insert: Partial<Omit<EventIndividualTicketRow, 'id' | 'created_at'>>;
+        Update: Partial<Omit<EventIndividualTicketRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_guests: {
+        Row: Omit<EventGuestRow, never>;
+        Insert: Partial<Omit<EventGuestRow, 'id'>>;
+        Update: Partial<Omit<EventGuestRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_photos: {
+        Row: Omit<EventPhotoRow, never>;
+        Insert: Partial<Omit<EventPhotoRow, 'id' | 'created_at'>>;
+        Update: Partial<Omit<EventPhotoRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_shares: {
+        Row: Omit<EventShareRow, never>;
+        Insert: Partial<Omit<EventShareRow, 'id' | 'created_at'>>;
+        Update: Partial<Omit<EventShareRow, 'id'>>;
+        Relationships: never[];
+      };
+      photo_shares: {
+        Row: Omit<PhotoShareRow, never>;
+        Insert: Partial<Omit<PhotoShareRow, 'id' | 'created_at'>>;
+        Update: Partial<Omit<PhotoShareRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_invitations: {
+        Row: Omit<EventInvitationRow, never>;
+        Insert: Partial<Omit<EventInvitationRow, 'id'>>;
+        Update: Partial<Omit<EventInvitationRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_referrals: {
+        Row: Omit<EventReferralRow, never>;
+        Insert: Partial<Omit<EventReferralRow, 'id' | 'created_at'>>;
+        Update: Partial<Omit<EventReferralRow, 'id'>>;
+        Relationships: never[];
+      };
+      notification_logs: {
+        Row: Omit<NotificationLogRow, never>;
+        Insert: Partial<Omit<NotificationLogRow, 'id' | 'created_at'>>;
+        Update: Partial<Omit<NotificationLogRow, 'id'>>;
+        Relationships: never[];
+      };
+      promo_codes: {
+        Row: Omit<PromoCodeRow, never>;
+        Insert: Partial<Omit<PromoCodeRow, 'id' | 'created_at' | 'updated_at'>>;
+        Update: Partial<Omit<PromoCodeRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_ticket_types: {
+        Row: Omit<EventTicketTypeRow, never>;
+        Insert: Partial<Omit<EventTicketTypeRow, 'id' | 'created_at' | 'updated_at'>>;
+        Update: Partial<Omit<EventTicketTypeRow, 'id'>>;
+        Relationships: never[];
+      };
+      event_tickets: {
+        Row: Omit<EventTicketRow, never>;
+        Insert: Partial<Omit<EventTicketRow, 'id' | 'created_at'>>;
+        Update: Partial<Omit<EventTicketRow, 'id'>>;
+        Relationships: never[];
+      };
+      events: {
+        Row: Omit<EventRow, never>;
+        Insert: Partial<Omit<EventRow, 'id' | 'created_at' | 'updated_at'>>;
+        Update: Partial<Omit<EventRow, 'id'>>;
+        Relationships: never[];
+      };
+      profiles: {
+        Row: Omit<ProfileRow, never>;
+        Insert: Partial<Omit<ProfileRow, 'id' | 'created_at' | 'updated_at'>>;
+        Update: Partial<Omit<ProfileRow, 'id'>>;
+        Relationships: never[];
+      };
       stay_hotels: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       stay_rooms: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       stay_room_availability: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };

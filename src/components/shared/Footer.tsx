@@ -34,6 +34,7 @@ const FOOTER_LINKS = {
     { label: 'Terms of Service', href: '/legal/terms' },
     { label: 'Privacy Policy', href: '/legal/privacy' },
     { label: 'Cookie Policy', href: '/legal/cookies' },
+    { label: 'Host Agreement', href: '/legal/host-agreement' },
     { label: 'Vendor Agreement', href: '/legal/vendor' },
     { label: 'Community Guidelines', href: '/legal/guidelines' },
   ],

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { requireAuthenticatedUser } from '@/lib/supabase/server';
 
 function generateReferralCode(): string {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -16,12 +11,13 @@ export async function POST(
 ) {
   try {
     const { id: eventId } = await params;
+    const { supabase, user } = await requireAuthenticatedUser();
     const body = await req.json();
-    const { recipients, inviterId, inviterName, platform, customMessage } = body;
+    const { recipients, inviterName, platform, customMessage } = body;
 
-    if (!inviterId || !recipients || !Array.isArray(recipients) || recipients.length === 0) {
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: inviterId, recipients[]' },
+        { success: false, error: 'Missing required fields: recipients[]' },
         { status: 400 }
       );
     }
@@ -37,7 +33,7 @@ export async function POST(
 
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .select('id, title, slug, share_url, start_date, venue_name, venue_city, cover_image_url, referral_code, enable_referrals')
+      .select('id, title, slug, share_url, start_date, venue_name, venue_city, cover_image_url, referral_code, enable_referrals, organizer_id')
       .eq('id', eventId)
       .single();
 
@@ -48,12 +44,26 @@ export async function POST(
       );
     }
 
+    const profileResponse = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    const isAdmin = profileResponse.data?.role === 'admin' || profileResponse.data?.role === 'super_admin';
+
+    if (event.organizer_id !== user.id && !isAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Forbidden: only the event organizer or admin can send invitations' },
+        { status: 403 }
+      );
+    }
+
     const eventUrl = event.share_url ?? `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${event.slug}`;
     const invitationRows = recipients.map((r: { name: string; email?: string; phone?: string }) => {
       const referralCode = event.enable_referrals ? generateReferralCode() : '';
       return {
         event_id: eventId,
-        inviter_id: inviterId,
+        inviter_id: user.id,
         inviter_name: inviterName ?? 'Someone',
         recipient_name: r.name,
         recipient_email: r.email ?? null,
@@ -80,15 +90,13 @@ export async function POST(
       );
     }
 
-    if (inviterId) {
-      await supabase.from('notifications').insert({
-        user_id: inviterId,
-        type: 'invitations_sent',
-        title: 'Invitations Sent',
-        body: `You sent ${recipients.length} invitation(s) for "${event.title}".`,
-        data: { event_id: eventId, count: recipients.length, platform: selectedPlatform },
-      });
-    }
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      type: 'invitations_sent',
+      title: 'Invitations Sent',
+      body: `You sent ${recipients.length} invitation(s) for "${event.title}".`,
+      data: { event_id: eventId, count: recipients.length, platform: selectedPlatform },
+    });
 
     return NextResponse.json(
       {
@@ -117,8 +125,15 @@ export async function GET(
 ) {
   try {
     const { id: eventId } = await params;
-    const { searchParams } = new URL(req.url);
-    const organizerId = searchParams.get('organizerId');
+    const { supabase, user } = await requireAuthenticatedUser();
+    const profileResponse = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+    const isAdmin =
+      profileResponse.data?.role === 'admin' ||
+      profileResponse.data?.role === 'super_admin';
 
     const { data: event } = await supabase
       .from('events')
@@ -133,9 +148,9 @@ export async function GET(
       );
     }
 
-    if (!organizerId || event.organizer_id !== organizerId) {
+    if (event.organizer_id !== user.id && !isAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized: only the organizer can view invitation stats' },
+        { success: false, error: 'Unauthorized: only the organizer or an admin can view invitation stats' },
         { status: 403 }
       );
     }

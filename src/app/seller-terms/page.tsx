@@ -493,7 +493,25 @@ export default function SellerTermsPage() {
               <li>Receipt of multiple valid complaints from Buyers.</li>
               <li>Violation of applicable laws or regulations.</li>
               <li>Non-payment of fees owed to AfriBook.</li>
+              <li>
+                Engaging in, soliciting, facilitating, or condoning{' '}
+                <strong>SHARFT</strong> — sexual harassment, assault, rape, fraud or trafficking, or any
+                other form of sexual exploitation, abuse or financial crime — against any Buyer, user,
+                or member of the public.
+              </li>
             </ul>
+            <div className="bg-red-500/5 border border-red-500/20 rounded-xl p-4">
+              <div className="flex items-start gap-2.5">
+                <Ban className="w-4 h-4 text-red-500 mt-0.5 shrink-0" />
+                <p className="text-sm text-text-primary leading-relaxed">
+                  <strong className="font-semibold">Zero tolerance.</strong> AfriBook has a strict and absolute
+                  policy that SHARFT is completely prohibited. Any Seller found to have engaged in, facilitated,
+                  solicited, or failed to report SHARFT or any criminal conduct will be terminated immediately,
+                  without notice, may forfeit outstanding payouts, will be reported to law enforcement, and may be
+                  personally liable for their own conduct.
+                </p>
+              </div>
+            </div>
             <p>
               <strong>Suspension:</strong> The Seller will be notified of suspension via email. During suspension,
               the Seller&apos;s Listings are hidden, and no new Orders can be placed. Pending Orders must still
@@ -541,6 +559,34 @@ export default function SellerTermsPage() {
               To the maximum extent permitted by applicable law, AfriBook&apos;s total aggregate liability to any
               Seller shall not exceed the Service Fees paid by that Seller in the 12 months preceding the claim.
               AfriBook shall not be liable for indirect, incidental, special, consequential, or punitive damages.
+            </p>
+            <p>
+              <strong>No joint or several liability.</strong> AfriBook shall not be jointly or severally liable with
+              any Seller for loss, injury, damage, or claims arising out of the Seller&apos;s products, services,
+              acts, omissions, or the conduct of the Seller&apos;s staff or Buyers, except where caused by the gross
+              negligence or wilful misconduct of AfriBook.
+            </p>
+            <p>
+              <strong>Release and hold harmless.</strong> To the fullest extent permitted by law, the Seller releases
+              and holds harmless AfriBook and its affiliates, officers, directors, employees, and agents from all
+              claims, damages, losses, and expenses (including reasonable legal fees) arising out of: (a) the
+              Seller&apos;s products or services; (b) any injury, accident, loss, or damage caused by the Seller&apos;s
+              products or services; (c) the conduct of any Buyer or third party; (d) the Seller&apos;s failure to comply
+              with local law, licences, or regulations; and (e) force majeure events that prevent or disrupt fulfilment.
+            </p>
+            <p>
+              <strong>Personal liability.</strong> The Seller acknowledges that it may be personally and/or
+              entity-liable for claims arising from its own actions, errors, omissions, or negligence, and that
+              AfriBook is not the Seller&apos;s insurer or guarantor. The Seller is responsible for conducting its
+              own due diligence on the licences, permits, insurance, tax, and safety obligations that apply to its
+              business and agrees to comply with all applicable local law.
+            </p>
+            <p>
+              <strong>Force majeure.</strong> Neither party shall be liable for failure or delay caused by an event
+              beyond its reasonable control, including acts of God and natural disasters, war, terrorism, civil
+              unrest, strikes, power or network failures, government actions, and other unforeseeable events. Where
+              an Order cannot be fulfilled due to such an event, the parties will cooperate to refund or rebook the
+              Buyer in accordance with the Refund Policy.
             </p>
           </div>
         </motion.section>

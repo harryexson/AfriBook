@@ -7,6 +7,7 @@ import { Star, MapPin, ChevronLeft, ChevronRight, ArrowUpRight } from 'lucide-re
 
 interface Business {
   id: string
+  countryCode: string
   name: string
   category: string
   rating: number
@@ -16,28 +17,28 @@ interface Business {
 
 const FEATURED: Business[] = [
   {
-    id: '1', name: 'Lagos Fresh Market', category: 'Food & Grocery',
+    id: 'ng-1', countryCode: 'NG', name: 'Lagos Fresh Market', category: 'Food & Dining',
     rating: 4.8, reviewCount: 234, location: 'Lagos, Nigeria',
   },
   {
-    id: '2', name: 'Nairobi Beauty Studio', category: 'Beauty & Wellness',
-    rating: 4.9, reviewCount: 189, location: 'Nairobi, Kenya',
+    id: 'ke-1', countryCode: 'KE', name: 'Nairobi Beauty Studio', category: 'Beauty & Wellness',
+    rating: 4.9, reviewCount: 312, location: 'Nairobi, Kenya',
   },
   {
-    id: '3', name: 'Cape Town Rides', category: 'Transportation',
-    rating: 4.7, reviewCount: 567, location: 'Cape Town, SA',
+    id: 'za-2', countryCode: 'ZA', name: 'Sandton City Salon', category: 'Beauty & Wellness',
+    rating: 4.8, reviewCount: 264, location: 'Johannesburg, SA',
   },
   {
-    id: '4', name: 'Accra Fashion House', category: 'Fashion & Tailoring',
+    id: 'gh-1', countryCode: 'GH', name: 'Accra Fashion House', category: 'Fashion & Tailoring',
     rating: 4.6, reviewCount: 142, location: 'Accra, Ghana',
   },
   {
-    id: '5', name: 'Cairo Tech Repair', category: 'Electronics & Repairs',
-    rating: 4.5, reviewCount: 98, location: 'Cairo, Egypt',
+    id: 'eg-1', countryCode: 'EG', name: 'Cairo Property Group', category: 'Real Estate',
+    rating: 4.4, reviewCount: 198, location: 'Cairo, Egypt',
   },
   {
-    id: '6', name: 'Dar Fresh Delivery', category: 'Food Delivery',
-    rating: 4.8, reviewCount: 312, location: 'Dar es Salaam, TZ',
+    id: 'tz-1', countryCode: 'TZ', name: 'Serengeti Adventure Tours', category: 'Tourism',
+    rating: 4.9, reviewCount: 423, location: 'Arusha, Tanzania',
   },
 ]
 
@@ -103,39 +104,37 @@ export default function FeaturedBusinesses() {
               className="shrink-0 snap-start"
             >
               <Link
-                href="/marketplace"
-                className="group flex h-full w-[300px] flex-col overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-b from-white via-surface to-surface shadow-[0_28px_80px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1.5 hover:shadow-[0_36px_90px_rgba(15,23,42,0.14)] sm:w-[340px]"
+                href={`/${business.countryCode.toLowerCase()}/business/${business.id}`}
+                className="group flex h-full w-[300px] flex-col overflow-hidden rounded-3xl border border-border bg-surface transition-all duration-300 hover:-translate-y-1.5 hover:border-amber-500/40 hover:shadow-xl sm:w-[340px]"
               >
-                <div className="relative flex h-44 items-center justify-center overflow-hidden bg-surface-secondary">
-                  <div className="absolute -left-10 top-8 h-28 w-28 rounded-full bg-amber-300/15 blur-3xl" />
-                  <div className="absolute -right-12 bottom-6 h-24 w-24 rounded-full bg-emerald-500/10 blur-3xl" />
-                  <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-amber-500 to-orange-400 text-4xl font-semibold text-white shadow-2xl transition-transform duration-300 group-hover:scale-105">
+                {/* Cover */}
+                <div className="relative flex h-44 items-center justify-center overflow-hidden bg-surface-tertiary">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-gold text-4xl font-semibold text-white shadow-gold-lg transition-transform duration-300 group-hover:scale-105">
                     {business.name.charAt(0)}
                   </div>
-                  <span className="absolute right-4 top-4 rounded-full bg-slate-950/85 px-3 py-1 text-xs font-semibold text-amber-200 backdrop-blur-sm">
+                  <span className="absolute right-4 top-4 rounded-full bg-dark-700/80 px-3 py-1 text-xs font-semibold text-amber-300 backdrop-blur-sm">
                     {business.category}
                   </span>
+                  <ArrowUpRight className="absolute left-4 top-4 h-5 w-5 text-text-tertiary opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                 </div>
 
-                <div className="flex flex-1 flex-col p-6">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-semibold tracking-[-0.02em] text-text-primary transition-colors group-hover:text-amber-600">
-                        {business.name}
-                      </h3>
-                    </div>
-                    <span className="flex items-center gap-1 rounded-full bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
+                <div className="flex flex-1 flex-col p-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <h3 className="text-lg font-semibold tracking-[-0.01em] text-text-primary transition-colors group-hover:text-amber-600">
+                      {business.name}
+                    </h3>
+                    <span className="flex items-center gap-1 text-sm font-semibold text-text-primary">
                       <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
                       {business.rating}
                     </span>
                   </div>
 
-                  <div className="mt-4 space-y-3 text-sm text-text-secondary">
-                    <div className="inline-flex items-center gap-2 rounded-3xl bg-surface-secondary px-3 py-2">
-                      <MapPin className="h-4 w-4 text-text-tertiary" />
-                      <span>{business.location}</span>
-                    </div>
-                    <p className="text-text-tertiary">{business.reviewCount} reviews · High demand</p>
+                  <div className="mt-2 flex items-center gap-1.5 text-sm text-text-secondary">
+                    <MapPin className="h-4 w-4 text-text-tertiary" />
+                    {business.location}
+                    <span className="text-text-tertiary">
+                      · {business.reviewCount} reviews
+                    </span>
                   </div>
                 </div>
               </Link>

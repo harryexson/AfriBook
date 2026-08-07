@@ -174,7 +174,7 @@ export default function CheckoutPage() {
             </div>
           )}
           <button
-            onClick={() => router.push('/account/orders')}
+            onClick={() => router.push('/orders')}
             className="mt-6 w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold text-sm shadow-lg shadow-amber-500/25"
           >
             View My Orders

@@ -5,14 +5,13 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../src/theme';
 import Button from '../src/components/ui/Button';
-import { API_BASE } from '../src/lib/api';
-import * as SecureStore from 'expo-secure-store';
+import { api } from '../src/lib/api';
 
 const PAYMENT_METHODS = [
   { id: 'card', label: 'Credit/Debit Card', icon: '💳' },
@@ -21,43 +20,52 @@ const PAYMENT_METHODS = [
   { id: 'cash', label: 'Pay with Cash', icon: '💵' },
 ];
 
+const TOTAL_AMOUNT = 5500;
+const CURRENCY = 'NGN';
+const COUNTRY_CODE = 'NG';
+
 export default function CheckoutScreen() {
   const router = useRouter();
   const [selectedMethod, setSelectedMethod] = useState('card');
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handlePay = async () => {
-    if (processing) return;
     setProcessing(true);
+    setError(null);
+
     try {
-      const token = await SecureStore.getItemAsync('afribook-token');
-      const response = await fetch(`${API_BASE}/api/payment/intent`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({
-          amount: 5500,
-          currency: 'NGN',
-          countryCode: 'NG',
-          method: selectedMethod,
-          description: 'AfriBook checkout',
-        }),
+      if (selectedMethod === 'cash') {
+        // Cash on delivery — no online payment intent needed.
+        await new Promise((r) => setTimeout(r, 800));
+        router.replace('/(tabs)/bookings');
+        return;
+      }
+
+      const result = await api.post<{
+        transactionId?: string;
+        status?: string;
+        redirectUrl?: string;
+        error?: string;
+      }>('/api/payment/intent', {
+        amount: TOTAL_AMOUNT,
+        currency: CURRENCY,
+        countryCode: COUNTRY_CODE,
+        method: selectedMethod,
+        description: 'Classic Haircut',
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error ?? 'Payment failed');
+      if (result.redirectUrl) {
+        await Linking.openURL(result.redirectUrl);
+      }
+
+      if (result.error) {
+        throw new Error(result.error);
       }
 
       router.replace('/(tabs)/bookings');
     } catch (err) {
-      Alert.alert(
-        'Payment failed',
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.',
-      );
-    } finally {
+      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
       setProcessing(false);
     }
   };
@@ -119,12 +127,14 @@ export default function CheckoutScreen() {
             Your payment is secured with 256-bit SSL encryption
           </Text>
         </View>
+
+        {error && <Text style={styles.error}>{error}</Text>}
       </ScrollView>
 
       {/* CTA */}
       <View style={styles.ctaContainer}>
         <Button
-          title="Pay NGN 5,500"
+          title={`Pay ${CURRENCY} ${TOTAL_AMOUNT.toLocaleString()}`}
           onPress={handlePay}
           loading={processing}
           fullWidth
@@ -258,6 +268,12 @@ const styles = StyleSheet.create({
   securityText: {
     fontSize: typography.fontSize.xs,
     color: colors.textTertiary,
+  },
+  error: {
+    fontSize: typography.fontSize.sm,
+    color: colors.error,
+    textAlign: 'center',
+    paddingVertical: spacing.md,
   },
   ctaContainer: {
     position: 'absolute',

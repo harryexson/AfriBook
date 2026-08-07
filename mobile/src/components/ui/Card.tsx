@@ -1,15 +1,15 @@
-import React from 'react';
-import { View, StyleSheet, ViewProps, ViewStyle } from 'react-native';
-import { colors, borderRadius, spacing, shadows } from '../../theme';
+import React from "react";
+import { View, StyleSheet, ViewProps, ViewStyle } from "react-native";
+import { colors, borderRadius, spacing, shadows } from "../../theme";
 
 interface CardProps extends ViewProps {
-  variant?: 'default' | 'outlined' | 'elevated';
+  variant?: "default" | "outlined" | "elevated";
   padding?: keyof typeof spacing;
 }
 
 export default function Card({
-  variant = 'default',
-  padding = 'lg',
+  variant = "default",
+  padding = "lg",
   style,
   children,
   ...props
@@ -31,15 +31,15 @@ export default function Card({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: borderRadius['2xl'],
+    borderRadius: borderRadius["2xl"],
     backgroundColor: colors.surface,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   default: {
     backgroundColor: colors.surface,
     ...shadows.md,
     borderWidth: 1,
-    borderColor: 'rgba(229, 231, 235, 0.7)',
+    borderColor: "rgba(229, 231, 235, 0.7)",
   },
   outlined: {
     backgroundColor: colors.surface,
@@ -50,6 +50,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     ...shadows.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: "rgba(255,255,255,0.15)",
   },
 });

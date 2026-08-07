@@ -9,7 +9,7 @@ import { useUIStore } from '@/stores/ui-store'
 import {
   LayoutDashboard, Building2, Scissors, Package, Users, Calendar,
   Utensils, BarChart3, Wallet, Settings, QrCode, X,
-  ShoppingBag, Globe,
+  ShoppingBag, Globe, ScrollText,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -25,7 +25,8 @@ const NAV_ITEMS = [
   { label: 'Analytics', href: '/vendor/analytics', icon: BarChart3 },
   { label: 'Payouts', href: '/vendor/payouts', icon: Wallet },
   { label: 'QR Codes', href: '/vendor/qr', icon: QrCode },
-  { label: 'Settings', href: '/account/settings', icon: Settings },
+  { label: 'Settings', href: '/vendor/settings', icon: Settings },
+  { label: 'Legal & Compliance', href: '/vendor/legal', icon: ScrollText },
 ]
 
 interface VendorSidebarProps {

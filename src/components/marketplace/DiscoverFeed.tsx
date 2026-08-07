@@ -4,64 +4,14 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Globe2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import MarketplaceCard, { type Listing } from './MarketplaceCard'
-
-const FEED: Listing[] = [
-  {
-    id: 'm1', title: 'Handwoven Kente throws & decor', business: 'Accra Looms',
-    category: 'Fashion', location: 'Accra, Ghana', flag: '🇬🇭',
-    rating: 4.9, reviewCount: 312, price: 'GH₵ 480',
-    cover: 'cover-amber', verified: true, likes: 1280,
-  },
-  {
-    id: 'm2', title: 'Private dhow sunset cruise', business: 'Zanzibar Sails',
-    category: 'Experiences', location: 'Zanzibar, TZ', flag: '🇹🇿',
-    rating: 4.8, reviewCount: 204, price: '$62',
-    cover: 'cover-gold', verified: true, likes: 890,
-  },
-  {
-    id: 'm3', title: 'Jollof catering for 50 guests', business: 'Lagos Kitchen',
-    category: 'Food', location: 'Lagos, Nigeria', flag: '🇳🇬',
-    rating: 4.7, reviewCount: 521, price: '₦ 85,000',
-    cover: 'cover-amber', likes: 2103,
-  },
-  {
-    id: 'm4', title: 'Safari & lodge booking concierge', business: 'Savanna Stays',
-    category: 'Travel', location: 'Nairobi, Kenya', flag: '🇰🇪',
-    rating: 4.9, reviewCount: 178, price: 'KSh 24,000',
-    cover: 'cover-gold', verified: true, likes: 1540,
-  },
-  {
-    id: 'm5', title: 'Bespoke Ankara suits', business: 'Dakar Atelier',
-    category: 'Fashion', location: 'Dakar, Senegal', flag: '🇸🇳',
-    rating: 4.8, reviewCount: 96, price: 'CFA 95,000',
-    cover: 'cover-amber', likes: 640,
-  },
-  {
-    id: 'm6', title: 'Smartphone repair & unlocking', business: 'Cairo Fix',
-    category: 'Electronics', location: 'Cairo, Egypt', flag: '🇪🇬',
-    rating: 4.6, reviewCount: 410, price: 'EGP 450',
-    cover: 'cover-gold', verified: true, likes: 1120,
-  },
-  {
-    id: 'm7', title: 'Organic coffee bean subscription', business: 'Addis Roasters',
-    category: 'Food', location: 'Addis Ababa, ET', flag: '🇪🇹',
-    rating: 4.9, reviewCount: 264, price: 'Br 1,200',
-    cover: 'cover-amber', likes: 980,
-  },
-  {
-    id: 'm8', title: 'Braids & locs home studio', business: 'Joburg Glow',
-    category: 'Beauty', location: 'Johannesburg, SA', flag: '🇿🇦',
-    rating: 4.8, reviewCount: 333, price: 'R 650',
-    cover: 'cover-gold', verified: true, likes: 1760,
-  },
-]
+import MarketplaceCard from './MarketplaceCard'
+import { MARKETPLACE_LISTINGS } from '@/lib/marketplace-listings'
 
 const FILTERS = ['All', 'Fashion', 'Food', 'Travel', 'Beauty', 'Electronics', 'Experiences']
 
 export default function DiscoverFeed() {
   const [active, setActive] = useState('All')
-  const items = active === 'All' ? FEED : FEED.filter((l) => l.category === active)
+  const items = active === 'All' ? MARKETPLACE_LISTINGS : MARKETPLACE_LISTINGS.filter((l) => l.category === active)
 
   return (
     <section className="relative overflow-hidden py-16 sm:py-24">

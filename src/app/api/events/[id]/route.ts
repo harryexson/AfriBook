@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createServiceRoleClient } from '@supabase/supabase-js';
+import { requireAuthenticatedUser } from '@/lib/supabase/server';
 
-const supabase = createClient(
+const supabase = createServiceRoleClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
@@ -88,7 +89,15 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { organizerId, adminRole } = body;
+    const { supabase: authSupabase, user } = await requireAuthenticatedUser();
+
+    const profileResponse = await authSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = profileResponse.data?.role === 'admin' || profileResponse.data?.role === 'super_admin';
 
     const { data: existing, error: fetchError } = await supabase
       .from('events')
@@ -103,7 +112,7 @@ export async function PATCH(
       );
     }
 
-    if (organizerId && existing.organizer_id !== organizerId && adminRole !== 'admin' && adminRole !== 'super_admin') {
+    if (existing.organizer_id !== user.id && !isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: you can only update your own events' },
         { status: 403 }
@@ -205,9 +214,15 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const { searchParams } = new URL(req.url);
-    const organizerId = searchParams.get('organizerId');
-    const adminRole = searchParams.get('adminRole');
+    const { supabase: authSupabase, user } = await requireAuthenticatedUser();
+
+    const profileResponse = await authSupabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+
+    const isAdmin = profileResponse.data?.role === 'admin' || profileResponse.data?.role === 'super_admin';
 
     const { data: event, error: fetchError } = await supabase
       .from('events')
@@ -222,7 +237,7 @@ export async function DELETE(
       );
     }
 
-    if (organizerId && event.organizer_id !== organizerId && adminRole !== 'admin' && adminRole !== 'super_admin') {
+    if (event.organizer_id !== user.id && !isAdmin) {
       return NextResponse.json(
         { success: false, error: 'Forbidden: you can only cancel your own events' },
         { status: 403 }

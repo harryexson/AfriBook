@@ -53,6 +53,10 @@ export async function POST(req: NextRequest) {
     'data_sharing',
     'payment_authorization',
     'hold_harmless_waiver',
+    'host_agreement',
+    'driver_agreement',
+    'rider_agreement',
+    'guest_agreement',
   ];
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined;
@@ -84,6 +88,24 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Fire a welcome confirmation when the account terms are accepted so new
+  // users get a receipt of their agreements (audited in `email_logs`).
+  const acceptedTerms = rows.some(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (r: any) => r.consent_type === 'terms_of_service' && r.granted !== false,
+  );
+  if (acceptedTerms && user.email) {
+    const { sendEmail } = await import('@/lib/email');
+    sendEmail({
+      to: user.email,
+      userId: user.id,
+      template: 'welcome',
+      subject: 'Welcome to AfriBook — your account is ready',
+      html: `<p>Hi ${user.user_metadata?.name ?? 'there'},</p><p>Welcome to AfriBook. Your account is ready and your agreements have been recorded.</p><p>Happy booking!</p>`,
+      metadata: { acceptedConsents: rows.map((r: any) => r.consent_type) },
+    }).catch(() => {});
   }
 
   return NextResponse.json({ consents: data }, { status: 201 });

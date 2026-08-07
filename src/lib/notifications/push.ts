@@ -43,13 +43,13 @@ export async function sendPushToUser(
 
   // Also store in notifications table for in-app display
   await supabase.from('notifications').insert({
-    userId,
+    user_id: userId,
     type: 'booking',
     title: payload.title,
     body: payload.body,
     data: payload.data ?? {},
-    isRead: false,
-  } as any);
+    read: false,
+  });
 
   // Send via Expo Push API
   const expoMessages: ExpoPushMessage[] = tokens.map((t) => ({

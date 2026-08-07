@@ -189,7 +189,7 @@ export default function HomeScreen() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={styles.actionCard}
-              onPress={() => router.push('/(tabs)/bookings')}
+              onPress={() => router.push('/(tabs)/search')}
             >
               <Text style={styles.actionIcon}>📋</Text>
               <Text style={styles.actionLabel}>My Bookings</Text>

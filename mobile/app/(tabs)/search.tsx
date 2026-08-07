@@ -9,7 +9,6 @@ import {
   FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import Input from '../../src/components/ui/Input';
 import BusinessCard from '../../src/components/BusinessCard';
@@ -69,13 +68,8 @@ const MOCK_BUSINESSES: Business[] = [
 ];
 
 export default function SearchScreen() {
-  const params = useLocalSearchParams<{ category?: string }>();
   const [query, setQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState(() => {
-    const category = typeof params.category === 'string' ? params.category : 'All';
-    const match = FILTERS.find((f) => f !== 'All' && category.toLowerCase().includes(f.toLowerCase()));
-    return match ?? 'All';
-  });
+  const [activeFilter, setActiveFilter] = useState('All');
 
   const filtered = MOCK_BUSINESSES.filter((b) => {
     const matchesQuery = !query || b.name.toLowerCase().includes(query.toLowerCase());

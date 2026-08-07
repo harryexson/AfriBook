@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
+import { TextDecoder, TextEncoder } from 'node:util';
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue({
@@ -45,8 +46,8 @@ vi.mock('@/lib/supabase/client', () => ({
   }),
 }));
 
-globalThis.TextEncoder = require('util').TextEncoder;
-globalThis.TextDecoder = require('util').TextDecoder;
+globalThis.TextEncoder = TextEncoder;
+globalThis.TextDecoder = TextDecoder;
 
 vi.mock('stripe', () => {
   return vi.fn().mockImplementation(() => ({

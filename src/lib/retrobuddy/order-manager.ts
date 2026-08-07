@@ -208,16 +208,25 @@ export async function createRestaurantOrder(
     .select('id, name, price, is_available, restaurant_id')
     .in('id', itemIds);
 
-  type MenuItemRow = {
+  interface MenuRow {
     id: string;
     name: string;
     price: number;
     is_available: boolean;
     restaurant_id: string;
-  };
+  }
 
-  const menuMap = new Map<string, MenuItemRow>(
-    ((menuRows ?? []) as MenuItemRow[]).map((m) => [m.id, m]),
+  const menuMap = new Map<string, MenuRow>(
+    ((menuRows ?? []) as Array<Record<string, unknown>>).map((m) => [
+      String(m.id),
+      {
+        id: String(m.id),
+        name: String(m.name ?? ''),
+        price: Number(m.price ?? 0),
+        is_available: (m.is_available as boolean | null | undefined) !== false,
+        restaurant_id: String(m.restaurant_id ?? ''),
+      },
+    ]),
   );
 
   let subtotal = 0;
