@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPaymentIntent, getPaymentOrchestrator } from '@/lib/payments';
+import { isMethodAvailableForCountry } from '@/lib/payments/capabilities';
 
 export async function POST(req: NextRequest) {
   const { createClient } = await import('@/lib/supabase/server');
@@ -27,6 +28,17 @@ export async function POST(req: NextRequest) {
 
   if (!amount || !countryCode || !method) {
     return NextResponse.json({ error: 'Missing required fields (amount, countryCode, method)' }, { status: 400 });
+  }
+
+  const methodAvailable = await isMethodAvailableForCountry(countryCode, method);
+  if (!methodAvailable) {
+    return NextResponse.json(
+      {
+        error: `Payment method "${method}" is not supported in ${countryCode.toUpperCase()}.`,
+        supportedMethods: (await import('@/lib/payments')).getPaymentMethodsForCountry(countryCode),
+      },
+      { status: 400 },
+    );
   }
 
   const { data: profile } = await supabase

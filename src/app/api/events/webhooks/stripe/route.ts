@@ -84,6 +84,69 @@ async function handlePaymentSucceeded(
   supabase: any,
   paymentIntent: Stripe.PaymentIntent,
 ) {
+  const { type } = paymentIntent.metadata;
+
+  // Celebrations: per-event billing charge paid → flip the event to paid.
+  if (type === 'celebration_per_event') {
+    const { event_id } = paymentIntent.metadata;
+    if (event_id) {
+      await supabase
+        .from('events')
+        .update({
+          billing_status: 'paid',
+          billing_paid_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', event_id);
+    }
+    return;
+  }
+
+  // Celebrations: donation paid → mark completed and credit the organizer wallet.
+  if (type === 'celebration_donation') {
+    const { donation_id, event_id, organizer_id, net_amount } = paymentIntent.metadata;
+
+    if (!donation_id) return;
+
+    const { data: donation } = await supabase
+      .from('celebration_donations')
+      .select('id, event_id, donor_name, status, net_amount')
+      .eq('id', donation_id)
+      .single();
+
+    if (!donation) return;
+    if (donation.status === 'completed') return;
+
+    await supabase
+      .from('celebration_donations')
+      .update({
+        status: 'completed',
+        paid_at: new Date().toISOString(),
+        stripe_payment_intent_id: paymentIntent.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', donation.id);
+
+    const net = Number(net_amount ?? donation.net_amount ?? 0);
+    if (organizer_id && net > 0) {
+      await creditOrganizerWallet(supabase, organizer_id, net, event_id ?? donation.event_id);
+    }
+
+    await supabase.from('notifications').insert({
+      user_id: organizer_id,
+      type: 'payment',
+      title: 'Donation Received',
+      body: `${donation.donor_name ?? 'A guest'} donated to your celebration.`,
+      data: {
+        event_id: event_id ?? donation.event_id,
+        donation_id: donation.id,
+        net_amount: net,
+        payment_intent_id: paymentIntent.id,
+      },
+    });
+    return;
+  }
+
   const { registration_id } = paymentIntent.metadata;
   if (!registration_id) return;
 
@@ -194,8 +257,22 @@ async function handlePaymentFailed(
   supabase: any,
   paymentIntent: Stripe.PaymentIntent,
 ) {
-  const { registration_id } = paymentIntent.metadata;
   const failureMessage = paymentIntent.last_payment_error?.message ?? 'Payment failed';
+
+  const { type, donation_id } = paymentIntent.metadata;
+
+  if (type === 'celebration_donation' && donation_id) {
+    await supabase
+      .from('celebration_donations')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', donation_id);
+    return;
+  }
+
+  const { registration_id } = paymentIntent.metadata;
 
   if (!registration_id) return;
 
@@ -228,6 +305,39 @@ async function handlePaymentFailed(
 async function handleRefund(supabase: any, charge: Stripe.Charge) {
   const paymentIntentId = charge.payment_intent as string;
   if (!paymentIntentId) return;
+
+  const { data: donation } = await supabase
+    .from('celebration_donations')
+    .select('id, event_id, status, net_amount, refund_amount')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .maybeSingle();
+
+  if (donation) {
+    const refundAmount = (charge.amount_refunded ?? 0) / 100;
+    await supabase
+      .from('celebration_donations')
+      .update({
+        status: 'refunded',
+        refund_amount: refundAmount,
+        refunded_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', donation.id);
+
+    if (donation.status === 'completed') {
+      const { data: evt } = await supabase
+        .from('events')
+        .select('organizer_id')
+        .eq('id', donation.event_id)
+        .single();
+
+      if (evt?.organizer_id) {
+        const netRefund = Math.max(Number(donation.net_amount ?? 0), 0);
+        await debitOrganizerWallet(supabase, evt.organizer_id, netRefund);
+      }
+    }
+    return;
+  }
 
   const { data: registration } = await supabase
     .from('event_registrations')

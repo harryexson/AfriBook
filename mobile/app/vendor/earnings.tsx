@@ -2,12 +2,14 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 
 const EARNINGS_DATA = {
-  today: { amount: 45000, currency: 'NGN', bookings: 8 },
-  thisWeek: { amount: 285000, currency: 'NGN', bookings: 42 },
-  thisMonth: { amount: 1120000, currency: 'NGN', bookings: 168 },
-  total: { amount: 8500000, currency: 'NGN', bookings: 1247 },
+  today: { amount: 45000, bookings: 8 },
+  thisWeek: { amount: 285000, bookings: 42 },
+  thisMonth: { amount: 1120000, bookings: 168 },
+  total: { amount: 8500000, bookings: 1247 },
 };
 
 const PAYOUT_HISTORY = [
@@ -17,6 +19,7 @@ const PAYOUT_HISTORY = [
 ];
 
 export default function VendorEarningsScreen() {
+  const currencyCode = useMarketStore((s) => s.currencyCode());
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -26,22 +29,22 @@ export default function VendorEarningsScreen() {
         <View style={styles.overviewGrid}>
           <View style={[styles.overviewCard, styles.overviewPrimary]}>
             <Text style={styles.overviewLabel}>Today</Text>
-            <Text style={styles.overviewAmount}>₦{EARNINGS_DATA.today.amount.toLocaleString()}</Text>
+            <Text style={styles.overviewAmount}>{formatMoney(EARNINGS_DATA.today.amount, currencyCode)}</Text>
             <Text style={styles.overviewBookings}>{EARNINGS_DATA.today.bookings} bookings</Text>
           </View>
           <View style={styles.overviewCard}>
             <Text style={styles.overviewLabel}>This Week</Text>
-            <Text style={styles.overviewAmount}>₦{EARNINGS_DATA.thisWeek.amount.toLocaleString()}</Text>
+            <Text style={styles.overviewAmount}>{formatMoney(EARNINGS_DATA.thisWeek.amount, currencyCode)}</Text>
             <Text style={styles.overviewBookings}>{EARNINGS_DATA.thisWeek.bookings} bookings</Text>
           </View>
           <View style={styles.overviewCard}>
             <Text style={styles.overviewLabel}>This Month</Text>
-            <Text style={styles.overviewAmount}>₦{EARNINGS_DATA.thisMonth.amount.toLocaleString()}</Text>
+            <Text style={styles.overviewAmount}>{formatMoney(EARNINGS_DATA.thisMonth.amount, currencyCode)}</Text>
             <Text style={styles.overviewBookings}>{EARNINGS_DATA.thisMonth.bookings} bookings</Text>
           </View>
           <View style={styles.overviewCard}>
             <Text style={styles.overviewLabel}>All Time</Text>
-            <Text style={styles.overviewAmount}>₦{EARNINGS_DATA.total.amount.toLocaleString()}</Text>
+            <Text style={styles.overviewAmount}>{formatMoney(EARNINGS_DATA.total.amount, currencyCode)}</Text>
             <Text style={styles.overviewBookings}>{EARNINGS_DATA.total.bookings} bookings</Text>
           </View>
         </View>
@@ -60,16 +63,16 @@ export default function VendorEarningsScreen() {
               <View style={styles.payoutRows}>
                 <View style={styles.payoutRow}>
                   <Text style={styles.payoutLabel}>Gross</Text>
-                  <Text style={styles.payoutValue}>₦{payout.amount.toLocaleString()}</Text>
+                  <Text style={styles.payoutValue}>{formatMoney(payout.amount, currencyCode)}</Text>
                 </View>
                 <View style={styles.payoutRow}>
                   <Text style={styles.payoutLabel}>Platform Fee (5%)</Text>
-                  <Text style={[styles.payoutValue, { color: colors.error }]}>-₦{payout.fee.toLocaleString()}</Text>
+                  <Text style={[styles.payoutValue, { color: colors.error }]}>-{formatMoney(payout.fee, currencyCode)}</Text>
                 </View>
                 <View style={styles.payoutDivider} />
                 <View style={styles.payoutRow}>
                   <Text style={[styles.payoutLabel, { fontWeight: '700', color: colors.textPrimary }]}>Net Payout</Text>
-                  <Text style={[styles.payoutValue, { fontWeight: '700', color: colors.success }]}>₦{payout.net.toLocaleString()}</Text>
+                  <Text style={[styles.payoutValue, { fontWeight: '700', color: colors.success }]}>{formatMoney(payout.net, currencyCode)}</Text>
                 </View>
               </View>
             </View>

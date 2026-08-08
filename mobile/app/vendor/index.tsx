@@ -3,12 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 
 const STATS = [
-  { label: 'Today\'s Revenue', value: 'NGN 45,000', change: '+12%', icon: '💰' },
-  { label: 'Active Bookings', value: '8', change: '+3', icon: '📋' },
-  { label: 'This Week', value: 'NGN 285,000', change: '+8%', icon: '📈' },
-  { label: 'Rating', value: '4.8', change: '+0.1', icon: '⭐' },
+  { label: 'Today\'s Revenue', value: 45000, change: '+12%', icon: '💰', kind: 'money' },
+  { label: 'Active Bookings', value: 8, change: '+3', icon: '📋', kind: 'plain' },
+  { label: 'This Week', value: 285000, change: '+8%', icon: '📈', kind: 'money' },
+  { label: 'Rating', value: 4.8, change: '+0.1', icon: '⭐', kind: 'plain' },
 ];
 
 const RECENT_BOOKINGS = [
@@ -26,6 +28,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function VendorDashboard() {
   const router = useRouter();
+  const currencyCode = useMarketStore((s) => s.currencyCode());
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -45,7 +48,9 @@ export default function VendorDashboard() {
           {STATS.map((stat) => (
             <View key={stat.label} style={styles.statCard}>
               <Text style={styles.statIcon}>{stat.icon}</Text>
-              <Text style={styles.statValue}>{stat.value}</Text>
+              <Text style={styles.statValue}>
+                {stat.kind === 'money' ? formatMoney(stat.value as number, currencyCode) : stat.value}
+              </Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
               <Text style={styles.statChange}>{stat.change}</Text>
             </View>
@@ -68,7 +73,7 @@ export default function VendorDashboard() {
                 <Text style={styles.bookingService}>{booking.service} · {booking.time}</Text>
               </View>
               <View style={styles.bookingRight}>
-                <Text style={styles.bookingAmount}>NGN {booking.amount.toLocaleString()}</Text>
+                <Text style={styles.bookingAmount}>{formatMoney(booking.amount, currencyCode)}</Text>
                 <View style={[styles.statusBadge, { backgroundColor: STATUS_COLORS[booking.status] + '20' }]}>
                   <Text style={[styles.statusText, { color: STATUS_COLORS[booking.status] }]}>
                     {booking.status}

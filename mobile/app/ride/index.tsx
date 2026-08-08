@@ -8,19 +8,22 @@ import { Ionicons } from '@expo/vector-icons';
 import AfriBookMapView from '../../src/components/MapView';
 import { useLocation } from '../../src/hooks/useLocation';
 import { useRide } from '../../src/hooks/useRide';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
 
 const RIDE_TYPES = [
-  { id: 'economy', name: 'Economy', icon: 'car', eta: '3 min', price: '₦800' },
-  { id: 'comfort', name: 'Comfort', icon: 'car-sport', eta: '5 min', price: '₦1,500' },
-  { id: 'premium', name: 'Premium', icon: 'car-sport', eta: '7 min', price: '₦3,000' },
-  { id: 'motorcycle', name: 'Bike', icon: 'bicycle', eta: '2 min', price: '₦400' },
+  { id: 'economy', name: 'Economy', icon: 'car', eta: '3 min', price: 800 },
+  { id: 'comfort', name: 'Comfort', icon: 'car-sport', eta: '5 min', price: 1500 },
+  { id: 'premium', name: 'Premium', icon: 'car-sport', eta: '7 min', price: 3000 },
+  { id: 'motorcycle', name: 'Bike', icon: 'bicycle', eta: '2 min', price: 400 },
 ];
 
 export default function RideRequestScreen() {
   const router = useRouter();
   const { location, isTracking, startTracking } = useLocation();
   const { ride, isLoading, error, requestRide, cancelRide } = useRide();
+  const currencyCode = useMarketStore((s) => s.currencyCode());
 
   const [pickupAddress, setPickupAddress] = useState('');
   const [destinationAddress, setDestinationAddress] = useState('');
@@ -158,7 +161,7 @@ export default function RideRequestScreen() {
                     {type.name}
                   </Text>
                   <Text style={styles.rideTypeEta}>{type.eta}</Text>
-                  <Text style={styles.rideTypePrice}>{type.price}</Text>
+                  <Text style={styles.rideTypePrice}>{formatMoney(type.price, currencyCode)}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>

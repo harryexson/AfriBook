@@ -126,7 +126,7 @@ export async function createRegistration(
 
   let pricing: PricingBreakdown;
   if (isFreeEvent) {
-    pricing = calculateFreeEventPricing(params.quantity);
+    pricing = calculateFreeEventPricing(params.quantity, event.venue_country ?? 'US');
   } else {
     pricing = calculateTotalPricing(
       ticketType.price,
@@ -151,7 +151,7 @@ export async function createRegistration(
     eventDate: new Date(event.start_date).toLocaleDateString(),
     eventTime: new Date(event.start_date).toLocaleTimeString(),
     venue: event.venue_name ?? 'Virtual Event',
-    currency: event.currency_code,
+    currency: pricing.currencyCode,
     totalPrice: pricing.total,
     eventUrl: event.share_url,
   });
@@ -165,7 +165,7 @@ export async function createRegistration(
     // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
     // const intent = await stripe.paymentIntents.create({
     //   amount: Math.round(pricing.total * 100),
-    //   currency: event.currency_code.toLowerCase(),
+    //   currency: pricing.currencyCode.toLowerCase(),
     //   metadata: { eventId: params.eventId, buyerId: params.buyerId },
     // });
     // paymentIntentId = intent.id;
@@ -193,7 +193,7 @@ export async function createRegistration(
     platform_fee: pricing.platformFee.amount,
     processing_fee: pricing.processingFee.amount,
     total: pricing.total,
-    currency_code: event.currency_code,
+    currency_code: pricing.currencyCode,
     payment_status: (isFreeEvent ? 'completed' : 'pending') as PaymentStatus,
     payment_method: params.paymentMethod ?? null,
     payment_intent_id: paymentIntentId ?? null,

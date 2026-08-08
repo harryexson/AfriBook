@@ -5,6 +5,7 @@ import type {
   NotificationChannel,
   NotificationType,
 } from '@/types/events';
+import { formatMoney } from '../money';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -13,7 +14,7 @@ export type { NotificationPayload, NotificationChannel, NotificationType };
 // ─── Helpers ──────────────────────────────────────────────────
 
 function formatCurrency(amount: number, currency: string = 'USD'): string {
-  return `${currency} ${amount.toFixed(2)}`;
+  return formatMoney(amount, currency);
 }
 
 async function logNotification(

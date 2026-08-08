@@ -13,7 +13,7 @@ import {
   Clock,
   Mail,
 } from 'lucide-react'
-import type { AgreementDoc } from '@/lib/legal-agreements'
+import { getAgreementBySlug } from '@/lib/legal-agreements'
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -30,12 +30,12 @@ interface SignedInfo {
 }
 
 interface LegalAgreementRendererProps {
-  doc: AgreementDoc
+  slug: string
   signable?: boolean
 }
 
 export default function LegalAgreementRenderer({
-  doc,
+  slug,
   signable = false,
 }: LegalAgreementRendererProps) {
   const [agree, setAgree] = useState(false)
@@ -44,6 +44,9 @@ export default function LegalAgreementRenderer({
   const [signedInfo, setSignedInfo] = useState<SignedInfo | null>(null)
   const [authRequired, setAuthRequired] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const doc = getAgreementBySlug(slug)
+  if (!doc) return null
 
   const consentType = 'host_agreement'
 

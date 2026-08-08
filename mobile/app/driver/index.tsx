@@ -4,6 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import MapView from '../../src/components/MapView';
 import Button from '../../src/components/ui/Button';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 
 const CURRENT_TRIP = {
   id: 't1',
@@ -13,12 +15,12 @@ const CURRENT_TRIP = {
   distance: '18.5 km',
   duration: '42 min',
   amount: 3500,
-  currency: 'NGN',
 };
 
 export default function DriverHomeScreen() {
   const [isOnline, setIsOnline] = useState(true);
   const [hasActiveTrip, setHasActiveTrip] = useState(false);
+  const currencyCode = useMarketStore((s) => s.currencyCode());
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -61,7 +63,7 @@ export default function DriverHomeScreen() {
             <View style={styles.tripHeader}>
               <Text style={styles.tripLabel}>Active Trip</Text>
               <Text style={styles.tripAmount}>
-                {CURRENT_TRIP.currency} {CURRENT_TRIP.amount.toLocaleString()}
+                {formatMoney(CURRENT_TRIP.amount, currencyCode)}
               </Text>
             </View>
             <View style={styles.tripDetails}>

@@ -3,6 +3,8 @@
 // The DB schema uses payment_status = 'succeeded' while the app-level
 // PaymentStatus type uses 'completed'. The orchestrator maps between them.
 
+import { getCurrencyForCountry as getCountryCurrency } from '../money';
+
 export type OrchestratorPaymentStatus =
   | 'pending'
   | 'processing'
@@ -388,7 +390,7 @@ export const COUNTRY_CURRENCY_MAP: Record<string, string> = {
 };
 
 export function getCurrencyForCountry(countryCode: string): string {
-  return COUNTRY_CURRENCY_MAP[countryCode] ?? 'USD';
+  return COUNTRY_CURRENCY_MAP[countryCode] ?? getCountryCurrency(countryCode);
 }
 
 export const COUNTRY_METHODS_MAP: Record<

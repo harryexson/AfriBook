@@ -4,6 +4,8 @@ import { useRouter } from "expo-router";
 import { colors, borderRadius, spacing, typography, shadows } from "../theme";
 import type { Service } from "../types";
 import Badge from "./ui/Badge";
+import { useMarketStore } from "../stores/market-store";
+import { formatMoney } from "../lib/money";
 
 interface ServiceCardProps {
   service: Service;
@@ -12,6 +14,7 @@ interface ServiceCardProps {
 
 export default function ServiceCard({ service, businessId }: ServiceCardProps) {
   const router = useRouter();
+  const currencyCode = useMarketStore((s) => s.currencyCode());
 
   const formatDuration = (minutes: number) => {
     if (minutes < 60) return `${minutes}m`;
@@ -54,7 +57,7 @@ export default function ServiceCard({ service, businessId }: ServiceCardProps) {
             ⏱ {formatDuration(service.duration)}
           </Text>
           <Text style={styles.price}>
-            {service.currencyCode} {service.price.toFixed(2)}
+            {formatMoney(service.price, currencyCode)}
           </Text>
         </View>
       </View>

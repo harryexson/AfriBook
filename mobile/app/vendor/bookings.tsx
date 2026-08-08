@@ -9,6 +9,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import Badge from '../../src/components/ui/Badge';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 
 const BOOKINGS = [
   { id: '1', customer: 'Ada E.', service: 'Classic Haircut', date: 'Jul 10', time: '10:00 AM', amount: 5000, status: 'confirmed' as const },
@@ -29,6 +31,7 @@ const STATUS_VARIANT: Record<string, 'default' | 'success' | 'warning' | 'error'
 
 export default function VendorBookingsScreen() {
   const [activeFilter, setActiveFilter] = useState('All');
+  const currencyCode = useMarketStore((s) => s.currencyCode());
 
   const filtered = BOOKINGS.filter(
     (b) => activeFilter === 'All' || b.status === activeFilter.toLowerCase(),
@@ -67,7 +70,7 @@ export default function VendorBookingsScreen() {
               </View>
               <View style={styles.cardFooter}>
                 <Text style={styles.datetime}>📅 {item.date} · 🕐 {item.time}</Text>
-                <Text style={styles.amount}>NGN {item.amount.toLocaleString()}</Text>
+                <Text style={styles.amount}>{formatMoney(item.amount, currencyCode)}</Text>
               </View>
             </View>
           )}

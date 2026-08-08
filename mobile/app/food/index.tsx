@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AfriBookMapView from '../../src/components/MapView';
 import { useLocation } from '../../src/hooks/useLocation';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
 
 interface Restaurant {
@@ -29,15 +31,16 @@ interface MenuItem {
 }
 
 const MOCK_RESTAURANTS: Restaurant[] = [
-  { id: '1', name: 'Mama Ashanti', cuisine: 'Ghanaian', rating: 4.8, deliveryTime: '25-35 min', deliveryFee: '₦500', distance: '1.2 km' },
-  { id: '2', name: 'Buka Kitchen', cuisine: 'Nigerian', rating: 4.6, deliveryTime: '20-30 min', deliveryFee: '₦300', distance: '0.8 km' },
-  { id: '3', name: 'Spice Garden', cuisine: 'Indian', rating: 4.5, deliveryTime: '30-40 min', deliveryFee: '₦600', distance: '2.1 km' },
-  { id: '4', name: 'Pizza Palace', cuisine: 'Italian', rating: 4.3, deliveryTime: '25-35 min', deliveryFee: '₦400', distance: '1.5 km' },
+  { id: '1', name: 'Mama Ashanti', cuisine: 'Ghanaian', rating: 4.8, deliveryTime: '25-35 min', deliveryFee: '500', distance: '1.2 km' },
+  { id: '2', name: 'Buka Kitchen', cuisine: 'Nigerian', rating: 4.6, deliveryTime: '20-30 min', deliveryFee: '300', distance: '0.8 km' },
+  { id: '3', name: 'Spice Garden', cuisine: 'Indian', rating: 4.5, deliveryTime: '30-40 min', deliveryFee: '600', distance: '2.1 km' },
+  { id: '4', name: 'Pizza Palace', cuisine: 'Italian', rating: 4.3, deliveryTime: '25-35 min', deliveryFee: '400', distance: '1.5 km' },
 ];
 
 export default function FoodOrderScreen() {
   const router = useRouter();
   const { location } = useLocation();
+  const currencyCode = useMarketStore((s) => s.currencyCode());
 
   const [restaurants] = useState<Restaurant[]>(MOCK_RESTAURANTS);
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
@@ -87,7 +90,7 @@ export default function FoodOrderScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.menuItemName}>{item.name}</Text>
                   <Text style={styles.menuItemDesc}>{item.description}</Text>
-                  <Text style={styles.menuItemPrice}>₦{item.price.toLocaleString()}</Text>
+                  <Text style={styles.menuItemPrice}>{formatMoney(item.price, currencyCode)}</Text>
                 </View>
                 <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item as MenuItem)}>
                   <Ionicons name="add" size={20} color={colors.primary} />
@@ -102,7 +105,7 @@ export default function FoodOrderScreen() {
           <View style={styles.cartBar}>
             <View style={styles.cartInfo}>
               <Text style={styles.cartCount}>{cart.length} items</Text>
-              <Text style={styles.cartTotal}>₦{cartTotal.toLocaleString()}</Text>
+              <Text style={styles.cartTotal}>{formatMoney(cartTotal, currencyCode)}</Text>
             </View>
             <TouchableOpacity style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>View Cart</Text>
@@ -161,7 +164,7 @@ export default function FoodOrderScreen() {
                   <Text style={styles.metaText}>· {item.deliveryTime} · {item.distance}</Text>
                 </View>
               </View>
-              <Text style={styles.deliveryFeeText}>{item.deliveryFee}</Text>
+              <Text style={styles.deliveryFeeText}>{formatMoney(Number(item.deliveryFee), currencyCode)}</Text>
             </TouchableOpacity>
           )}
         />

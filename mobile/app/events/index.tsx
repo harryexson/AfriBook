@@ -6,6 +6,8 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 
 interface Event {
   id: string;
@@ -13,24 +15,24 @@ interface Event {
   venue: string;
   date: string;
   time: string;
-  price: string;
-  currency: string;
+  price: number | null;
   category: string;
   imageUrl?: string;
   ticketsRemaining: number;
 }
 
 const MOCK_EVENTS: Event[] = [
-  { id: '1', title: 'Afrobeats Night', venue: 'Eko Convention Centre', date: 'Jul 20', time: '8:00 PM', price: '₦15,000', currency: 'NGN', category: 'Music', ticketsRemaining: 45 },
-  { id: '2', title: 'Tech Meetup Lagos', venue: 'Zone Tech Park', date: 'Jul 15', time: '2:00 PM', price: 'Free', currency: 'NGN', category: 'Technology', ticketsRemaining: 120 },
-  { id: '3', title: 'Food & Wine Festival', venue: 'Federal Palace Hotel', date: 'Jul 25', time: '12:00 PM', price: '₦25,000', currency: 'NGN', category: 'Food', ticketsRemaining: 80 },
-  { id: '4', title: 'Comedy Night', venue: 'Terra Kulture', date: 'Jul 18', time: '7:00 PM', price: '₦5,000', currency: 'NGN', category: 'Comedy', ticketsRemaining: 30 },
+  { id: '1', title: 'Afrobeats Night', venue: 'Eko Convention Centre', date: 'Jul 20', time: '8:00 PM', price: 15000, category: 'Music', ticketsRemaining: 45 },
+  { id: '2', title: 'Tech Meetup Lagos', venue: 'Zone Tech Park', date: 'Jul 15', time: '2:00 PM', price: null, category: 'Technology', ticketsRemaining: 120 },
+  { id: '3', title: 'Food & Wine Festival', venue: 'Federal Palace Hotel', date: 'Jul 25', time: '12:00 PM', price: 25000, category: 'Food', ticketsRemaining: 80 },
+  { id: '4', title: 'Comedy Night', venue: 'Terra Kulture', date: 'Jul 18', time: '7:00 PM', price: 5000, category: 'Comedy', ticketsRemaining: 30 },
 ];
 
 const CATEGORIES = ['All', 'Music', 'Technology', 'Food', 'Comedy', 'Sports', 'Art'];
 
 export default function EventScreen() {
   const router = useRouter();
+  const currencyCode = useMarketStore((s) => s.currencyCode());
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [events] = useState<Event[]>(MOCK_EVENTS);
 
@@ -94,7 +96,9 @@ export default function EventScreen() {
             </View>
 
             <View style={styles.eventFooter}>
-              <Text style={styles.eventPrice}>{event.price}</Text>
+              <Text style={styles.eventPrice}>
+                {event.price == null ? 'Free' : formatMoney(event.price, currencyCode)}
+              </Text>
               <TouchableOpacity style={styles.buyButton}>
                 <Text style={styles.buyButtonText}>Get Tickets</Text>
               </TouchableOpacity>

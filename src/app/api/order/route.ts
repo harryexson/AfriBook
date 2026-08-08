@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrencyForCountry } from '@/lib/money';
 
 async function getAdminDb() {
   const { createAdminClient } = await import('@/lib/supabase/admin');
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const { data: business } = await supabase
     .from('businesses')
-    .select('id, name, status, metadata, countries(currency_code)')
+    .select('id, name, status, country_code, metadata, countries(currency_code)')
     .eq('id', businessId)
     .single();
 
@@ -41,7 +42,10 @@ export async function POST(req: NextRequest) {
   const businessMeta = (business.metadata as Record<string, unknown>) ?? {};
   const minimumOrder = Number(businessMeta.minimum_order ?? 0);
   const deliveryFee = Number(businessMeta.delivery_fee ?? 0);
-  const currency = (business.countries as { currency_code?: string }[] | null)?.[0]?.currency_code ?? 'USD';
+  const joinCurrency = (business.countries as { currency_code?: string }[] | null)?.[0]?.currency_code;
+  const currency =
+    joinCurrency ??
+    (business.country_code ? getCurrencyForCountry(business.country_code) : 'USD');
 
   const productIds = items.map((i: { productId: string }) => i.productId);
   const { data: products } = await supabase

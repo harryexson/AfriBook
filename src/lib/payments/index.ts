@@ -28,6 +28,7 @@ import { AirwallexProvider } from './providers/airwallex-provider';
 import { PawaPayProvider } from './providers/pawapay-provider';
 import { AdyenProvider } from './providers/adyen-provider';
 import { DLocalProvider } from './providers/dlocal-provider';
+import { getCurrencyForCountry, isValidCurrencyCode } from '../money';
 
 // ─── Re-export all providers ──────────────────────────────────
 
@@ -146,19 +147,41 @@ export const paymentOrchestrator = (() => {
 /**
  * Simplified payment intent creation.
  * Resolves the correct provider and processes the payment.
+ *
+ * Currency is derived from the *market* (countryCode), never from the
+ * account origin, and every charge carries an explicit, validated ISO 4217
+ * currency code.
  */
 export async function createPaymentIntent(
   params: Omit<PaymentRequest, 'currency'> & { currency?: string },
 ): Promise<PaymentResult> {
   const orchestrator = paymentOrchestrator.current;
-  const currency =
-    params.currency ??
-    COUNTRY_CURRENCY_MAP[params.countryCode] ??
-    'USD';
+
+  if (typeof params.amount !== 'number' || !Number.isFinite(params.amount) || params.amount <= 0) {
+    return {
+      success: false,
+      transactionId: '',
+      status: 'failed',
+      error: 'amount must be a positive number',
+    };
+  }
+
+  const resolvedCurrency = params.currency
+    ? params.currency.toUpperCase()
+    : getCurrencyForCountry(params.countryCode);
+
+  if (!isValidCurrencyCode(resolvedCurrency)) {
+    return {
+      success: false,
+      transactionId: '',
+      status: 'failed',
+      error: `Unsupported or invalid currency: ${resolvedCurrency}`,
+    };
+  }
 
   return orchestrator.processPayment({
     ...params,
-    currency,
+    currency: resolvedCurrency,
   });
 }
 

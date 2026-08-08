@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import {
-  FileText, Shield, Eye, Edit3, CheckCircle, Clock,
-  ChevronRight, Globe, Users, BookOpen, AlertTriangle,
+  FileText, Edit3, CheckCircle, Clock,
+  ChevronRight, Globe, BookOpen, AlertTriangle,
   Download, RefreshCw, ExternalLink,
 } from 'lucide-react'
 
@@ -57,13 +57,6 @@ const STATUS_CONFIG: Record<PolicyStatus, { label: string; color: string; icon: 
   published: { label: 'Published', color: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400', icon: CheckCircle },
   draft: { label: 'Draft', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400', icon: Edit3 },
   archived: { label: 'Archived', color: 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400', icon: Clock },
-}
-
-interface VersionHistory {
-  version: string
-  date: string
-  author: string
-  changes: string
 }
 
 const deriveDescription = (content: string | null): string => {

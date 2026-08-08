@@ -11,6 +11,14 @@ import {
   getAvailablePPPCountries,
   convertDistance,
 } from './ppp';
+import {
+  formatMoney,
+  formatMoneySymbol,
+  getCurrencyForCountry,
+  convertCurrency,
+  getExchangeRate,
+  isValidCurrencyCode,
+} from '../money';
 
 export { COUNTRIES, CURRENCIES, LANGUAGES, TRANSLATIONS };
 export {
@@ -22,6 +30,15 @@ export {
   getAvailablePPPCountries,
   convertDistance,
 };
+export {
+  formatMoney,
+  formatMoneySymbol,
+  getCurrencyForCountry,
+  convertCurrency,
+  getExchangeRate,
+  isValidCurrencyCode,
+};
+export type { ExchangeRate } from '../money';
 export type { PPPConfig } from './ppp';
 export type { CountryConfig, PaymentMethodConfig } from './countries';
 export type { CurrencyConfig } from './currencies';
@@ -38,6 +55,11 @@ export function getCurrencyConfig(code: string) {
 
 export function getLanguageConfig(code: string) {
   return LANGUAGES[code];
+}
+
+/** Convenience: resolve the ISO 4217 currency for a country code. */
+export function getCountryCurrency(countryCode: string): string {
+  return getCurrencyForCountry(countryCode);
 }
 
 export function getLocaleFromCountry(countryCode: string): string {

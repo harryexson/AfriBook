@@ -3,6 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { colors, borderRadius, spacing, typography, shadows } from "../theme";
 import type { Booking, BookingStatus } from "../types";
 import Badge from "./ui/Badge";
+import { useMarketStore } from "../stores/market-store";
+import { formatMoney } from "../lib/money";
 
 interface BookingCardProps {
   booking: Booking;
@@ -38,6 +40,7 @@ export default function BookingCard({
   serviceName,
   onPress,
 }: BookingCardProps) {
+  const currencyCode = useMarketStore((s) => s.currencyCode());
   const date = new Date(booking.startTime);
   const dateStr = date.toLocaleDateString("en-US", {
     weekday: "short",
@@ -78,7 +81,7 @@ export default function BookingCard({
       <View style={styles.footer}>
         <View>
           <Text style={styles.amount}>
-            {booking.currencyCode} {booking.amount.toFixed(2)}
+            {formatMoney(booking.amount, currencyCode)}
           </Text>
           {booking.notes && (
             <Text style={styles.notes} numberOfLines={1}>

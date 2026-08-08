@@ -6,9 +6,9 @@ import { cn, timeAgo } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
 import TicketDetail from '@/components/admin/TicketDetail'
 import {
-  Ticket, Clock, CheckCircle, Star, AlertTriangle, ArrowUpDown,
-  Search, Filter, SortAsc, MessageSquare, User, ChevronDown,
-  ChevronRight, Paperclip, X, Calendar, ArrowLeft,
+  Ticket, Clock, CheckCircle, Star, AlertTriangle,
+  Search, Filter, SortAsc, MessageSquare, User,
+  ChevronRight, Calendar, ArrowLeft,
 } from 'lucide-react'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }

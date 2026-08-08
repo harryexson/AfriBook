@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../src/theme';
 import { COUNTRIES } from '../src/constants/countries';
 import { useAuthStore } from '../src/stores/auth-store';
+import { useMarketStore } from '../src/stores/market-store';
 import CategoryGrid from '../src/components/CategoryGrid';
 import BusinessCard from '../src/components/BusinessCard';
 import CountryPicker from '../src/components/CountryPicker';
@@ -119,7 +120,8 @@ const FEATURED_BUSINESSES: Business[] = [
 export default function HomeScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES.NG);
+  const countryCode = useMarketStore((s) => s.countryCode);
+  const setCountry = useMarketStore((s) => s.setCountry);
   const [refreshing, setRefreshing] = useState(false);
 
   const onRefresh = async () => {
@@ -147,8 +149,8 @@ export default function HomeScreen() {
             <Text style={styles.subtitle}>What do you need today?</Text>
           </View>
           <CountryPicker
-            selectedCode={selectedCountry.code}
-            onSelect={setSelectedCountry}
+            selectedCode={countryCode}
+            onSelect={(country) => setCountry(country.code)}
           />
         </View>
 
@@ -165,7 +167,7 @@ export default function HomeScreen() {
         {/* Categories */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Explore by category</Text>
-          <CategoryGrid categories={selectedCountry.categories.slice(0, 9)} />
+          <CategoryGrid categories={(COUNTRIES[countryCode]?.categories ?? COUNTRIES.NG.categories).slice(0, 9)} />
         </View>
 
         {/* Featured Businesses */}

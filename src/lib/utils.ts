@@ -1,28 +1,24 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { format, formatDistanceToNow, parseISO } from 'date-fns';
+import { formatMoney } from './money';
 
 /** Merge Tailwind CSS classes with conflict resolution */
 export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-/** Format a number as a currency string for the given currency code */
+/**
+ * Format a number as a currency string for the given currency code.
+ * Delegates to the shared money service so every amount carries an
+ * explicit ISO 4217 currency context (e.g. "MWK 5,000").
+ */
 export function formatCurrency(
   amount: number,
-  currencyCode: string = 'XAF',
+  currencyCode: string = 'USD',
   locale: string = 'en-US',
 ): string {
-  try {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: currencyCode,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${currencyCode} ${amount.toFixed(2)}`;
-  }
+  return formatMoney(amount, currencyCode, locale);
 }
 
 /** Format an ISO date string to a locale-aware date */

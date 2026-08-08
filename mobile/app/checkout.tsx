@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../src/theme';
 import Button from '../src/components/ui/Button';
 import { api } from '../src/lib/api';
+import { formatMoney } from '../src/lib/money';
+import { useMarketStore } from '../src/stores/market-store';
 
 const PAYMENT_METHODS = [
   { id: 'card', label: 'Credit/Debit Card', icon: '💳' },
@@ -21,11 +23,16 @@ const PAYMENT_METHODS = [
 ];
 
 const TOTAL_AMOUNT = 5500;
-const CURRENCY = 'NGN';
-const COUNTRY_CODE = 'NG';
+
+const SUMMARY_ITEMS = [
+  { label: 'Classic Haircut', amount: 5000 },
+  { label: 'Service Fee', amount: 500 },
+];
 
 export default function CheckoutScreen() {
   const router = useRouter();
+  const currencyCode = useMarketStore((s) => s.currencyCode());
+  const countryCode = useMarketStore((s) => s.countryCode);
   const [selectedMethod, setSelectedMethod] = useState('card');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,8 +56,8 @@ export default function CheckoutScreen() {
         error?: string;
       }>('/api/payment/intent', {
         amount: TOTAL_AMOUNT,
-        currency: CURRENCY,
-        countryCode: COUNTRY_CODE,
+        currency: currencyCode,
+        countryCode,
         method: selectedMethod,
         description: 'Classic Haircut',
       });
@@ -83,18 +90,16 @@ export default function CheckoutScreen() {
         {/* Order Summary */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Order Summary</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Classic Haircut</Text>
-            <Text style={styles.summaryValue}>NGN 5,000</Text>
-          </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Service Fee</Text>
-            <Text style={styles.summaryValue}>NGN 500</Text>
-          </View>
+          {SUMMARY_ITEMS.map((item) => (
+            <View key={item.label} style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>{item.label}</Text>
+              <Text style={styles.summaryValue}>{formatMoney(item.amount, currencyCode)}</Text>
+            </View>
+          ))}
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>NGN 5,500</Text>
+            <Text style={styles.totalValue}>{formatMoney(TOTAL_AMOUNT, currencyCode)}</Text>
           </View>
         </View>
 
@@ -134,7 +139,7 @@ export default function CheckoutScreen() {
       {/* CTA */}
       <View style={styles.ctaContainer}>
         <Button
-          title={`Pay ${CURRENCY} ${TOTAL_AMOUNT.toLocaleString()}`}
+          title={`Pay ${formatMoney(TOTAL_AMOUNT, currencyCode)}`}
           onPress={handlePay}
           loading={processing}
           fullWidth

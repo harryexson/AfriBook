@@ -97,13 +97,20 @@ export async function POST(req: NextRequest) {
     (r: any) => r.consent_type === 'terms_of_service' && r.granted !== false,
   );
   if (acceptedTerms && user.email) {
-    const { sendEmail } = await import('@/lib/email');
+    const [{ sendEmail }, { welcomeEmail }] = await Promise.all([
+      import('@/lib/email'),
+      import('@/lib/localization/email'),
+    ]);
+    const email = welcomeEmail({
+      name: user.user_metadata?.name,
+      countryCode: user.user_metadata?.countryCode,
+    });
     sendEmail({
       to: user.email,
       userId: user.id,
       template: 'welcome',
-      subject: 'Welcome to AfriBook — your account is ready',
-      html: `<p>Hi ${user.user_metadata?.name ?? 'there'},</p><p>Welcome to AfriBook. Your account is ready and your agreements have been recorded.</p><p>Happy booking!</p>`,
+      subject: email.subject,
+      html: email.html,
       metadata: { acceptedConsents: rows.map((r: any) => r.consent_type) },
     }).catch(() => {});
   }

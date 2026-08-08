@@ -3,6 +3,7 @@ import {
   RIDE_TYPE_CONFIG,
   type RideType,
 } from '@/types/ridely';
+import { getCurrencyForCountry } from '@/lib/money';
 
 async function getAdminDb() {
   const { createAdminClient } = await import('@/lib/supabase/admin');
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const country = typeof countryCode === 'string' && countryCode ? countryCode : 'NG';
+    const currencyCode = getCurrencyForCountry(country);
     const adminDb = await getAdminDb();
 
     const { data: surgeMultiplier } = await adminDb.rpc(
@@ -80,7 +83,7 @@ export async function GET(req: NextRequest) {
             minimumFare: cfg.minimumFare,
             surgeMultiplier: multiplierFromZone,
             estimatedFare: Math.round(cfg.baseFare * multiplierFromZone),
-            currencyCode: 'XAF',
+            currencyCode,
           },
         },
       });
@@ -116,7 +119,7 @@ export async function GET(req: NextRequest) {
       minimumFare: cfg.minimumFare,
       surgeMultiplier: multiplier,
       estimatedFare: Math.round(cfg.baseFare * multiplier),
-      currencyCode: 'XAF',
+      currencyCode,
     };
 
     return NextResponse.json({

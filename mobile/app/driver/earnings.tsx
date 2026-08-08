@@ -2,11 +2,13 @@ import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
+import { useMarketStore } from '../../src/stores/market-store';
+import { formatMoney } from '../../src/lib/money';
 
 const EARNINGS_DATA = {
-  today: { amount: 12500, currency: 'NGN', trips: 5 },
-  thisWeek: { amount: 78000, currency: 'NGN', trips: 32 },
-  thisMonth: { amount: 310000, currency: 'NGN', trips: 128 },
+  today: { amount: 12500, trips: 5 },
+  thisWeek: { amount: 78000, trips: 32 },
+  thisMonth: { amount: 310000, trips: 128 },
 };
 
 const TRIPS = [
@@ -17,6 +19,7 @@ const TRIPS = [
 ];
 
 export default function DriverEarningsScreen() {
+  const currencyCode = useMarketStore((s) => s.currencyCode());
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -26,19 +29,19 @@ export default function DriverEarningsScreen() {
         <View style={styles.statsRow}>
           <View style={[styles.statCard, styles.statPrimary]}>
             <Text style={styles.statLabel}>Today</Text>
-            <Text style={styles.statAmount}>₦{EARNINGS_DATA.today.amount.toLocaleString()}</Text>
+            <Text style={styles.statAmount}>{formatMoney(EARNINGS_DATA.today.amount, currencyCode)}</Text>
             <Text style={styles.statMeta}>{EARNINGS_DATA.today.trips} trips</Text>
           </View>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>This Week</Text>
-            <Text style={styles.statAmount}>₦{EARNINGS_DATA.thisWeek.amount.toLocaleString()}</Text>
+            <Text style={styles.statAmount}>{formatMoney(EARNINGS_DATA.thisWeek.amount, currencyCode)}</Text>
             <Text style={styles.statMeta}>{EARNINGS_DATA.thisWeek.trips} trips</Text>
           </View>
         </View>
 
         <View style={styles.statCardFull}>
           <Text style={styles.statLabel}>This Month</Text>
-          <Text style={styles.statAmountLarge}>₦{EARNINGS_DATA.thisMonth.amount.toLocaleString()}</Text>
+          <Text style={styles.statAmountLarge}>{formatMoney(EARNINGS_DATA.thisMonth.amount, currencyCode)}</Text>
           <Text style={styles.statMeta}>{EARNINGS_DATA.thisMonth.trips} trips completed</Text>
         </View>
 
@@ -49,7 +52,7 @@ export default function DriverEarningsScreen() {
             <View key={trip.id} style={styles.tripCard}>
               <View style={styles.tripHeader}>
                 <Text style={styles.tripDate}>{trip.date}</Text>
-                <Text style={styles.tripAmount}>+₦{trip.amount.toLocaleString()}</Text>
+                <Text style={styles.tripAmount}>+{formatMoney(trip.amount, currencyCode)}</Text>
               </View>
               <View style={styles.tripRoute}>
                 <Text style={styles.tripRouteText}>

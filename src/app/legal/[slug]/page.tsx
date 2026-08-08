@@ -32,6 +32,6 @@ export default async function LegalAgreementPage({ params }: LegalAgreementPageP
   }
 
   return (
-    <LegalAgreementRenderer doc={doc} signable={doc.slug === 'host-agreement'} />
+    <LegalAgreementRenderer slug={doc.slug} signable={doc.slug === 'host-agreement'} />
   )
 }

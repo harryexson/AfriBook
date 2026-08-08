@@ -1,5 +1,6 @@
 import type { SubscriptionPlanId } from '@/types/subscription-plans';
 import { SUBSCRIPTION_PLANS } from '@/types/subscription-plans';
+import { getCurrencyForCountry } from '../money';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -80,8 +81,8 @@ const TAX_RATES: Record<string, number> = {
   DZ: 0.19,
   AO: 0.14,
   MZ: 0.17,
-  ZM: 16,
-  ZW: 14.5,
+  ZM: 0.16,
+  ZW: 0.15,
   SS: 0.15,
   BF: 0.18,
   ML: 0.18,
@@ -208,7 +209,7 @@ export function calculateTotalPricing(
     tax,
     discount,
     total: Math.max(total, 0),
-    currencyCode: 'USD',
+    currencyCode: getCurrencyForCountry(countryCode),
     perTicket: {
       price: ticketPrice,
       platformFee: Math.round((platformFee.amount / quantity) * 100) / 100,
@@ -221,7 +222,10 @@ export function calculateTotalPricing(
 
 // ─── Free Event Pricing ───────────────────────────────────────
 
-export function calculateFreeEventPricing(quantity: number): PricingBreakdown {
+export function calculateFreeEventPricing(
+  quantity: number,
+  countryCode: string = 'US',
+): PricingBreakdown {
   return {
     subtotal: 0,
     platformFee: { amount: 0, percent: 0, fixedPerTicket: 0, quantity },
@@ -229,7 +233,7 @@ export function calculateFreeEventPricing(quantity: number): PricingBreakdown {
     tax: { amount: 0, rate: 0, countryCode: '' },
     discount: 0,
     total: 0,
-    currencyCode: 'USD',
+    currencyCode: getCurrencyForCountry(countryCode),
     perTicket: { price: 0, platformFee: 0, processingFee: 0, tax: 0, total: 0 },
   };
 }

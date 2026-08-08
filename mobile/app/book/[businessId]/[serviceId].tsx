@@ -10,6 +10,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../../src/theme';
 import Button from '../../../src/components/ui/Button';
+import { useMarketStore } from '../../../src/stores/market-store';
+import { formatMoney } from '../../../src/lib/money';
 import type { Service } from '../../../src/types';
 
 const MOCK_SERVICE: Service = {
@@ -60,6 +62,7 @@ export default function BookServiceScreen() {
 
   const service = MOCK_SERVICE;
   const days = getNext7Days();
+  const currencyCode = useMarketStore((s) => s.currencyCode());
 
   const canProceed = selectedDate && selectedTime;
 
@@ -86,7 +89,7 @@ export default function BookServiceScreen() {
           <View style={styles.serviceMeta}>
             <Text style={styles.serviceDuration}>⏱ {service.duration} min</Text>
             <Text style={styles.servicePrice}>
-              {service.currencyCode} {service.price.toFixed(2)}
+              {formatMoney(service.price, currencyCode)}
             </Text>
           </View>
         </View>
@@ -151,7 +154,7 @@ export default function BookServiceScreen() {
         <View style={styles.priceRow}>
           <Text style={styles.totalLabel}>Total</Text>
           <Text style={styles.totalPrice}>
-            {service.currencyCode} {service.price.toFixed(2)}
+            {formatMoney(service.price, currencyCode)}
           </Text>
         </View>
         <Button
