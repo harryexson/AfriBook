@@ -34,22 +34,19 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius["2xl"],
     backgroundColor: colors.surface,
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(15, 23, 42, 0.08)",
   },
   default: {
     backgroundColor: colors.surface,
-    ...shadows.md,
-    borderWidth: 1,
-    borderColor: "rgba(229, 231, 235, 0.7)",
   },
   outlined: {
     backgroundColor: colors.surface,
-    borderWidth: 1,
     borderColor: colors.border,
   },
   elevated: {
     backgroundColor: colors.surface,
     ...shadows.lg,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.15)",
+    borderColor: "rgba(15, 23, 42, 0.06)",
   },
 });

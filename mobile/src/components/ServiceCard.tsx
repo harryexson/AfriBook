@@ -70,18 +70,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: borderRadius["2xl"],
     overflow: "hidden",
-    ...shadows.md,
+    ...shadows.lg,
     borderWidth: 1,
     borderColor: "rgba(15, 23, 42, 0.08)",
   },
   image: {
     width: "100%",
-    height: 140,
+    height: 150,
     resizeMode: "cover",
   },
   placeholderImage: {
     width: "100%",
-    height: 140,
+    height: 150,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surfaceSecondary,
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: typography.fontSize.lg,
-    fontWeight: "700",
+    fontWeight: "800",
     color: colors.textPrimary,
   },
   subtext: {
