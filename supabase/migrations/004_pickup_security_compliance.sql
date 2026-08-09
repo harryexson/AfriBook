@@ -551,6 +551,9 @@ CREATE INDEX idx_driver_safety_training_driver ON driver_safety_training(driver_
 CREATE INDEX idx_driver_safety_training_level ON driver_safety_training(training_level);
 
 -- Compliance scorecards
+-- Unique (subject_type, subject_id, period_start, period_end) is required by
+-- the ON CONFLICT target in calculate_compliance_score().
+CREATE UNIQUE INDEX idx_compliance_scorecards_period_unique ON compliance_scorecards(subject_type, subject_id, period_start, period_end);
 CREATE INDEX idx_compliance_scorecards_subject ON compliance_scorecards(subject_type, subject_id);
 CREATE INDEX idx_compliance_scorecards_period ON compliance_scorecards(period_start, period_end);
 CREATE INDEX idx_compliance_scorecards_score ON compliance_scorecards(overall_score);

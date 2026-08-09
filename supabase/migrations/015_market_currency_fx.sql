@@ -232,6 +232,47 @@ CREATE POLICY service_areas_delete_admin ON service_areas
 -- src/lib/payments/types.ts. Populated so the runtime table is usable from
 -- day one; extend at runtime via the backoffice (admin-only writes).
 -- Generated rows: 122
+--
+-- The capability rows below carry FOREIGN KEY references to
+-- payment_providers(code) and countries(code), so this migration is
+-- self-contained: the referenced providers and launch markets are ensured
+-- here (idempotently) rather than depending on the later seed.sql.
+
+INSERT INTO payment_providers (code, name, is_active, supported_methods, processor_fee_percent, processor_fee_fixed)
+VALUES
+    ('pawapay', 'PawaPay', true, ARRAY['mobile_money', 'card', 'bank_transfer', 'ussd'], 0.015, 0.00),
+    ('airwallex', 'Airwallex', true, ARRAY['card', 'mobile_money', 'bank_transfer'], 0.029, 0.30),
+    ('paychangu', 'PayChangu', true, ARRAY['mobile_money', 'card', 'bank_transfer'], 0.010, 0.00),
+    ('adyen', 'Adyen', true, ARRAY['card', 'bank_transfer'], 0.029, 0.30),
+    ('dlocal', 'dLocal', true, ARRAY['card', 'bank_transfer', 'cash'], 0.039, 0.00),
+    ('razorpay', 'Razorpay', true, ARRAY['card', 'upi', 'wallet', 'net_banking'], 0.020, 0.00),
+    ('square', 'Square', true, ARRAY['card'], 0.026, 0.10)
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO countries (code, name, currency_code, language_code, timezone, is_active)
+VALUES
+    ('NG', 'Nigeria', 'NGN', 'en', 'Africa/Lagos', true),
+    ('GH', 'Ghana', 'GHS', 'en', 'Africa/Accra', true),
+    ('KE', 'Kenya', 'KES', 'en', 'Africa/Nairobi', true),
+    ('TZ', 'Tanzania', 'TZS', 'sw', 'Africa/Dar_es_Salaam', true),
+    ('UG', 'Uganda', 'UGX', 'en', 'Africa/Kampala', true),
+    ('MW', 'Malawi', 'MWK', 'en', 'Africa/Blantyre', true),
+    ('ZA', 'South Africa', 'ZAR', 'en', 'Africa/Johannesburg', true),
+    ('ZM', 'Zambia', 'ZMW', 'en', 'Africa/Lusaka', true),
+    ('RW', 'Rwanda', 'RWF', 'rw', 'Africa/Kigali', true),
+    ('SN', 'Senegal', 'XOF', 'fr', 'Africa/Dakar', true),
+    ('CI', 'Ivory Coast', 'XOF', 'fr', 'Africa/Abidjan', true),
+    ('CM', 'Cameroon', 'XAF', 'fr', 'Africa/Douala', true),
+    ('EG', 'Egypt', 'EGP', 'ar', 'Africa/Cairo', true),
+    ('US', 'United States', 'USD', 'en', 'America/New_York', true),
+    ('GB', 'United Kingdom', 'GBP', 'en', 'Europe/London', true),
+    ('FR', 'France', 'EUR', 'fr', 'Europe/Paris', true),
+    ('DE', 'Germany', 'EUR', 'de', 'Europe/Berlin', true),
+    ('AE', 'United Arab Emirates', 'AED', 'ar', 'Asia/Dubai', true),
+    ('IN', 'India', 'INR', 'en', 'Asia/Kolkata', true),
+    ('BR', 'Brazil', 'BRL', 'pt', 'America/Sao_Paulo', true)
+ON CONFLICT (code) DO NOTHING;
+
 INSERT INTO payment_provider_capabilities (provider_code, country_code, method, currency_codes) VALUES
     ('paystack', 'NG', 'card', ARRAY['NGN']),
     ('paystack', 'NG', 'bank_transfer', ARRAY['NGN']),

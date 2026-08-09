@@ -280,11 +280,13 @@ CREATE TABLE driver_offers (
     ride_type               ride_type NOT NULL,
     expires_at              TIMESTAMPTZ NOT NULL,
     status                  offer_status NOT NULL DEFAULT 'pending',
+    accepted_at             TIMESTAMPTZ,
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 COMMENT ON TABLE  driver_offers IS 'Dispatch offers sent to candidate drivers with auto-expiration';
 COMMENT ON COLUMN driver_offers.expires_at IS 'Deadline after which the offer is automatically declined';
+COMMENT ON COLUMN driver_offers.accepted_at IS 'When the driver accepted the offer — used for response-time analytics';
 
 -- ---------------------------------------------------------------------------
 -- 2.6 Surge Zones (dynamic pricing areas)
