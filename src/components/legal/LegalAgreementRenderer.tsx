@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useState } from 'react'
-import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
 import {
   FileText,
   AlertTriangle,
@@ -12,131 +12,145 @@ import {
   ShieldCheck,
   Clock,
   Mail,
-} from 'lucide-react'
-import { getAgreementBySlug } from '@/lib/legal-agreements'
+} from "lucide-react";
+import { getAgreementBySlug } from "@/lib/legal-agreements";
 
 const sectionVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: i * 0.04, duration: 0.5, ease: [0.22, 1, 0.36, 1] as const },
+    transition: {
+      delay: i * 0.04,
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1] as const,
+    },
   }),
-}
+};
 
 interface SignedInfo {
-  name: string
-  date: string
+  name: string;
+  date: string;
 }
 
 interface LegalAgreementRendererProps {
-  slug: string
-  signable?: boolean
+  slug: string;
+  signable?: boolean;
 }
 
 export default function LegalAgreementRenderer({
   slug,
   signable = false,
 }: LegalAgreementRendererProps) {
-  const [agree, setAgree] = useState(false)
-  const [fullName, setFullName] = useState('')
-  const [signing, setSigning] = useState(false)
-  const [signedInfo, setSignedInfo] = useState<SignedInfo | null>(null)
-  const [authRequired, setAuthRequired] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [agree, setAgree] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [signing, setSigning] = useState(false);
+  const [signedInfo, setSignedInfo] = useState<SignedInfo | null>(null);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const doc = getAgreementBySlug(slug)
-  if (!doc) return null
+  const doc = getAgreementBySlug(slug);
 
-  const consentType = 'host_agreement'
+  const consentType = "host_agreement";
 
   useEffect(() => {
-    if (!signable) return
-    let cancelled = false
+    if (!signable) return;
+    let cancelled = false;
 
     async function checkSigned() {
       try {
-        const res = await fetch('/api/consents')
+        const res = await fetch("/api/consents");
         if (!res.ok) {
-          if (res.status === 401) setAuthRequired(true)
-          return
+          if (res.status === 401) setAuthRequired(true);
+          return;
         }
-        const data = await res.json()
-        const rows = Array.isArray(data.consents) ? data.consents : []
-        const hostConsent = rows.find((c: { consent_type?: string }) => c.consent_type === consentType)
+        const data = await res.json();
+        const rows = Array.isArray(data.consents) ? data.consents : [];
+        const hostConsent = rows.find(
+          (c: { consent_type?: string }) => c.consent_type === consentType,
+        );
         if (hostConsent?.granted && !cancelled) {
           setSignedInfo({
-            name: hostConsent.metadata?.fullName ?? '—',
-            date: hostConsent.granted_at ? new Date(hostConsent.granted_at).toLocaleDateString() : '—',
-          })
+            name: hostConsent.metadata?.fullName ?? "—",
+            date: hostConsent.granted_at
+              ? new Date(hostConsent.granted_at).toLocaleDateString()
+              : "—",
+          });
         }
       } catch {
         // ignore network errors; signing can still be attempted
       }
     }
 
-    checkSigned()
+    checkSigned();
     return () => {
-      cancelled = true
-    }
-  }, [signable])
+      cancelled = true;
+    };
+  }, [signable]);
 
   const handleSign = useCallback(async () => {
-    setErrorMsg(null)
+    if (!doc) return;
+    setErrorMsg(null);
     if (!agree) {
-      setErrorMsg('Please tick the box to confirm you have read and agreed to the terms.')
-      return
+      setErrorMsg(
+        "Please tick the box to confirm you have read and agreed to the terms.",
+      );
+      return;
     }
     if (fullName.trim().length < 2) {
-      setErrorMsg('Please type your full name as your digital signature.')
-      return
+      setErrorMsg("Please type your full name as your digital signature.");
+      return;
     }
 
-    setSigning(true)
+    setSigning(true);
     try {
-      const res = await fetch('/api/consents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/consents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           consents: [
             {
               consentType,
               granted: true,
-              context: 'host-agreement-signature',
+              context: "host-agreement-signature",
               consentVersion: doc.lastUpdated,
               metadata: {
-                document: 'host-agreement',
+                document: "host-agreement",
                 fullName: fullName.trim(),
-                signatureType: 'typed',
+                signatureType: "typed",
               },
             },
           ],
         }),
-      })
+      });
 
       if (res.status === 401) {
-        setAuthRequired(true)
-        setErrorMsg('You must be signed in to sign the agreement.')
-        return
+        setAuthRequired(true);
+        setErrorMsg("You must be signed in to sign the agreement.");
+        return;
       }
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        setErrorMsg(data?.error ?? 'Failed to record your signature. Please try again.')
-        return
+        const data = await res.json().catch(() => null);
+        setErrorMsg(
+          data?.error ?? "Failed to record your signature. Please try again.",
+        );
+        return;
       }
 
       setSignedInfo({
         name: fullName.trim(),
         date: new Date().toLocaleDateString(),
-      })
-      setAgree(false)
-      setFullName('')
+      });
+      setAgree(false);
+      setFullName("");
     } catch {
-      setErrorMsg('Network error. Please try again.')
+      setErrorMsg("Network error. Please try again.");
     } finally {
-      setSigning(false)
+      setSigning(false);
     }
-  }, [agree, fullName, doc.lastUpdated])
+  }, [agree, fullName, doc]);
+
+  if (!doc) return null;
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -152,7 +166,9 @@ export default function LegalAgreementRenderer({
             <FileText className="w-5 h-5 text-amber-500" />
           </div>
           <div>
-            <p className="text-xs font-medium text-amber-600 uppercase tracking-wider">Legal</p>
+            <p className="text-xs font-medium text-amber-600 uppercase tracking-wider">
+              Legal
+            </p>
             <h1 className="text-3xl sm:text-4xl font-bold text-text-primary font-heading">
               {doc.title}
             </h1>
@@ -179,11 +195,14 @@ export default function LegalAgreementRenderer({
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
           <div>
-            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">Important Notice</p>
+            <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+              Important Notice
+            </p>
             <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
-              This is a legally binding document. {signable
-                ? 'By signing below you confirm that you have read, understood and agree to all terms outlined, including the liability limits, waivers, hold-harmless provisions and compliance obligations. If you do not agree, do not list a property on AfriBook Stayscape.'
-                : 'Please read this document carefully. Continued use of the relevant AfriBook service constitutes acceptance of these terms.'}
+              This is a legally binding document.{" "}
+              {signable
+                ? "By signing below you confirm that you have read, understood and agree to all terms outlined, including the liability limits, waivers, hold-harmless provisions and compliance obligations. If you do not agree, do not list a property on AfriBook Stayscape."
+                : "Please read this document carefully. Continued use of the relevant AfriBook service constitutes acceptance of these terms."}
             </p>
           </div>
         </div>
@@ -194,30 +213,40 @@ export default function LegalAgreementRenderer({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.5 }}
-        className="mb-12 p-6 rounded-2xl bg-surface border border-border"
+        className="space-y-6 mb-12"
       >
-        <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-4">
-          Table of Contents
-        </h2>
-        <nav className="grid sm:grid-cols-2 gap-2">
-          {doc.sections.map((section) => (
-            <a
-              key={section.id}
-              href={`#${section.id}`}
-              className="text-sm text-text-secondary hover:text-amber-600 transition-colors py-1"
-            >
-              {section.title}
-            </a>
-          ))}
-          {signable && (
-            <a
-              href="#sign"
-              className="text-sm text-amber-600 hover:text-amber-700 transition-colors py-1 font-medium"
-            >
-              Review &amp; Sign
-            </a>
-          )}
-        </nav>
+        {doc.intro.length > 0 && (
+          <div className="space-y-4 prose prose-sm max-w-none text-text-secondary">
+            {doc.intro.map((paragraph, index) => (
+              <p key={index}>{paragraph}</p>
+            ))}
+          </div>
+        )}
+
+        <div className="p-6 rounded-2xl bg-surface border border-border">
+          <h2 className="text-sm font-semibold text-text-primary uppercase tracking-wider mb-4">
+            Table of Contents
+          </h2>
+          <nav className="grid sm:grid-cols-2 gap-2">
+            {doc.sections.map((section) => (
+              <a
+                key={section.id}
+                href={`#${section.id}`}
+                className="text-sm text-text-secondary hover:text-amber-600 transition-colors py-1"
+              >
+                {section.title}
+              </a>
+            ))}
+            {signable && (
+              <a
+                href="#sign"
+                className="text-sm text-amber-600 hover:text-amber-700 transition-colors py-1 font-medium"
+              >
+                Review &amp; Sign
+              </a>
+            )}
+          </nav>
+        </div>
       </motion.div>
 
       {/* Content Sections */}
@@ -228,14 +257,16 @@ export default function LegalAgreementRenderer({
             custom={index}
             initial="hidden"
             whileInView="visible"
-            viewport={{ once: true, margin: '-50px' }}
+            viewport={{ once: true, margin: "-50px" }}
             variants={sectionVariants}
             id={section.id}
             className="scroll-mt-24"
           >
             <div className="flex items-center gap-3 mb-4">
               <section.icon className="w-5 h-5 text-amber-500 shrink-0" />
-              <h2 className="text-2xl font-bold text-text-primary font-heading">{section.title}</h2>
+              <h2 className="text-2xl font-bold text-text-primary font-heading">
+                {section.title}
+              </h2>
             </div>
             <div className="prose prose-sm max-w-none text-text-secondary space-y-4">
               {section.content.map((block, bi) => (
@@ -271,19 +302,21 @@ export default function LegalAgreementRenderer({
           id="sign"
           initial={{ opacity: 0, y: 20 }}
           whileInView="visible"
-          viewport={{ once: true, margin: '-50px' }}
+          viewport={{ once: true, margin: "-50px" }}
           variants={sectionVariants}
           className="scroll-mt-24 mt-14"
         >
           <div className="p-6 sm:p-8 rounded-2xl bg-surface border border-border">
             <div className="flex items-center gap-3 mb-2">
               <ShieldCheck className="w-6 h-6 text-amber-500" />
-              <h2 className="text-2xl font-bold text-text-primary font-heading">Review &amp; Sign</h2>
+              <h2 className="text-2xl font-bold text-text-primary font-heading">
+                Review &amp; Sign
+              </h2>
             </div>
             <p className="text-sm text-text-secondary mb-6">
               {signedInfo
-                ? 'You have signed this agreement. Your signature and acceptance date are recorded below.'
-                : 'To complete your Host registration, review the terms above and sign this agreement. Signing is your legal acknowledgment of the terms and conditions.'}
+                ? "You have signed this agreement. Your signature and acceptance date are recorded below."
+                : "To complete your Host registration, review the terms above and sign this agreement. Signing is your legal acknowledgment of the terms and conditions."}
             </p>
 
             {signedInfo ? (
@@ -294,9 +327,10 @@ export default function LegalAgreementRenderer({
                     Agreement signed
                   </p>
                   <p className="text-sm text-emerald-700 dark:text-emerald-400 mt-1">
-                    Signed by <span className="font-semibold">{signedInfo.name}</span> on{' '}
-                    {signedInfo.date}. Your signature is stored securely and can be viewed by our
-                    compliance team.
+                    Signed by{" "}
+                    <span className="font-semibold">{signedInfo.name}</span> on{" "}
+                    {signedInfo.date}. Your signature is stored securely and can
+                    be viewed by our compliance team.
                   </p>
                 </div>
               </div>
@@ -304,14 +338,20 @@ export default function LegalAgreementRenderer({
               <>
                 {authRequired && (
                   <div className="p-4 rounded-xl bg-surface-secondary border border-border text-sm text-text-secondary mb-5">
-                    You must be signed in to sign the agreement.{' '}
-                    <Link href="/login" className="text-amber-600 hover:text-amber-700 font-medium">
+                    You must be signed in to sign the agreement.{" "}
+                    <Link
+                      href="/login"
+                      className="text-amber-600 hover:text-amber-700 font-medium"
+                    >
                       Sign in
-                    </Link>{' '}
-                    or{' '}
-                    <Link href="/register" className="text-amber-600 hover:text-amber-700 font-medium">
+                    </Link>{" "}
+                    or{" "}
+                    <Link
+                      href="/register"
+                      className="text-amber-600 hover:text-amber-700 font-medium"
+                    >
                       create an account
-                    </Link>{' '}
+                    </Link>{" "}
                     to record your signature.
                   </div>
                 )}
@@ -325,10 +365,13 @@ export default function LegalAgreementRenderer({
                       className="mt-0.5 w-4 h-4 rounded border-border text-amber-500 focus:ring-amber-500"
                     />
                     <span className="text-sm text-text-secondary">
-                      I have read, understood, and agree to the{' '}
-                      <span className="font-semibold text-text-primary">{doc.title}</span>, including
-                      the service fees, cancellation policy, regulatory compliance obligations,
-                      limitations of liability, waivers, and hold-harmless provisions.
+                      I have read, understood, and agree to the{" "}
+                      <span className="font-semibold text-text-primary">
+                        {doc.title}
+                      </span>
+                      , including the service fees, cancellation policy,
+                      regulatory compliance obligations, limitations of
+                      liability, waivers, and hold-harmless provisions.
                     </span>
                   </label>
 
@@ -349,9 +392,9 @@ export default function LegalAgreementRenderer({
                       className="w-full px-4 py-3 rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 text-text-primary placeholder:text-text-tertiary transition-all"
                     />
                     <p className="text-xs text-text-tertiary mt-2">
-                      Typing your name constitutes an electronic signature equivalent to a handwritten
-                      signature. Your name, IP address and the date and time of signing will be
-                      recorded.
+                      Typing your name constitutes an electronic signature
+                      equivalent to a handwritten signature. Your name, IP
+                      address and the date and time of signing will be recorded.
                     </p>
                   </div>
 
@@ -390,13 +433,18 @@ export default function LegalAgreementRenderer({
         <div className="flex items-start gap-3 p-5 rounded-xl bg-surface-secondary border border-border-light">
           <Mail className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
           <div className="space-y-1">
-            <p className="text-sm font-semibold text-text-primary">Questions about this agreement?</p>
+            <p className="text-sm font-semibold text-text-primary">
+              Questions about this agreement?
+            </p>
             <p className="text-sm text-text-secondary">
-              Contact us at{' '}
-              <a href="mailto:legal@afribook.app" className="text-amber-500 hover:underline">
+              Contact us at{" "}
+              <a
+                href="mailto:legal@afribook.app"
+                className="text-amber-500 hover:underline"
+              >
                 legal@afribook.app
-              </a>{' '}
-              or visit our{' '}
+              </a>{" "}
+              or visit our{" "}
               <Link href="/support" className="text-amber-500 hover:underline">
                 support center
               </Link>
@@ -406,5 +454,5 @@ export default function LegalAgreementRenderer({
         </div>
       </div>
     </div>
-  )
+  );
 }
