@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Star,
   ThumbsUp,
@@ -13,54 +13,51 @@ import {
   ShieldCheck,
   Check,
   X,
-} from 'lucide-react'
-import { cn, timeAgo } from '@/lib/utils'
-import ReviewLightbox from './ReviewLightbox'
+} from "lucide-react";
+import { cn, timeAgo } from "@/lib/utils";
+import ReviewLightbox from "./ReviewLightbox";
 
 // ─── Types ───────────────────────────────────────────────────
 
 export interface DisplayReview {
-  id: string
-  userName: string
-  userAvatar?: string
-  rating: number
-  title: string
-  body: string
-  media: { type: 'image' | 'video'; url: string; caption?: string }[]
+  id: string;
+  userName: string;
+  userAvatar?: string;
+  rating: number;
+  title: string;
+  body: string;
+  media: { type: "image" | "video"; url: string; caption?: string }[];
   aspectRatings?: {
-    quality?: number
-    value?: number
-    professionalism?: number
-    punctuality?: number
-  }
-  recommend?: boolean
-  isVerifiedPurchase: boolean
-  hasConsent: boolean
-  helpfulCount: number
-  createdAt: string
-  vendorReply?: { text: string; createdAt: string }
+    quality?: number;
+    value?: number;
+    professionalism?: number;
+    punctuality?: number;
+  };
+  recommend?: boolean;
+  isVerifiedPurchase: boolean;
+  hasConsent: boolean;
+  helpfulCount: number;
+  createdAt: string;
+  vendorReply?: { text: string; createdAt: string };
 }
 
 interface ReviewCardProps {
-  review: DisplayReview
-  onHelpful?: (reviewId: string) => void
-  onReport?: (reviewId: string) => void
+  review: DisplayReview;
+  onHelpful?: (reviewId: string) => void;
+  onReport?: (reviewId: string) => void;
 }
 
 // ─── Constants ───────────────────────────────────────────────
 
-const ASPECT_META: Record<
-  string,
-  { label: string; icon: string }
-> = {
-  quality: { label: 'Quality', icon: '⭐' },
-  value: { label: 'Value', icon: '💰' },
-  professionalism: { label: 'Professionalism', icon: '🤝' },
-  punctuality: { label: 'Punctuality', icon: '⏱️' },
-}
+const ASPECT_META: Record<string, { label: string; icon: string }> = {
+  quality: { label: "Quality", icon: "⭐" },
+  value: { label: "Value", icon: "💰" },
+  professionalism: { label: "Professionalism", icon: "🤝" },
+  punctuality: { label: "Punctuality", icon: "⏱️" },
+};
 
-const MAX_VISIBLE_MEDIA = 3
-const BODY_TRUNCATE_LENGTH = 200
+const MAX_VISIBLE_MEDIA = 3;
+const BODY_TRUNCATE_LENGTH = 200;
 
 // ─── Component ───────────────────────────────────────────────
 
@@ -69,40 +66,40 @@ export default function ReviewCard({
   onHelpful,
   onReport,
 }: ReviewCardProps) {
-  const [expanded, setExpanded] = useState(false)
-  const [helpfulClicked, setHelpfulClicked] = useState(false)
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
-  const [showReportConfirm, setShowReportConfirm] = useState(false)
+  const [expanded, setExpanded] = useState(false);
+  const [helpfulClicked, setHelpfulClicked] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [showReportConfirm, setShowReportConfirm] = useState(false);
 
-  const needsTruncation = review.body.length > BODY_TRUNCATE_LENGTH
+  const needsTruncation = review.body.length > BODY_TRUNCATE_LENGTH;
   const displayBody =
     expanded || !needsTruncation
       ? review.body
-      : review.body.slice(0, BODY_TRUNCATE_LENGTH) + '…'
+      : review.body.slice(0, BODY_TRUNCATE_LENGTH) + "…";
 
-  const visibleMedia = review.media.slice(0, MAX_VISIBLE_MEDIA)
-  const extraCount = review.media.length - MAX_VISIBLE_MEDIA
+  const visibleMedia = review.media.slice(0, MAX_VISIBLE_MEDIA);
+  const extraCount = review.media.length - MAX_VISIBLE_MEDIA;
 
   const handleHelpful = () => {
-    if (helpfulClicked) return
-    setHelpfulClicked(true)
-    onHelpful?.(review.id)
-  }
+    if (helpfulClicked) return;
+    setHelpfulClicked(true);
+    onHelpful?.(review.id);
+  };
 
   const handleReport = () => {
-    setShowReportConfirm(true)
-  }
+    setShowReportConfirm(true);
+  };
 
   const confirmReport = () => {
-    onReport?.(review.id)
-    setShowReportConfirm(false)
-  }
+    onReport?.(review.id);
+    setShowReportConfirm(false);
+  };
 
   return (
     <motion.article
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-surface rounded-2xl border border-border p-5 space-y-4"
+      className="bg-surface rounded-[28px] border border-border p-5 shadow-sm transition-all duration-300 hover:shadow-lg"
     >
       {/* ── Header: Avatar + Name + Date + Badges ── */}
       <div className="flex items-start justify-between">
@@ -152,10 +149,10 @@ export default function ReviewCard({
           <Star
             key={star}
             className={cn(
-              'w-4 h-4',
+              "w-4 h-4",
               star <= review.rating
-                ? 'text-amber-500 fill-amber-500'
-                : 'text-text-tertiary',
+                ? "text-amber-500 fill-amber-500"
+                : "text-text-tertiary",
             )}
           />
         ))}
@@ -178,7 +175,7 @@ export default function ReviewCard({
               onClick={() => setExpanded(!expanded)}
               className="text-xs text-amber-500 hover:text-amber-600 font-medium mt-1 transition-colors"
             >
-              {expanded ? 'Show less' : 'Read more'}
+              {expanded ? "Show less" : "Read more"}
             </button>
           )}
         </div>
@@ -194,7 +191,7 @@ export default function ReviewCard({
               onClick={() => setLightboxIndex(idx)}
               className="relative flex-shrink-0 w-28 h-28 rounded-xl overflow-hidden border border-border group"
             >
-              {item.type === 'image' ? (
+              {item.type === "image" ? (
                 <img
                   src={item.url}
                   alt={item.caption || `Photo ${idx + 1}`}
@@ -232,9 +229,10 @@ export default function ReviewCard({
       {review.aspectRatings && (
         <div className="grid grid-cols-2 gap-x-6 gap-y-2 p-3 rounded-xl bg-surface-secondary">
           {Object.entries(ASPECT_META).map(([key, meta]) => {
-            const val = review.aspectRatings?.[key as keyof typeof review.aspectRatings]
-            if (!val) return null
-            const pct = (val / 5) * 100
+            const val =
+              review.aspectRatings?.[key as keyof typeof review.aspectRatings];
+            if (!val) return null;
+            const pct = (val / 5) * 100;
             return (
               <div key={key} className="space-y-1">
                 <div className="flex items-center justify-between">
@@ -254,7 +252,7 @@ export default function ReviewCard({
                   />
                 </div>
               </div>
-            )
+            );
           })}
         </div>
       )}
@@ -283,10 +281,10 @@ export default function ReviewCard({
           onClick={handleHelpful}
           disabled={helpfulClicked}
           className={cn(
-            'flex items-center gap-1.5 text-xs transition-colors',
+            "flex items-center gap-1.5 text-xs transition-colors",
             helpfulClicked
-              ? 'text-amber-500 font-medium'
-              : 'text-text-tertiary hover:text-text-secondary',
+              ? "text-amber-500 font-medium"
+              : "text-text-tertiary hover:text-text-secondary",
           )}
         >
           <ThumbsUp className="w-3.5 h-3.5" />
@@ -356,5 +354,5 @@ export default function ReviewCard({
         onNavigate={setLightboxIndex}
       />
     </motion.article>
-  )
+  );
 }

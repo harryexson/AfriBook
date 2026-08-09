@@ -1,52 +1,56 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { motion } from 'framer-motion'
-import { Heart, Bookmark, Star, MapPin, BadgeCheck } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { Heart, Bookmark, Star, MapPin, BadgeCheck } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface Listing {
-  id: string
-  title: string
-  business: string
-  category: string
-  location: string
-  flag: string
-  rating: number
-  reviewCount: number
-  price: string
-  cover: 'cover-amber' | 'cover-gold'
-  verified?: boolean
-  likes: number
+  id: string;
+  title: string;
+  business: string;
+  category: string;
+  location: string;
+  flag: string;
+  rating: number;
+  reviewCount: number;
+  price: string;
+  cover: "cover-amber" | "cover-gold";
+  verified?: boolean;
+  likes: number;
 }
 
 export default function MarketplaceCard({
   listing,
   index = 0,
 }: {
-  listing: Listing
-  index?: number
+  listing: Listing;
+  index?: number;
 }) {
-  const [liked, setLiked] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
 
-  const likeCount = listing.likes + (liked ? 1 : 0)
+  const likeCount = listing.likes + (liked ? 1 : 0);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.45, delay: Math.min(index * 0.05, 0.4), ease: [0.22, 1, 0.36, 1] }}
+      transition={{
+        duration: 0.45,
+        delay: Math.min(index * 0.05, 0.4),
+        ease: [0.22, 1, 0.36, 1],
+      }}
       className="group"
     >
       <Link
         href={`/marketplace/${listing.id}`}
-        className="premium-card block overflow-hidden ring-focus focus:outline-none"
+        className="premium-card group block overflow-hidden rounded-[28px] border border-border bg-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
       >
         {/* Cover */}
-        <div className={cn('relative h-52 overflow-hidden', listing.cover)}>
+        <div className={cn("relative h-52 overflow-hidden", listing.cover)}>
           <div className="img-zoom absolute inset-0 bg-gradient-to-br opacity-90" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
 
@@ -59,23 +63,23 @@ export default function MarketplaceCard({
           <button
             type="button"
             onClick={(e) => {
-              e.preventDefault()
-              setSaved((s) => !s)
+              e.preventDefault();
+              setSaved((s) => !s);
             }}
-            aria-label={saved ? 'Remove bookmark' : 'Save'}
+            aria-label={saved ? "Remove bookmark" : "Save"}
             className={cn(
-              'absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full backdrop-blur-sm transition-colors',
+              "absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-full backdrop-blur-sm transition-colors",
               saved
-                ? 'bg-amber-500 text-white'
-                : 'bg-black/30 text-white hover:bg-black/50'
+                ? "bg-amber-500 text-white"
+                : "bg-black/30 text-white hover:bg-black/50",
             )}
           >
-            <Bookmark className={cn('h-4 w-4', saved && 'fill-white')} />
+            <Bookmark className={cn("h-4 w-4", saved && "fill-white")} />
           </button>
 
           {/* Business identity overlay */}
-          <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-2">
-            <div className="grid h-9 w-9 place-items-center rounded-full bg-white/90 text-sm font-bold text-gray-900 shadow-sm">
+          <div className="absolute bottom-3 left-3 right-3 z-10 flex items-center gap-3">
+            <div className="grid h-11 w-11 place-items-center rounded-full bg-white shadow-sm text-sm font-bold text-gray-900">
               {listing.business.charAt(0)}
             </div>
             <div className="min-w-0">
@@ -94,12 +98,12 @@ export default function MarketplaceCard({
         </div>
 
         {/* Body */}
-        <div className="p-4">
+        <div className="p-5">
           <div className="flex items-start justify-between gap-3">
-            <h3 className="text-[15px] font-semibold leading-snug text-text-primary transition-colors group-hover:text-amber-600">
+            <h3 className="text-base font-semibold leading-snug text-text-primary transition-colors group-hover:text-amber-600">
               {listing.title}
             </h3>
-            <span className="shrink-0 text-sm font-bold text-amber-600 dark:text-amber-400">
+            <span className="shrink-0 rounded-full bg-amber-50 px-3 py-1 text-sm font-bold text-amber-600">
               {listing.price}
             </span>
           </div>
@@ -107,27 +111,33 @@ export default function MarketplaceCard({
           <div className="mt-3 flex items-center justify-between">
             <span className="inline-flex items-center gap-1 text-sm text-text-secondary">
               <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-              <span className="font-medium text-text-primary">{listing.rating}</span>
-              <span className="text-text-tertiary">({listing.reviewCount})</span>
+              <span className="font-medium text-text-primary">
+                {listing.rating}
+              </span>
+              <span className="text-text-tertiary">
+                ({listing.reviewCount})
+              </span>
             </span>
 
             <button
               type="button"
               onClick={(e) => {
-                e.preventDefault()
-                setLiked((l) => !l)
+                e.preventDefault();
+                setLiked((l) => !l);
               }}
               className={cn(
-                'inline-flex items-center gap-1.5 text-sm transition-colors',
-                liked ? 'text-rose-500' : 'text-text-tertiary hover:text-rose-500'
+                "inline-flex items-center gap-1.5 text-sm transition-colors",
+                liked
+                  ? "text-rose-500"
+                  : "text-text-tertiary hover:text-rose-500",
               )}
             >
-              <Heart className={cn('h-4 w-4', liked && 'fill-rose-500')} />
+              <Heart className={cn("h-4 w-4", liked && "fill-rose-500")} />
               {likeCount}
             </button>
           </div>
         </div>
       </Link>
     </motion.div>
-  )
+  );
 }

@@ -1,23 +1,23 @@
-'use client'
+"use client";
 
-import { motion } from 'framer-motion'
-import { Clock, Users, ArrowRight } from 'lucide-react'
-import { cn, formatCurrency } from '@/lib/utils'
-import type { Service } from '@/types'
+import { motion } from "framer-motion";
+import { Clock, Users, ArrowRight } from "lucide-react";
+import { cn, formatCurrency } from "@/lib/utils";
+import type { Service } from "@/types";
 
 interface ServiceCardProps {
-  service: Service
-  businessSlug?: string
-  countryCode?: string
-  staffCount?: number
-  onBook?: (service: Service) => void
-  index?: number
+  service: Service;
+  businessSlug?: string;
+  countryCode?: string;
+  staffCount?: number;
+  onBook?: (service: Service) => void;
+  index?: number;
 }
 
 export default function ServiceCard({
   service,
   businessSlug,
-  countryCode = 'NG',
+  countryCode = "NG",
   staffCount = 0,
   onBook,
   index = 0,
@@ -27,8 +27,12 @@ export default function ServiceCard({
       initial={{ opacity: 0, y: 16 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ delay: index * 0.04, duration: 0.35, ease: [0.22, 1, 0.36, 1] as const }}
-      className="group bg-surface border border-border rounded-xl p-5 hover:shadow-lg hover:shadow-amber-500/5 hover:border-amber-500/30 transition-all duration-300"
+      transition={{
+        delay: index * 0.04,
+        duration: 0.35,
+        ease: [0.22, 1, 0.36, 1] as const,
+      }}
+      className="group bg-surface border border-border rounded-[26px] p-5 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:border-amber-400/30"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -36,12 +40,18 @@ export default function ServiceCard({
             {service.name}
           </h4>
           {service.description && (
-            <p className="mt-1 text-sm text-text-secondary line-clamp-2">{service.description}</p>
+            <p className="mt-1 text-sm text-text-secondary line-clamp-2">
+              {service.description}
+            </p>
           )}
         </div>
         {service.image && (
           <div className="w-16 h-16 rounded-xl bg-surface-secondary shrink-0 overflow-hidden">
-            <img src={service.image} alt={service.name} className="w-full h-full object-cover" />
+            <img
+              src={service.image}
+              alt={service.name}
+              className="w-full h-full object-cover"
+            />
           </div>
         )}
       </div>
@@ -66,10 +76,10 @@ export default function ServiceCard({
         <button
           onClick={() => onBook?.(service)}
           className={cn(
-            'inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
+            "inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-all",
             onBook
-              ? 'bg-amber-500 text-white hover:bg-amber-600 shadow-sm'
-              : 'text-amber-500 hover:gap-2'
+              ? "bg-amber-500 text-white hover:bg-amber-600 shadow-sm"
+              : "text-amber-500 hover:gap-2",
           )}
         >
           Book
@@ -77,5 +87,5 @@ export default function ServiceCard({
         </button>
       </div>
     </motion.div>
-  )
+  );
 }
