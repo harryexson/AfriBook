@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   TouchableOpacity,
   Text,
@@ -7,13 +7,13 @@ import {
   TouchableOpacityProps,
   ViewStyle,
   TextStyle,
-} from 'react-native';
-import { colors, borderRadius, spacing, typography } from '../../theme';
+} from "react-native";
+import { colors, borderRadius, spacing, typography } from "../../theme";
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "danger";
+  size?: "sm" | "md" | "lg";
   loading?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
@@ -21,8 +21,8 @@ interface ButtonProps extends TouchableOpacityProps {
 
 export default function Button({
   title,
-  variant = 'primary',
-  size = 'md',
+  variant = "primary",
+  size = "md",
   loading = false,
   fullWidth = false,
   icon,
@@ -54,7 +54,7 @@ export default function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? colors.textInverse : colors.primary}
+          color={variant === "primary" ? colors.textInverse : colors.primary}
           size="small"
         />
       ) : (
@@ -69,11 +69,16 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: borderRadius.xl,
     gap: spacing.sm,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.12,
+    shadowRadius: 26,
+    elevation: 5,
   },
   primary: {
     backgroundColor: colors.primary,
@@ -82,12 +87,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceSecondary,
   },
   outline: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1.5,
     borderColor: colors.border,
   },
   ghost: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   danger: {
     backgroundColor: colors.error,
@@ -103,18 +108,18 @@ const styles = StyleSheet.create({
     minHeight: 44,
   },
   size_lg: {
-    paddingHorizontal: spacing['2xl'],
+    paddingHorizontal: spacing["2xl"],
     paddingVertical: spacing.lg,
     minHeight: 52,
   },
   fullWidth: {
-    width: '100%',
+    width: "100%",
   },
   disabled: {
     opacity: 0.5,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   text_primary: {
     color: colors.textInverse,

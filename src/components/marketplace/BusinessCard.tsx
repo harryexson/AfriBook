@@ -37,7 +37,7 @@ export default function BusinessCard({
     >
       <Link
         href={linkHref}
-        className="group block rounded-[28px] overflow-hidden border border-border bg-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-2xl hover:border-amber-400/30"
+        className="group block rounded-[34px] overflow-hidden border border-border bg-surface/95 shadow-[0_24px_70px_rgba(15,23,42,0.12)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_100px_rgba(15,23,42,0.18)] hover:border-amber-400/30"
       >
         <div className="relative h-44 overflow-hidden bg-surface-secondary">
           <div className="absolute inset-0 bg-gradient-to-br from-slate-950/10 via-transparent to-transparent" />

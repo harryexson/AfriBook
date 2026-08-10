@@ -100,7 +100,7 @@ export default function CategoryGrid() {
             <motion.div key={category.name} variants={itemVariants}>
               <Link
                 href={category.href}
-                className="group flex flex-col gap-5 rounded-[28px] border border-border bg-gradient-to-b from-white to-surface-secondary p-5 shadow-[0_18px_50px_rgba(15,23,42,0.04)] transition duration-300 hover:-translate-y-1 hover:border-amber-500/30 hover:shadow-[0_24px_60px_rgba(15,23,42,0.08)]"
+                className="group flex flex-col gap-5 rounded-[32px] border border-border bg-surface/95 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:border-amber-500/30 hover:shadow-[0_32px_80px_rgba(15,23,42,0.14)]"
               >
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 transition-all duration-300 group-hover:bg-amber-500 group-hover:text-white">
                   <category.icon className="h-6 w-6" />

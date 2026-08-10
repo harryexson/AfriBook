@@ -36,6 +36,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(15, 23, 42, 0.08)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.12,
+    shadowRadius: 36,
+    elevation: 7,
   },
   default: {
     backgroundColor: colors.surface,
@@ -46,7 +51,7 @@ const styles = StyleSheet.create({
   },
   elevated: {
     backgroundColor: colors.surface,
-    ...shadows.lg,
+    ...shadows.premium,
     borderColor: "rgba(15, 23, 42, 0.06)",
   },
 });

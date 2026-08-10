@@ -47,7 +47,7 @@ export default function MarketplaceCard({
     >
       <Link
         href={`/marketplace/${listing.id}`}
-        className="premium-card group block overflow-hidden rounded-[28px] border border-border bg-surface shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
+        className="premium-card group block overflow-hidden rounded-[34px] border border-border bg-surface/95 shadow-[0_24px_80px_rgba(15,23,42,0.14)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_100px_rgba(15,23,42,0.18)]"
       >
         {/* Cover */}
         <div className={cn("relative h-52 overflow-hidden", listing.cover)}>

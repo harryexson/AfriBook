@@ -68,20 +68,20 @@ export default function ServiceCard({ service, businessId }: ServiceCardProps) {
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius["2xl"],
+    borderRadius: borderRadius["3xl"],
     overflow: "hidden",
-    ...shadows.lg,
+    ...shadows.premium,
     borderWidth: 1,
-    borderColor: "rgba(15, 23, 42, 0.08)",
+    borderColor: "rgba(15, 23, 42, 0.06)",
   },
   image: {
     width: "100%",
-    height: 150,
+    height: 170,
     resizeMode: "cover",
   },
   placeholderImage: {
     width: "100%",
-    height: 150,
+    height: 170,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surfaceSecondary,
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   content: {
-    padding: spacing.lg,
+    padding: spacing.xl,
     gap: spacing.sm,
   },
   header: {
@@ -105,8 +105,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   name: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: "800",
+    fontSize: typography.fontSize.xl,
+    fontWeight: "900",
     color: colors.textPrimary,
   },
   subtext: {
@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: typography.fontSize["xl"],
-    fontWeight: "800",
-    color: colors.primary,
+    fontWeight: "900",
+    color: colors.goldDark,
   },
 });

@@ -42,7 +42,7 @@ export default function ProductCard({
         duration: 0.35,
         ease: [0.22, 1, 0.36, 1] as const,
       }}
-      className="group bg-surface border border-border rounded-[28px] overflow-hidden shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:border-amber-400/30"
+      className="group bg-surface/95 border border-border rounded-[34px] overflow-hidden shadow-[0_24px_80px_rgba(15,23,42,0.12)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_32px_100px_rgba(15,23,42,0.18)] hover:border-amber-400/30"
     >
       <div className="relative h-48 bg-surface-secondary flex items-center justify-center overflow-hidden">
         {product.images?.[0] ? (
