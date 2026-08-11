@@ -40,13 +40,13 @@ export default function ProfileScreen() {
 
   const menuItems = [
     { label: 'My Bookings', icon: '📋', onPress: () => router.push('/(tabs)/bookings') },
-    { label: 'Saved Businesses', icon: '❤️', onPress: () => {} },
-    { label: 'Payment Methods', icon: '💳', onPress: () => {} },
-    { label: 'Notifications', icon: '🔔', onPress: () => {} },
+    { label: 'Saved Businesses', icon: '❤️', onPress: () => router.push('/profile/saved') },
+    { label: 'Payment Methods', icon: '💳', onPress: () => router.push('/profile/payments') },
+    { label: 'Notifications', icon: '🔔', onPress: () => router.push('/profile/notifications') },
     { label: 'Become a Vendor', icon: '🏪', onPress: () => router.push('/vendor') },
     { label: 'Drive with AfriBook', icon: '🚗', onPress: () => router.push('/driver') },
-    { label: 'Settings', icon: '⚙️', onPress: () => {} },
-    { label: 'Help & Support', icon: '❓', onPress: () => {} },
+    { label: 'Settings', icon: '⚙️', onPress: () => router.push('/profile/settings') },
+    { label: 'Help & Support', icon: '❓', onPress: () => router.push('/profile/help') },
   ];
 
   return (

@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
 import { Save, Percent, Globe, Mail, Key, Webhook, Flag, Eye, EyeOff } from 'lucide-react'
 import * as Switch from '@radix-ui/react-switch'
 import * as Tabs from '@radix-ui/react-tabs'

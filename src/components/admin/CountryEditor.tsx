@@ -1,11 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { formatCurrency } from '@/lib/utils'
-import type { Country, Currency, Language, PaymentMethod } from '@/types'
-import { Save, Globe, DollarSign, Percent, Phone, Clock, Flag } from 'lucide-react'
+import type { Country, PaymentMethod } from '@/types'
+import { Save, Globe, DollarSign, Percent, Phone, Clock } from 'lucide-react'
 import * as Switch from '@radix-ui/react-switch'
 
 interface CountryEditorProps {

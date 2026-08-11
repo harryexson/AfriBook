@@ -7,8 +7,8 @@ import type { Payment } from '@/types'
 import AdminStatCard from '@/components/admin/StatCard'
 import TransactionsTable from '@/components/admin/TransactionsTable'
 import {
-  CreditCard, DollarSign, TrendingUp, RotateCcw,
-  Download, BarChart3, Wallet,
+  DollarSign, TrendingUp, RotateCcw,
+  Download, Wallet,
 } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,

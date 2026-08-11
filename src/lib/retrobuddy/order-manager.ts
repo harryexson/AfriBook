@@ -33,23 +33,6 @@ function getTimestampField(status: RestaurantOrderStatus): string | null {
   return map[status] ?? null;
 }
 
-interface RestaurantBusinessRow {
-  id: string;
-  business_id: string;
-  preparation_time: number | null;
-  minimum_order: number | null;
-  delivery_radius_km: number | null;
-  businesses?: {
-    id: string;
-    name: string;
-    status: string;
-    owner_id: string;
-    location: unknown;
-    address: { formatted?: string } | null;
-    metadata: Record<string, unknown> | null;
-  } | null;
-}
-
 interface FoodDeliveryRow {
   id: string;
   customer_id: string;

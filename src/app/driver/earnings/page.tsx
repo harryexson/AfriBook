@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
   Wallet, TrendingUp, TrendingDown, Gift, Percent,
-  Download, Plus, ChevronDown, ArrowUpRight, Banknote,
+  Download, Plus, ArrowUpRight, Banknote,
 } from 'lucide-react'
 import EarningsChart from '@/components/shared/EarningsChart'
 

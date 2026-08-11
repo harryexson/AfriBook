@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { SlidersHorizontal, Star, X, ChevronDown, Clock, Truck, Utensils, Flame } from 'lucide-react'
+import { SlidersHorizontal, Star, ChevronDown, Clock, Truck, Flame } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface FoodFilterState {
@@ -48,8 +48,6 @@ const SORT_OPTIONS = [
   { value: 'price_high', label: 'Price: High to Low' },
   { value: 'delivery_time', label: 'Fastest Delivery' },
 ]
-
-const DISTANCE_OPTIONS = [1, 2, 3, 5, 10, 25]
 
 export default function FilterPanel({ filters, onChange, className }: FilterPanelProps) {
   const [expandedSection, setExpandedSection] = useState<string | null>(null)

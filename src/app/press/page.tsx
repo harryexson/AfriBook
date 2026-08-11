@@ -3,16 +3,13 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Newspaper,
   Download,
   Mail,
-  ExternalLink,
   Calendar,
   ArrowRight,
   FileText,
   Image as ImageIcon,
   Video,
-  Share2,
 } from 'lucide-react';
 
 const fadeIn = {

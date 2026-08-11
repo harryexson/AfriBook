@@ -32,7 +32,6 @@ interface H3DemandCell extends H3Cell {
 // ─── Constants ───────────────────────────────────────────────
 
 const H3_RESOLUTION = 9; // ~175m edge length, good for urban areas
-const H3_RESOLUTION_LOW = 7; // ~1.2km edge length, good for area overview
 const DEMAND_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const SUPPLY_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -222,8 +221,4 @@ function getSurgeMultiplier(ratio: number): number {
   if (ratio < 5.0) return 2.0;
   if (ratio < 8.0) return 2.5;
   return 3.0;
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }

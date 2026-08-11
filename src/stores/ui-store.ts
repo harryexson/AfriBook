@@ -53,7 +53,7 @@ let toastCounter = 0;
 
 export const useUIStore = create<UIState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Theme
       theme: 'system',
       setTheme: (theme) => set({ theme }),

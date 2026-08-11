@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  RIDE_TYPE_CONFIG,
-  FOOD_DELIVERY_STATUS_TRANSITIONS,
-  type RideType,
-} from '@/types/ridely';
+import { FOOD_DELIVERY_STATUS_TRANSITIONS } from '@/types/ridely';
 
 async function getDb() {
   const { createClient } = await import('@/lib/supabase/server');

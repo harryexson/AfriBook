@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ChevronDown,
   Clock,
-  ShoppingCart,
   Car,
   Utensils,
   CalendarCheck,

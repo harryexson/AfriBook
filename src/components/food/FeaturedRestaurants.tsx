@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Star, Clock, Truck, MapPin, ArrowRight } from 'lucide-react'
+import { Star, ArrowRight } from 'lucide-react'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -94,23 +94,6 @@ const featuredRestaurants: Restaurant[] = [
     gradient: 'from-purple-500/30 to-violet-500/25',
   },
 ]
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`w-3.5 h-3.5 ${
-            star <= Math.round(rating)
-              ? 'text-amber-500 fill-amber-500'
-              : 'text-text-tertiary'
-          }`}
-        />
-      ))}
-    </div>
-  )
-}
 
 export default function FeaturedRestaurants() {
   return (

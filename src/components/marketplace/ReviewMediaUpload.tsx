@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Camera, X, Film, ChevronUp, ChevronDown, AlertTriangle,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 
 export interface ReviewMedia {
   id: string

@@ -5,12 +5,10 @@ import Link from 'next/link'
 import {
   RotateCcw,
   Clock,
-  CreditCard,
   AlertTriangle,
   MapPin,
   Mail,
   FileText,
-  Shield,
   CheckCircle,
   XCircle,
   Calendar,

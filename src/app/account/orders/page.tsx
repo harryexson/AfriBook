@@ -4,12 +4,10 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
-  Package,
   Clock,
   CheckCircle,
   XCircle,
   ChevronRight,
-  Filter,
   ShoppingBag,
 } from 'lucide-react';
 

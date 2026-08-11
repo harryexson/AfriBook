@@ -8,7 +8,6 @@ import {
   MapPin,
   Clock,
   Send,
-  MessageSquare,
   Headphones,
   Building,
   Globe,

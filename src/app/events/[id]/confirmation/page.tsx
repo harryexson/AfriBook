@@ -9,15 +9,11 @@ import {
   MapPin,
   Clock,
   Download,
-  Share2,
   Copy,
   Send,
-  Ticket,
   ArrowRight,
-  Link as LinkIcon,
   Mail,
   Users,
-  Plus,
   Check,
 } from 'lucide-react';
 import { Facebook, Twitter } from '@/components/icons/SocialIcons';

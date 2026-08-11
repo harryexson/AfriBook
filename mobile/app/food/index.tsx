@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList,
 } from 'react-native';
@@ -8,6 +8,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AfriBookMapView from '../../src/components/MapView';
 import { useLocation } from '../../src/hooks/useLocation';
 import { useMarketStore } from '../../src/stores/market-store';
+import { useCartStore } from '../../src/stores/cart-store';
+import type { MenuItem } from '../../src/types';
 import { formatMoney } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
 
@@ -22,14 +24,6 @@ interface Restaurant {
   imageUrl?: string;
 }
 
-interface MenuItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl?: string;
-}
-
 const MOCK_RESTAURANTS: Restaurant[] = [
   { id: '1', name: 'Mama Ashanti', cuisine: 'Ghanaian', rating: 4.8, deliveryTime: '25-35 min', deliveryFee: '500', distance: '1.2 km' },
   { id: '2', name: 'Buka Kitchen', cuisine: 'Nigerian', rating: 4.6, deliveryTime: '20-30 min', deliveryFee: '300', distance: '0.8 km' },
@@ -37,20 +31,44 @@ const MOCK_RESTAURANTS: Restaurant[] = [
   { id: '4', name: 'Pizza Palace', cuisine: 'Italian', rating: 4.3, deliveryTime: '25-35 min', deliveryFee: '400', distance: '1.5 km' },
 ];
 
+const MOCK_MENU = [
+  { id: 'm1', name: 'Jollof Rice Special', description: 'Smoky jollof with grilled chicken', price: 2500 },
+  { id: 'm2', name: 'Fried Plantains', description: 'Crispy golden plantains', price: 800 },
+  { id: 'm3', name: 'Chin Chin', description: 'Sweet fried dough snack', price: 500 },
+  { id: 'm4', name: 'Chapman', description: 'Nigerian cocktail drink', price: 600 },
+];
+
 export default function FoodOrderScreen() {
   const router = useRouter();
   const { location } = useLocation();
   const currencyCode = useMarketStore((s) => s.currencyCode());
+  const { addItem } = useCartStore();
+  const cartCount = useCartStore((s) => s.itemCount());
+  const cartSubtotal = useCartStore((s) => s.subtotal());
 
-  const [restaurants] = useState<Restaurant[]>(MOCK_RESTAURANTS);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const [cart, setCart] = useState<MenuItem[]>([]);
+  const [restaurants] = React.useState<Restaurant[]>(MOCK_RESTAURANTS);
+  const [selectedRestaurant, setSelectedRestaurant] = React.useState<Restaurant | null>(null);
 
-  const addToCart = (item: MenuItem) => {
-    setCart((prev) => [...prev, item]);
+  const toMenuItem = (item: { id: string; name: string; description: string; price: number }): MenuItem => ({
+    id: item.id,
+    businessId: selectedRestaurant?.id ?? 'restaurant-1',
+    categoryId: 'food',
+    name: item.name,
+    description: item.description,
+    price: item.price,
+    currencyCode,
+    image: undefined,
+    ingredients: [],
+    allergens: [],
+    dietaryTags: [],
+    available: true,
+    preparationTime: 15,
+    sortOrder: 0,
+  });
+
+  const addToCart = (item: { id: string; name: string; description: string; price: number }) => {
+    addItem({ type: 'menu', item: toMenuItem(item), quantity: 1 });
   };
-
-  const cartTotal = cart.reduce((sum, item) => sum + item.price, 0);
 
   if (selectedRestaurant) {
     return (
@@ -76,23 +94,18 @@ export default function FoodOrderScreen() {
           {/* Menu items */}
           <View style={styles.menuSection}>
             <Text style={styles.sectionTitle}>Popular Items</Text>
-            {[
-              { id: 'm1', name: 'Jollof Rice Special', description: 'Smoky jollof with grilled chicken', price: 2500 },
-              { id: 'm2', name: 'Fried Plantains', description: 'Crispy golden plantains', price: 800 },
-              { id: 'm3', name: 'Chin Chin', description: 'Sweet fried dough snack', price: 500 },
-              { id: 'm4', name: 'Chapman', description: 'Nigerian cocktail drink', price: 600 },
-            ].map((item) => (
+            {MOCK_MENU.map((item) => (
               <TouchableOpacity
                 key={item.id}
                 style={styles.menuItem}
-                onPress={() => addToCart(item as MenuItem)}
+                onPress={() => addToCart(item)}
               >
                 <View style={{ flex: 1 }}>
                   <Text style={styles.menuItemName}>{item.name}</Text>
                   <Text style={styles.menuItemDesc}>{item.description}</Text>
                   <Text style={styles.menuItemPrice}>{formatMoney(item.price, currencyCode)}</Text>
                 </View>
-                <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item as MenuItem)}>
+                <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
                   <Ionicons name="add" size={20} color={colors.primary} />
                 </TouchableOpacity>
               </TouchableOpacity>
@@ -101,13 +114,13 @@ export default function FoodOrderScreen() {
         </ScrollView>
 
         {/* Cart bar */}
-        {cart.length > 0 && (
+        {cartCount > 0 && (
           <View style={styles.cartBar}>
             <View style={styles.cartInfo}>
-              <Text style={styles.cartCount}>{cart.length} items</Text>
-              <Text style={styles.cartTotal}>{formatMoney(cartTotal, currencyCode)}</Text>
+              <Text style={styles.cartCount}>{cartCount} items</Text>
+              <Text style={styles.cartTotal}>{formatMoney(cartSubtotal, currencyCode)}</Text>
             </View>
-            <TouchableOpacity style={styles.primaryButton}>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/food/cart')}>
               <Text style={styles.primaryButtonText}>View Cart</Text>
             </TouchableOpacity>
           </View>

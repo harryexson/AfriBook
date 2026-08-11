@@ -8,17 +8,13 @@ import {
   Ticket,
   Calendar,
   MapPin,
-  Clock,
   Download,
   Share2,
   RefreshCw,
   XCircle,
   Smartphone,
-  ChevronRight,
   Search,
   QrCode,
-  Wallet,
-  AlertTriangle,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 

@@ -12,7 +12,6 @@ import type { GeoPoint } from '@/types';
 import type {
   RideType,
   GeoLocation,
-  RidePricing,
   SurgeZone,
   SurgeZoneInsert,
   SurgePricingInfo,
@@ -21,7 +20,7 @@ import type {
 import { RIDE_TYPE_CONFIG } from '@/types/ridely';
 import { calculateDistance } from './geospatial';
 import { COUNTRIES } from '@/lib/localization/countries';
-import { getSurgeMultiplierForLocation, getH3DemandSupply } from './h3-grid';
+import { getSurgeMultiplierForLocation } from './h3-grid';
 
 // ─── Surge Thresholds ─────────────────────────────────────────
 
@@ -79,7 +78,7 @@ const DEFAULT_PRICING: CountryRidePricing = {
 
 export async function calculateSurgeMultiplier(
   location: GeoLocation,
-  rideType: RideType,
+  _rideType: RideType,
 ): Promise<SurgePricingInfo> {
   // Try H3-based surge first (uses PostGIS RPC)
   try {
@@ -155,8 +154,6 @@ export async function estimateSurgeDemand(
 ): Promise<number> {
   const supabase = await createClient();
   const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-
-  const bounds = getGeoBounds(location, radiusKm);
 
   const { data, error } = await supabase
     .from('ride_requests')
@@ -306,24 +303,6 @@ function getMultiplierFromRatio(ratio: number): number {
     }
   }
   return multiplier;
-}
-
-function getGeoBounds(
-  center: GeoLocation,
-  radiusKm: number,
-): { minLat: number; maxLat: number; minLng: number; maxLng: number } {
-  const R = 6371;
-  const dLat = (radiusKm / R) * (180 / Math.PI);
-  const dLng =
-    (radiusKm / (R * Math.cos((center.lat * Math.PI) / 180))) *
-    (180 / Math.PI);
-
-  return {
-    minLat: center.lat - dLat,
-    maxLat: center.lat + dLat,
-    minLng: center.lng - dLng,
-    maxLng: center.lng + dLng,
-  };
 }
 
 function rowToSurgeZone(row: Record<string, unknown>, countryCode: string): SurgeZone {

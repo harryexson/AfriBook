@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createStripeAccountLink, getStripeAccountStatus, getVendorOnboardingStatus } from '@/lib/payments/merchant-onboarding';
 import { COUNTRY_PROVIDER_MAP } from '@/lib/payments/types';
-import { RazorpayProvider } from '@/lib/payments/providers/razorpay-provider';
-import { PaystackProvider } from '@/lib/payments/providers/paystack-provider';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();

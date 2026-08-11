@@ -3,11 +3,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import type { Business, BusinessStatus } from '@/types'
 import {
   Search, ChevronDown, Eye, CheckCircle, XCircle,
-  Ban, Download, MoreHorizontal, Flag, SlidersHorizontal,
+  Ban, Download,
   Star, MapPin,
 } from 'lucide-react'
 import * as Switch from '@radix-ui/react-switch'

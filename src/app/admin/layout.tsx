@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   Menu, Bell, ChevronRight, Home, Search, X,
-  Command, MessageSquare, UserPlus, Building2, CreditCard,
+  Command, UserPlus, Building2, CreditCard,
   Scale, FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'

@@ -61,7 +61,7 @@ const CONSENT_TEXT =
 // ─── Component ───────────────────────────────────────────────
 
 export default function ReviewFormEnhanced({
-  businessId,
+  businessId: _businessId,
   businessName,
   onSubmit,
   isSubmitting = false,

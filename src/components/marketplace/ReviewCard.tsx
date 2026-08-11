@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Star,
   ThumbsUp,
   Flag,
-  ChevronDown,
   ChevronRight,
   Play,
   BadgeCheck,

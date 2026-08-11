@@ -22,7 +22,9 @@ interface UseRealtimeOptions {
   enabled?: boolean;
 }
 
-interface UseRealtimeReturn<T = any> {
+type PayloadRow = { [key: string]: any };
+
+interface UseRealtimeReturn<T extends PayloadRow = any> {
   /** Latest payload from the subscription. */
   payload: RealtimePostgresChangesPayload<T> | null;
   /** All payloads received since subscription started. */
@@ -37,7 +39,7 @@ interface UseRealtimeReturn<T = any> {
   clearPayloads: () => void;
 }
 
-export function useRealtime<T = any>(
+export function useRealtime<T extends PayloadRow = any>(
   options: UseRealtimeOptions,
 ): UseRealtimeReturn<T> {
   const {

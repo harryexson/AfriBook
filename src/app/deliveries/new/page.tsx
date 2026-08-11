@@ -8,7 +8,6 @@ import {
   Box,
   FileText,
   Truck,
-  MapPin,
   Navigation,
   Clock,
   CreditCard,
@@ -24,7 +23,6 @@ import {
   Loader2,
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
-import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -175,16 +173,6 @@ const WEIGHT_SURCHARGE_PER_KG = 0.5
 
 // ── Animations ─────────────────────────────────────────────────
 
-const fadeIn = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0 },
-}
-
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.1 } },
-}
-
 const slideVariants = {
   enter: (direction: number) => ({ x: direction > 0 ? 40 : -40, opacity: 0 }),
   center: { x: 0, opacity: 1 },
@@ -234,7 +222,6 @@ export default function NewDeliveryPage() {
   // ── Navigation ─────────────────────────────────────────────
 
   const stepIndex = STEPS.findIndex((s) => s.id === currentStep)
-  const canGoBack = stepIndex > 0 && currentStep !== 'confirmation'
 
   const goNext = useCallback(() => {
     const idx = STEPS.findIndex((s) => s.id === currentStep)

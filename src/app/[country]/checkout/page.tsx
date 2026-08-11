@@ -2,14 +2,14 @@
 
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   ChevronLeft, Check, CreditCard, Smartphone, Building, Wallet,
   Shield, AlertCircle, Loader2, Lock, Sparkles,
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { getCountryConfig } from '@/lib/localization'
-import type { CountryConfig, PaymentMethodConfig } from '@/lib/localization/countries'
+import type { CountryConfig } from '@/lib/localization/countries'
 import PriceBreakdown from '@/components/marketplace/PriceBreakdown'
 import type { PriceLineItem } from '@/components/marketplace/PriceBreakdown'
 
@@ -228,7 +228,6 @@ export default function CheckoutPage() {
                 promoError={promoError}
                 promoApplied={promoApplied}
                 platformFeePercent={10}
-                taxRate={taxRate}
                 className="[&_.promo-section]:hidden"
               />
             </motion.div>
@@ -306,7 +305,6 @@ export default function CheckoutPage() {
                 items={priceItems}
                 currencyCode={country?.currency.code ?? 'NGN'}
                 platformFeePercent={10}
-                taxRate={taxRate}
               />
             </div>
           </div>

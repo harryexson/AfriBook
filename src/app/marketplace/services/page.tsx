@@ -1,18 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Search,
-  Filter,
   Star,
   MapPin,
   Heart,
   Grid3X3,
   List,
   SlidersHorizontal,
-  Clock,
   ArrowRight,
 } from 'lucide-react';
 

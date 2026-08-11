@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/hooks/useAuth'
-import { useAuthStore } from '@/stores/auth-store'
 import { OnboardingLayout } from '@/components/onboarding'
 import InterestCard from '@/components/onboarding/InterestCard'
 import { COUNTRIES } from '@/lib/localization/countries'
@@ -12,8 +11,8 @@ import PaymentMethodsManager from '@/components/account/PaymentMethodsManager'
 import ConsentSection, { DEFAULT_CONSENTS } from '@/components/account/ConsentSection'
 import type { ConsentType } from '@/types'
 import {
-  Camera, MapPin, Search, ChevronDown, Eye, EyeOff,
-  Calendar, Phone, ArrowRight, PartyPopper, Lightbulb,
+  Camera, MapPin, Search, ChevronDown,
+  ArrowRight, PartyPopper, Lightbulb,
   BookOpen, Package, CalendarDays, Sparkles, Info,
 } from 'lucide-react'
 
@@ -36,8 +35,7 @@ const GENDERS = ['Male', 'Female', 'Non-binary', 'Prefer not to say']
 
 export default function CustomerOnboardingPage() {
   const router = useRouter()
-  const { user, refreshProfile } = useAuth()
-  const { setUser } = useAuthStore()
+  const { user } = useAuth()
   const [step, setStep] = useState(1)
   const [showBack, setShowBack] = useState(false)
 
@@ -61,7 +59,7 @@ export default function CustomerOnboardingPage() {
 
   // Step 5 - Payment & Consents
   const [grantedConsents, setGrantedConsents] = useState<ConsentType[]>([])
-  const [consentSaving, setConsentSaving] = useState(false)
+  const [, setConsentSaving] = useState(false)
 
   const totalSteps = 6
 
@@ -73,18 +71,6 @@ export default function CustomerOnboardingPage() {
     5: 'Payment & Consents',
     6: 'All Set',
   }
-
-  const canProceed = useCallback(() => {
-    switch (step) {
-      case 1: return true
-      case 2: return true // profile is optional mostly
-      case 3: return country !== ''
-      case 4: return selectedInterests.length >= 3
-      case 5: return grantedConsents.length >= DEFAULT_CONSENTS.length
-      case 6: return true
-      default: return true
-    }
-  }, [step, country, selectedInterests, grantedConsents])
 
   const next = () => {
     if (step < totalSteps) {

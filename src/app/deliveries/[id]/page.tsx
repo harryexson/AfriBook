@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import MapEmbed from '@/components/shared/MapEmbed';
 import {
@@ -159,11 +159,6 @@ const MOCK_DELIVERY: MockDelivery = {
 
 // ── Helpers ────────────────────────────────────────────────────
 
-function formatTime(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: true });
-}
-
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString('en-NG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
@@ -180,7 +175,6 @@ function formatCurrency(amount: number): string {
 // ── Page ───────────────────────────────────────────────────────
 
 export default function DeliveryTrackingPage() {
-  const params = useParams();
   const router = useRouter();
   const delivery = MOCK_DELIVERY;
 
@@ -239,7 +233,6 @@ export default function DeliveryTrackingPage() {
             {STATUS_STEPS.map((step, i) => {
               const isCompleted = i < currentStepIndex;
               const isActive = i === currentStepIndex;
-              const isPending = i > currentStepIndex;
               return (
                 <div key={step.id} className="flex items-center flex-1 last:flex-none">
                   <div className="flex flex-col items-center">

@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────────────────────
 
 import { createClient as createBrowserClient } from '@/lib/supabase/client';
-import type { RideStatusEvent, RideStatus, DeliveryStatus } from '@/types/ridely';
+import type { RideStatusEvent, RideStatus } from '@/types/ridely';
 
 // ─── Client: Subscribe to Ride Status Changes ────────────────
 

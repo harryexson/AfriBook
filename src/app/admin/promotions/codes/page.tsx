@@ -5,13 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
 import {
-  Tag, Percent, DollarSign, Users, TrendingUp, Shield,
+  Tag, Percent, DollarSign, TrendingUp,
   Plus, Search, Download, Copy, BarChart3, X, CheckCircle,
   Sparkles, Globe, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
-  CartesianGrid, Tooltip, PieChart, Pie, Cell,
+  CartesianGrid, Tooltip,
 } from 'recharts'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
@@ -87,8 +87,6 @@ const STATUS_STYLES: Record<CodeStatus, string> = {
   disabled: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 }
 
-const COLORS = ['#F59E0B', '#8B5CF6', '#10B981', '#3B82F6', '#EF4444']
-
 export default function AdminPromoCodesPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<CodeStatus | 'all'>('all')
@@ -156,7 +154,7 @@ export default function AdminPromoCodesPage() {
 
   const handleBulkGenerate = () => {
     if (!bulkPrefix) return
-    const codes = Array.from({ length: bulkCount }, (_, i) => {
+    const codes = Array.from({ length: bulkCount }, (_, _i) => {
       const suffix = Math.random().toString(36).substring(2, 6).toUpperCase()
       return `${bulkPrefix.toUpperCase()}_${suffix}`
     })

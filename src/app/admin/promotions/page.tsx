@@ -5,9 +5,9 @@ import { motion } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
 import {
-  Megaphone, Tag, TrendingUp, DollarSign, Percent, Trophy,
-  Plus, Search, Filter, Download, Calendar, BarChart3,
-  MousePointerClick, Eye, ShoppingCart, ArrowUpRight,
+  Megaphone, Tag, DollarSign, Percent, Trophy,
+  Plus, Search, Filter, Download, Calendar,
+  MousePointerClick, Eye, ShoppingCart,
 } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,

@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
-  User, Bell, Lock, MapPin, Wallet, Eye, EyeOff,
+  User, Bell, Lock, MapPin, Wallet,
   Save, ChevronRight, Globe, Phone, Mail,
 } from 'lucide-react'
 
@@ -50,7 +50,6 @@ export default function DriverSettingsPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
   } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
@@ -63,7 +62,7 @@ export default function DriverSettingsPage() {
     },
   })
 
-  const handleProfileSave = async (data: ProfileForm) => {
+  const handleProfileSave = async (_data: ProfileForm) => {
     setSaving(true)
     // In real app: save to API
     await new Promise((r) => setTimeout(r, 1000))

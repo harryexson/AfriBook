@@ -4,9 +4,9 @@ import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
-  X, Plus, FileSpreadsheet, Link, Camera, ArrowLeft, ArrowRight,
-  Trash2, Edit3, Check, Loader2, Download, Upload, ChevronDown,
-  Search, AlertCircle, PartyPopper, CheckCircle2,
+  X, Plus, FileSpreadsheet, Link, Camera, ArrowLeft,
+  Trash2, Edit3, Check, Loader2, Upload,
+  AlertCircle, PartyPopper, CheckCircle2,
 } from 'lucide-react'
 import CsvParser from './CsvParser'
 import LinkImporter from './LinkImporter'
@@ -44,10 +44,6 @@ const PRODUCT_CATEGORIES = ['Electronics', 'Fashion', 'Home & Garden', 'Beauty',
 const SERVICE_CATEGORIES = ['Hair & Beauty', 'Wellness & Spa', 'Health & Fitness', 'Education & Tutoring', 'Technology', 'Automotive', 'Home Services', 'Photography', 'Event Planning', 'Other']
 const DIETARY_TAGS = ['Vegetarian', 'Vegan', 'Halal', 'Gluten-Free', 'Keto', 'Organic']
 
-function generateId(): string {
-  return `imp_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
-}
-
 const slideVariants = {
   enter: (dir: number) => ({ x: dir > 0 ? 200 : -200, opacity: 0 }),
   center: { x: 0, opacity: 1 },
@@ -56,7 +52,7 @@ const slideVariants = {
 
 export default function ImportWizard({ type, isOpen, onClose, onImport }: ImportWizardProps) {
   const [step, setStep] = useState<WizardStep>('method')
-  const [method, setMethod] = useState<ImportMethod>(null)
+  const [, setMethod] = useState<ImportMethod>(null)
   const [items, setItems] = useState<ImportItem[]>([])
   const [direction, setDirection] = useState(1)
   const [importing, setImporting] = useState(false)
@@ -270,7 +266,7 @@ export default function ImportWizard({ type, isOpen, onClose, onImport }: Import
 
 function MethodStep({
   onSelect,
-  type,
+  type: _type,
   typeLabel,
 }: {
   onSelect: (m: ImportMethod) => void
@@ -377,7 +373,6 @@ function ManualStep({
 
   const [form, setForm] = useState<ImportItem>(emptyForm)
   const [editIndex, setEditIndex] = useState<number | null>(null)
-  const [dietaryInput, setDietaryInput] = useState('')
   const [tagInput, setTagInput] = useState('')
   const [ingredientInput, setIngredientInput] = useState('')
 
@@ -770,7 +765,7 @@ function PhotoStep({
   type,
   typeLabel,
   onImport,
-  onBack,
+  onBack: _onBack,
 }: {
   type: 'product' | 'menu' | 'service'
   typeLabel: string

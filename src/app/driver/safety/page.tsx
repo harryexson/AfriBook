@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { cn } from '@/lib/utils'
 import {
   Shield, AlertTriangle, Clock, MapPin, Phone, User,
   Bell, CheckCircle, ChevronRight, Plus, ShieldAlert,

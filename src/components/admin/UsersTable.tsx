@@ -7,7 +7,7 @@ import { formatDate, timeAgo } from '@/lib/utils'
 import type { User, UserRole } from '@/types'
 import {
   Search, ChevronDown, Eye, Shield, Ban,
-  CheckCircle, XCircle, Download, MoreHorizontal,
+  CheckCircle, XCircle, Download,
   Mail, Phone, Calendar, Clock, ExternalLink,
 } from 'lucide-react'
 

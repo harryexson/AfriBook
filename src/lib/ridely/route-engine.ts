@@ -14,12 +14,6 @@ const MAPBOX_TOKEN = process.env.MAPBOX_ACCESS_TOKEN ?? '';
 const EARTH_RADIUS_KM = 6371;
 const DEG_TO_RAD = Math.PI / 180;
 const URBAN_SPEED_KMH = 30;
-const TRAFFIC_MULTIPLIER: Record<TrafficLevel, number> = {
-  light: 1.0,
-  moderate: 1.3,
-  heavy: 1.8,
-  unknown: 1.2,
-};
 
 // ─── Get Route ───────────────────────────────────────────────
 // Primary route calculation. Tries OSRM first, falls back to

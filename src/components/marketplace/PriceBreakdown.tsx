@@ -19,7 +19,6 @@ interface PriceBreakdownProps {
   promoError?: string | null
   promoApplied?: boolean
   platformFeePercent?: number
-  taxRate?: number
   className?: string
 }
 
@@ -32,13 +31,8 @@ export default function PriceBreakdown({
   promoError,
   promoApplied = false,
   platformFeePercent = 10,
-  taxRate = 0,
   className,
 }: PriceBreakdownProps) {
-  const subtotal = items.find((i) => i.type === 'subtotal')?.amount ?? 0
-  const discount = items.find((i) => i.type === 'discount')?.amount ?? 0
-  const total = items.find((i) => i.type === 'total')?.amount ?? 0
-
   return (
     <div className={cn('space-y-4', className)}>
       {/* Line items */}

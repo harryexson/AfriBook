@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { AlertTriangle, ChevronDown, ChevronUp, Shield } from 'lucide-react'
+import { ChevronDown, ChevronUp, Shield } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ContentConsentBannerProps {

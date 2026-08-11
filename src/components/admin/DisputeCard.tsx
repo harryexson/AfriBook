@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils'
 import { formatDate, formatCurrency, timeAgo } from '@/lib/utils'
 import type { Dispute, DisputeStatus, Payment } from '@/types'
 import {
-  Scale, AlertTriangle, CheckCircle, XCircle, Clock,
-  ArrowUpDown, MessageSquare, FileText, DollarSign, ChevronDown,
+  Scale, AlertTriangle, CheckCircle, Clock,
+  FileText, DollarSign, ChevronDown,
   Send,
 } from 'lucide-react'
 

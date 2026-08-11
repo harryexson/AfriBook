@@ -12,7 +12,6 @@ import {
   Scale,
   Users,
   Clock,
-  Globe,
   Mail,
   FileText,
   Ban,

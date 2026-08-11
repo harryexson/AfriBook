@@ -8,9 +8,7 @@ import {
   Bell,
   Settings,
   TrendingUp,
-  Clock,
   Package,
-  ArrowRight,
   ChevronRight,
 } from 'lucide-react';
 

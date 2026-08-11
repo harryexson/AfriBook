@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 import { Globe, ArrowLeft, Eye, EyeOff, CheckCircle2, AlertCircle, Lock } from 'lucide-react'
@@ -24,7 +23,6 @@ function getPasswordStrength(password: string): { label: string; score: number; 
 }
 
 export default function ResetPasswordPage() {
-  const router = useRouter()
   const supabase = createClient()
 
   const [password, setPassword] = useState('')

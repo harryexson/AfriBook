@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { ArrowLeft, CheckCircle, AlertCircle, Loader2, Car, Shield, Clock } from 'lucide-react'
@@ -15,7 +14,6 @@ type ApplicationStatus = 'none' | 'pending_review' | 'approved' | 'rejected'
 // --- Page ----------------------------------------------------
 
 export default function DriverApplyPage() {
-  const router = useRouter()
   const { user, status: authStatus } = useAuthStore()
   const [step, setStep] = useState<'wizard' | 'success' | 'error' | 'existing'>('wizard')
   const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>('none')
@@ -106,14 +104,14 @@ export default function DriverApplyPage() {
             Sign in to start your driver application and begin earning.
           </p>
           <Link
-            href="/auth/login"
+            href="/login"
             className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-medium px-8 py-3 rounded-xl transition-colors"
           >
             Sign In to Apply
           </Link>
           <p className="mt-6 text-sm text-text-tertiary">
             Don&apos;t have an account?{' '}
-            <Link href="/auth/signup" className="text-amber-500 hover:underline">
+            <Link href="/register" className="text-amber-500 hover:underline">
               Create one
             </Link>
           </p>

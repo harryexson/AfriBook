@@ -266,7 +266,6 @@ export function getStayHotels(countryCode: string): StayHotelData[] {
 
     const starRating = 3 + Math.floor(rng() * 3)
     const roomsCount = 18 + Math.floor(rng() * 60)
-    const roomCountActual = 4 + Math.floor(rng() * 4)
     const rating = Math.round((3.9 + rng() * 1.1) * 10) / 10
     const reviewCount = Math.floor(40 + rng() * 600)
     const basePrice = 40 + Math.floor(rng() * 180)
@@ -341,7 +340,6 @@ export function getStayRoomsForHotel(hotelId: string): StayRoomData[] {
   if (!hotel) return []
 
   const rng = rngFor(countryCode, `stays-rooms-${hotelIndex}`)
-  const pick = <T>(arr: T[]): T => arr[Math.floor(rng() * arr.length)]
   const currencyCode = country.currency.code
 
   const count = hotelIndex % 3 === 0 ? 6 : 5

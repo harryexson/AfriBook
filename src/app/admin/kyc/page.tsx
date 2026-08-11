@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import type { KycDocument as KycDoc } from '@/components/admin/KycReview'
 import AdminStatCard from '@/components/admin/StatCard'
 import KycReview from '@/components/admin/KycReview'
-import { ShieldCheck, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
+import { Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const ITEM = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } } }

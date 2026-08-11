@@ -12,7 +12,7 @@ interface SOSButtonProps {
   deliveryId?: string
 }
 
-export default function SOSButton({ driverId, currentLocation, rideId, deliveryId }: SOSButtonProps) {
+export default function SOSButton({ currentLocation, rideId, deliveryId }: SOSButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [sent, setSent] = useState(false)

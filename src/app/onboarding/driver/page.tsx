@@ -8,7 +8,7 @@ import { OnboardingLayout } from '@/components/onboarding'
 import {
   Car, Bike, Truck, Upload, Camera, FileText,
   ArrowRight, CheckCircle2, Clock, ShieldCheck, UserCheck,
-  ChevronDown, Info, DollarSign, Calendar,
+  DollarSign, Calendar,
 } from 'lucide-react'
 
 const VEHICLE_TYPES = [

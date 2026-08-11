@@ -5,10 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
 import {
-  Flag, ToggleLeft, ToggleRight, Globe, Users, Activity,
-  Clock, Search, Filter, ChevronDown, Zap, Eye, EyeOff,
-  CheckCircle, AlertTriangle, Edit3, Save, X, Target,
-  BarChart3, Percent, MapPin, Check,
+  Flag, ToggleLeft, ToggleRight, Globe, Activity,
+  Clock, Search, ChevronDown, EyeOff,
+  CheckCircle, AlertTriangle, Target,
+  Percent, MapPin, Check,
 } from 'lucide-react'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
@@ -109,7 +109,6 @@ export default function FeatureFlagsPage() {
   const [flags, setFlags] = useState<FeatureFlag[]>(INITIAL_FLAGS)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<FlagStatus | 'all'>('all')
-  const [editingFlag, setEditingFlag] = useState<string | null>(null)
   const [expandedFlag, setExpandedFlag] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 

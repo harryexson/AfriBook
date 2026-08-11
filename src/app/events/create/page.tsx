@@ -28,7 +28,6 @@ import {
   DollarSign,
   Users,
   Tag,
-  Percent,
   Video,
   FileImage,
 } from 'lucide-react';
@@ -36,11 +35,6 @@ import {
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
-};
-
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
 };
 
 const steps = [

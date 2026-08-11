@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
   Car, Shield, FileText, AlertTriangle, CheckCircle,
-  Clock, Upload, Plus, Trash2, ChevronDown,
+  Clock, Upload, Plus, Trash2,
 } from 'lucide-react'
 
 const CONTAINER = {
@@ -52,10 +52,6 @@ export default function VehiclePage() {
     { id: 'd2', name: 'Vehicle Registration', type: 'registration', status: 'pending', fileName: 'registration.pdf' },
     { id: 'd3', name: 'Driver\'s License', type: 'license', status: 'verified', expiryDate: 'Mar 15, 2027', fileName: 'license.pdf' },
   ])
-
-  const handleSave = () => {
-    setEditing(false)
-  }
 
   const handleFileUpload = (type: Document['type']) => {
     const input = document.createElement('input')

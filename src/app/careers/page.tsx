@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
-  Briefcase,
   Heart,
   Zap,
   Globe,
@@ -12,16 +11,9 @@ import {
   Coffee,
   GraduationCap,
   TrendingUp,
-  Code,
-  Palette,
-  Megaphone,
-  Settings,
-  Headphones,
   ArrowRight,
   MapPin,
   Clock,
-  ChevronDown,
-  ChevronRight,
 } from 'lucide-react';
 
 const fadeIn = {

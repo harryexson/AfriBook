@@ -14,6 +14,7 @@ import Button from '../src/components/ui/Button';
 import { api } from '../src/lib/api';
 import { formatMoney } from '../src/lib/money';
 import { useMarketStore } from '../src/stores/market-store';
+import { useCartStore } from '../src/stores/cart-store';
 
 const PAYMENT_METHODS = [
   { id: 'card', label: 'Credit/Debit Card', icon: '💳' },
@@ -22,9 +23,9 @@ const PAYMENT_METHODS = [
   { id: 'cash', label: 'Pay with Cash', icon: '💵' },
 ];
 
-const TOTAL_AMOUNT = 5500;
+const DEFAULT_TOTAL = 5500;
 
-const SUMMARY_ITEMS = [
+const DEFAULT_SUMMARY = [
   { label: 'Classic Haircut', amount: 5000 },
   { label: 'Service Fee', amount: 500 },
 ];
@@ -33,9 +34,32 @@ export default function CheckoutScreen() {
   const router = useRouter();
   const currencyCode = useMarketStore((s) => s.currencyCode());
   const countryCode = useMarketStore((s) => s.countryCode);
+  const cartItems = useCartStore((s) => s.items);
+  const cartSubtotal = useCartStore((s) => s.subtotal());
+  const { clearCart } = useCartStore();
   const [selectedMethod, setSelectedMethod] = useState('card');
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasCart = cartItems.length > 0;
+  const totalAmount = hasCart ? cartSubtotal : DEFAULT_TOTAL;
+  const summaryItems = hasCart
+    ? cartItems.map((item) => ({
+        label:
+          item.type === 'menu'
+            ? item.item.name
+            : item.type === 'booking'
+              ? item.service.name
+              : item.product.name,
+        amount:
+          (item.type === 'menu'
+            ? item.item.price
+            : item.type === 'booking'
+              ? item.service.price
+              : item.product.price) * item.quantity,
+      }))
+    : DEFAULT_SUMMARY;
+  const orderLabel = summaryItems[0]?.label ?? 'AfriBook Order';
 
   const handlePay = async () => {
     setProcessing(true);
@@ -45,6 +69,7 @@ export default function CheckoutScreen() {
       if (selectedMethod === 'cash') {
         // Cash on delivery — no online payment intent needed.
         await new Promise((r) => setTimeout(r, 800));
+        if (hasCart) clearCart();
         router.replace('/(tabs)/bookings');
         return;
       }
@@ -55,11 +80,11 @@ export default function CheckoutScreen() {
         redirectUrl?: string;
         error?: string;
       }>('/api/payment/intent', {
-        amount: TOTAL_AMOUNT,
+        amount: totalAmount,
         currency: currencyCode,
         countryCode,
         method: selectedMethod,
-        description: 'Classic Haircut',
+        description: orderLabel,
       });
 
       if (result.redirectUrl) {
@@ -70,6 +95,7 @@ export default function CheckoutScreen() {
         throw new Error(result.error);
       }
 
+      if (hasCart) clearCart();
       router.replace('/(tabs)/bookings');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
@@ -90,7 +116,7 @@ export default function CheckoutScreen() {
         {/* Order Summary */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Order Summary</Text>
-          {SUMMARY_ITEMS.map((item) => (
+          {summaryItems.map((item) => (
             <View key={item.label} style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>{item.label}</Text>
               <Text style={styles.summaryValue}>{formatMoney(item.amount, currencyCode)}</Text>
@@ -99,7 +125,7 @@ export default function CheckoutScreen() {
           <View style={styles.summaryDivider} />
           <View style={styles.summaryRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>{formatMoney(TOTAL_AMOUNT, currencyCode)}</Text>
+            <Text style={styles.totalValue}>{formatMoney(totalAmount, currencyCode)}</Text>
           </View>
         </View>
 
@@ -139,7 +165,7 @@ export default function CheckoutScreen() {
       {/* CTA */}
       <View style={styles.ctaContainer}>
         <Button
-          title={`Pay ${formatMoney(TOTAL_AMOUNT, currencyCode)}`}
+          title={`Pay ${formatMoney(totalAmount, currencyCode)}`}
           onPress={handlePay}
           loading={processing}
           fullWidth

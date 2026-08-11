@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'node:crypto';
-import type { Booking, Order } from '@/types';
 
 function verifySignature(signature: string, secret: string): boolean {
   const expected = crypto.createHash('sha256').update(secret).digest('hex');

@@ -1,8 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { cn, formatCurrency, formatDate, formatTime } from "@/lib/utils";
-import { MapPin, Star, Clock, DollarSign, ChevronRight } from "lucide-react";
+import { cn, formatCurrency } from "@/lib/utils";
+import { MapPin, Clock, DollarSign, ChevronRight } from "lucide-react";
 import type { Trip } from "@/types";
 
 interface TripCardProps {

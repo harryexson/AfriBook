@@ -27,7 +27,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ presentation: 'modal' }} />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="business/[id]" />
-          <Stack.Screen name="book" />
+          <Stack.Screen name="book/[businessId]/[serviceId]" />
           <Stack.Screen name="checkout" />
           <Stack.Screen name="vendor" />
           <Stack.Screen name="driver" />

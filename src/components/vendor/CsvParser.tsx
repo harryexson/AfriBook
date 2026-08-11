@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
-  Upload, X, Download, AlertCircle, CheckCircle2, FileSpreadsheet, Loader2,
+  Upload, Download, AlertCircle, CheckCircle2, FileSpreadsheet,
 } from 'lucide-react'
 import type { ImportItem } from './ImportWizard'
 
@@ -312,8 +312,6 @@ export default function CsvParser({ type, onParsed, onCancel }: CsvParserProps) 
     a.click()
     URL.revokeObjectURL(url)
   }, [type])
-
-  const inputClass = 'w-full px-3 py-2 rounded-xl border border-border bg-surface text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30'
 
   return (
     <div className="space-y-4">

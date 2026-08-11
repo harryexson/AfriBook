@@ -9,7 +9,7 @@ import { COUNTRIES } from '@/lib/localization/countries'
 import {
   UtensilsCrossed, Plus, Trash2, ChevronDown,
   ArrowRight, CheckCircle2, Info, Clock,
-  MapPin, CreditCard, DollarSign, Globe,
+  MapPin, CreditCard,
 } from 'lucide-react'
 
 const CUISINE_TYPES = [

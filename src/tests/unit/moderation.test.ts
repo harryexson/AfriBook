@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   moderateText,
-  moderateFields,
   moderateRegistration,
   moderateBusiness,
   moderateEvent,

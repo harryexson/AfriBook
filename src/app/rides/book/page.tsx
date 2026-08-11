@@ -5,14 +5,42 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  MapPin, Navigation, Car, Bike, ArrowRight, ArrowLeft,
-  Loader2, CheckCircle, X, Star, Clock, Phone, MessageCircle,
-  CreditCard, Banknote, Wallet, ChevronDown,
+  Navigation, Car, Bike, ArrowLeft,
+  Loader2, CheckCircle, X, Star, Phone, MessageCircle,
+  CreditCard, Banknote, Wallet,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { RIDE_TYPE_CONFIG, type RideType, type RideStatus } from '@/types/ridely'
 import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
+import { useCountry } from '@/components/shared/CountryProvider'
+import { getCurrencyForCountry } from '@/lib/money'
 import { cn, formatCurrency } from '@/lib/utils'
+
+/** Estimate a driver's ETA to pickup in minutes from their last GPS report. */
+function estimateEta(
+  location: { lat?: number; lng?: number } | null,
+  pickupLat: number,
+  pickupLng: number,
+): number {
+  if (
+    !location ||
+    typeof location.lat !== 'number' ||
+    typeof location.lng !== 'number' ||
+    typeof pickupLat !== 'number' ||
+    typeof pickupLng !== 'number'
+  ) {
+    return 5
+  }
+  const R = 6371
+  const dLat = ((pickupLat - location.lat) * Math.PI) / 180
+  const dLng = ((pickupLng - location.lng) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((location.lat * Math.PI) / 180) * Math.cos((pickupLat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2
+  const dist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  // Assume ~20 km/h average city driving speed toward pickup.
+  return Math.max(1, Math.round((dist / 20) * 60))
+}
 
 // --- Ride Type Definitions -----------------------------------
 
@@ -78,6 +106,7 @@ type BookingStep = 'details' | 'select' | 'payment' | 'matching' | 'riding' | 'c
 export default function BookRidePage() {
   const router = useRouter()
   const { user, status: authStatus } = useAuthStore()
+  const { countryCode } = useCountry()
 
   // Booking state
   const [step, setStep] = useState<BookingStep>('details')
@@ -94,7 +123,16 @@ export default function BookRidePage() {
     etaMinutes: number
   } | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
+
+  // Server-authoritative pricing/distance returned when the ride is created
+  const [serverFare, setServerFare] = useState<number | null>(null)
+  const [serverCurrency, setServerCurrency] = useState<string | null>(null)
+  const [serverDistance, setServerDistance] = useState<number | null>(null)
+  const [serverDuration, setServerDuration] = useState<number | null>(null)
+
+  // Ride-status polling handle (replaces the old fake driver matching)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Price estimate (computed from distance)
   const estimatedDistance = 5.2 // Placeholder — in production, use geocoding + route API
@@ -105,10 +143,93 @@ export default function BookRidePage() {
     Math.round(config.baseFare + estimatedDistance * config.perKmRate + estimatedDuration * config.perMinRate),
   )
 
+  const currency = getCurrencyForCountry(countryCode)
+  const displayFare = serverFare ?? estimatedFare
+  const displayCurrency = serverCurrency ?? currency
+  const displayDistance = serverDistance ?? estimatedDistance
+  const displayDuration = serverDuration ?? estimatedDuration
+
+  const stopPolling = useCallback(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+  }, [])
+
+  useEffect(() => stopPolling, [stopPolling])
+
+  const pollRide = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/ridely/rides/${id}`)
+        const data = await res.json()
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Failed to fetch ride status')
+        }
+
+        const ride = data.data
+        const status = (ride.status ?? 'requesting') as RideStatus
+        setRideStatus(status)
+
+        if (status === 'cancelled') {
+          stopPolling()
+          setDriverInfo(null)
+          setError('No driver was found. Please try again.')
+          setLoading(false)
+          setStep('details')
+          return
+        }
+
+        if (
+          status === 'accepted' ||
+          status === 'en_route' ||
+          status === 'arrived' ||
+          status === 'in_progress'
+        ) {
+          stopPolling()
+          if (ride.driver) {
+            const eta = estimateEta(ride.driverLocation, ride.pickup_lat, ride.pickup_lng)
+            setDriverInfo({
+              name: ride.driver.name || 'Your driver',
+              rating: Number(ride.driver.rating) || 4.5,
+              vehicle:
+                [ride.driver.vehicle_color, ride.driver.vehicle_make, ride.driver.vehicle_model]
+                  .filter(Boolean)
+                  .join(' ') || 'Driver assigned',
+              etaMinutes: eta,
+            })
+          }
+          setLoading(false)
+          setStep('riding')
+        }
+      } catch {
+        // Transient network error — keep polling
+      }
+    },
+    [stopPolling],
+  )
+
+  const beginMatching = useCallback(
+    (id: string) => {
+      setRideId(id)
+      setRideStatus('requesting')
+      setDriverInfo(null)
+      setError(null)
+      setStep('matching')
+      setLoading(true)
+
+      stopPolling()
+      pollRide(id)
+      pollRef.current = setInterval(() => pollRide(id), 3000)
+    },
+    [pollRide, stopPolling],
+  )
+
   // -- Request ride ------------------------------------------
   const handleRequestRide = useCallback(async () => {
     if (!user) {
-      router.push('/auth/login')
+      router.push('/login')
       return
     }
 
@@ -136,6 +257,7 @@ export default function BookRidePage() {
           destination,
           destinationAddress,
           paymentType,
+          countryCode,
         }),
       })
 
@@ -147,6 +269,15 @@ export default function BookRidePage() {
 
       setRideId(data.data.id)
       setRideStatus(data.data.status)
+
+      if (data.data.pricing) {
+        setServerFare(data.data.pricing.estimatedFare ?? data.data.estimatedFare ?? null)
+        setServerCurrency(data.data.pricing.currencyCode ?? currency)
+      } else {
+        setServerFare(data.data.estimatedFare ?? null)
+      }
+      setServerDistance(data.data.distance_km ?? null)
+      setServerDuration(data.data.duration_min ?? null)
 
       // Card payments confirm the ride up-front; cash/wallet proceed to matching.
       if (paymentType === 'card') {
@@ -161,26 +292,7 @@ export default function BookRidePage() {
       setStep('details')
       setLoading(false)
     }
-  }, [user, pickupAddress, destinationAddress, selectedRideType, paymentType, router])
-
-  const beginMatching = useCallback((id: string) => {
-    setRideId(id)
-    setStep('matching')
-    setLoading(true)
-
-    // Simulate driver matching after a delay (in production, use Supabase Realtime)
-    setTimeout(() => {
-      setDriverInfo({
-        name: 'Adebayo O.',
-        rating: 4.8,
-        vehicle: '2022 White Toyota Corolla',
-        etaMinutes: 4,
-      })
-      setRideStatus('accepted')
-      setLoading(false)
-      setStep('riding')
-    }, 3000)
-  }, [])
+  }, [user, pickupAddress, destinationAddress, selectedRideType, paymentType, countryCode, currency, beginMatching, router])
 
   const handlePaymentSuccess = useCallback(() => {
     if (rideId) beginMatching(rideId)
@@ -188,6 +300,7 @@ export default function BookRidePage() {
 
   // -- Cancel ride -------------------------------------------
   const handleCancelRide = useCallback(async () => {
+    stopPolling()
     if (!rideId) return
 
     try {
@@ -204,7 +317,7 @@ export default function BookRidePage() {
     setRideStatus(null)
     setDriverInfo(null)
     setStep('details')
-  }, [rideId])
+  }, [rideId, stopPolling])
 
   // -- Loading state -----------------------------------------
   if (authStatus === 'idle' || authStatus === 'loading') {
@@ -375,7 +488,7 @@ export default function BookRidePage() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="font-heading font-bold text-text-primary">
-                          {formatCurrency(fare, 'XAF')}
+                          {formatCurrency(fare, currency)}
                         </p>
                         <p className="text-xs text-text-tertiary">{type.eta}</p>
                       </div>
@@ -411,7 +524,7 @@ export default function BookRidePage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">Estimated fare</span>
                   <span className="font-heading text-xl font-bold text-text-primary">
-                    {formatCurrency(estimatedFare, 'XAF')}
+                    {formatCurrency(estimatedFare, currency)}
                   </span>
                 </div>
                 <p className="text-xs text-text-tertiary mt-1">
@@ -455,21 +568,24 @@ export default function BookRidePage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">Estimated fare</span>
                   <span className="font-heading text-xl font-bold text-text-primary">
-                    {formatCurrency(estimatedFare, 'XAF')}
+                    {formatCurrency(displayFare, displayCurrency)}
                   </span>
                 </div>
                 <p className="text-xs text-text-tertiary mt-1">
                   {pickupAddress} → {destinationAddress}
                 </p>
+                <p className="text-xs text-text-tertiary mt-1">
+                  ~{displayDistance.toFixed(1)} km · ~{displayDuration} min
+                </p>
               </div>
 
               <StripePaymentSection
-                amount={estimatedFare}
+                amount={displayFare}
                 countryCode="US"
                 method="card"
                 rideId={rideId ?? undefined}
                 description={`AfriBook ${selectedRideType} ride`}
-                buttonLabel={`Pay ${formatCurrency(estimatedFare, 'XAF')}`}
+                buttonLabel={`Pay ${formatCurrency(displayFare, displayCurrency)}`}
                 onSuccess={handlePaymentSuccess}
                 onError={setError}
               />
@@ -623,7 +739,7 @@ export default function BookRidePage() {
                 Ride Complete!
               </h2>
               <p className="text-text-secondary mb-8">
-                You paid {formatCurrency(estimatedFare, 'XAF')} via {paymentType}
+                You paid {formatCurrency(displayFare, displayCurrency)} via {paymentType}
               </p>
 
               {/* Rating */}

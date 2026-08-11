@@ -12,12 +12,6 @@ const STORAGE_KEY = 'afribook-location'
 const COOKIE_NAME = 'country'
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-const COUNTRY_ZOOM_MAP: Record<string, number> = {
-  US: 5, CA: 4, AU: 4, BR: 4, IN: 5, CN: 4, RU: 3,
-  NG: 6, KE: 7, GH: 7, ZA: 6, TZ: 7, UG: 7, EG: 6,
-  GB: 6, FR: 5, DE: 5, JP: 6, MX: 5,
-}
-
 export function haversineDistance(
   lat1: number, lon1: number,
   lat2: number, lon2: number

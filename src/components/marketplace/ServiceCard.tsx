@@ -16,7 +16,6 @@ interface ServiceCardProps {
 
 export default function ServiceCard({
   service,
-  businessSlug,
   countryCode = "NG",
   staffCount = 0,
   onBook,

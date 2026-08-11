@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { cn, formatCurrency, calculateDistance } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { MapPin, Clock, DollarSign, Navigation, X } from 'lucide-react'
 
 interface TripRequestData {
@@ -25,7 +25,7 @@ interface TripRequestProps {
 }
 
 export default function TripRequest({ request, onAccept, onDecline, loading }: TripRequestProps) {
-  const [countdown, setCountdown] = useState(30)
+  const [countdown, _setCountdown] = useState(30)
   const [declining, setDeclining] = useState(false)
 
   if (!request) return null

@@ -10,7 +10,6 @@ import {
   Tag,
   ChevronLeft,
   ChevronRight,
-  BookOpen,
   TrendingUp,
   Mail,
 } from 'lucide-react';

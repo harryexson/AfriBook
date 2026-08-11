@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { cn, formatCurrency } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import type { Country } from '@/types'
 import AdminStatCard from '@/components/admin/StatCard'
 import CountryEditor from '@/components/admin/CountryEditor'

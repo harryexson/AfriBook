@@ -8,7 +8,6 @@ import {
   LOYALTY_TIERS,
   getTierForPoints,
   getPointsMultiplier,
-  getTierBenefits,
   type LoyaltyTier,
 } from './tiers';
 
@@ -40,7 +39,6 @@ interface PointsTransaction {
 const POINTS_PER_CURRENCY_UNIT = 1; // 1 point per currency unit spent
 const REFERRAL_BONUS = 500;
 const SIGNUP_BONUS = 100;
-const POINT_EXPIRY_MONTHS = 12;
 
 // ─── Get Loyalty Account ─────────────────────────────────────
 

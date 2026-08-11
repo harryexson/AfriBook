@@ -6,8 +6,8 @@ import { cn } from '@/lib/utils'
 import { formatDate, timeAgo } from '@/lib/utils'
 import {
   ShieldCheck, CheckCircle, XCircle, AlertTriangle,
-  Search, Download, ChevronDown, Eye, FileText,
-  User, Building2, MessageSquare, Flag,
+  Search, ChevronDown, FileText,
+  User, Building2, Flag,
 } from 'lucide-react'
 
 type KycStatus = 'pending' | 'approved' | 'rejected' | 'flagged'

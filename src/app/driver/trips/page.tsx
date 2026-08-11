@@ -2,10 +2,10 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { cn, formatCurrency, formatDate, formatTime } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import {
-  Route, Download, Filter, MapPin, Clock, DollarSign, Star,
-  Search, ChevronDown, X, Calendar,
+  Route, Download, MapPin, Clock, DollarSign, Star,
+  Search, ChevronDown, Calendar,
 } from 'lucide-react'
 import type { Trip } from '@/types'
 
@@ -151,7 +151,7 @@ export default function TripsPage() {
             <p className="text-sm text-text-tertiary mt-1">Try adjusting your filters</p>
           </div>
         ) : (
-          filtered.map((trip, i) => {
+          filtered.map((trip, _i) => {
             const isSelected = selectedTrip === trip.id
             return (
               <motion.div

@@ -12,7 +12,6 @@ import {
   Store,
   ShieldCheck,
   ChevronDown,
-  ChevronRight,
   Mail,
   MessageCircle,
   Phone,

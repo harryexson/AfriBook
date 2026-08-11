@@ -10,9 +10,9 @@ const supabase = createServiceRoleClient(
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
-    const { supabase: authSupabase, user } = await requireAuthenticatedUser();
+    const { user } = await requireAuthenticatedUser();
     const userId = user.id;
 
     const { data: subscription, error } = await supabase
@@ -66,10 +66,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { supabase: authSupabase, user } = await requireAuthenticatedUser();
+    const { user } = await requireAuthenticatedUser();
     const userId = user.id;
     const body = await req.json();
-    const { plan, billingPeriod, paymentMethodId } = body;
+    const { plan, billingPeriod } = body;
 
     if (!plan) {
       return NextResponse.json(

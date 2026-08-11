@@ -165,7 +165,7 @@ export async function POST(req: NextRequest) {
 
     const eventData = {
       organizer_id: user.id,
-      organizer_name: organizerName ?? "",
+      organizer_name: organizerName ?? profileResponse.data?.full_name ?? "",
       title,
       slug,
       description,

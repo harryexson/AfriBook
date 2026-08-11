@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUser } from "@/lib/supabase/server";
-import type { TicketPurchase, EventGuest } from "@/types/events";
+import type { EventGuest } from "@/types/events";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,7 +23,7 @@ export async function POST(
 ) {
   try {
     const { id: eventId } = await params;
-    const { supabase: authSupabase, user } = await requireAuthenticatedUser();
+    const { user } = await requireAuthenticatedUser();
     const body = await req.json();
     const {
       ticketTypeId,

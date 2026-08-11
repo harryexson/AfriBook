@@ -18,7 +18,7 @@ const platformUrls: Record<string, (url: string, text: string) => string> = {
     `https://api.whatsapp.com/send?text=${encodeURIComponent(text + " " + url)}`,
   linkedin: (url) =>
     `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
-  instagram: (url) => `https://www.instagram.com/`,
+  instagram: () => `https://www.instagram.com/`,
   email: (url, text) =>
     `mailto:?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(url)}`,
   sms: (url, text) => `sms:?body=${encodeURIComponent(text + " " + url)}`,
@@ -31,7 +31,7 @@ export async function POST(
 ) {
   try {
     const { id: eventId } = await params;
-    const { supabase: authSupabase, user } = await requireAuthenticatedUser();
+    const { user } = await requireAuthenticatedUser();
     const body = await req.json();
     const { platforms } = body;
     const currentUserId = user.id;

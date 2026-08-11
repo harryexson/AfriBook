@@ -4,7 +4,7 @@
 // driver dispatch, surge pricing, real-time events, and route data.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import type { Address, GeoPoint, Vehicle } from "@/types";
+import type { GeoPoint, Vehicle } from "@/types";
 // Re-export DB row types so consumers can import from either location
 export type { RideRequestRow, DeliveryRequestRow } from "@/types";
 

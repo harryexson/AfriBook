@@ -7,9 +7,9 @@ import { cn } from '@/lib/utils'
 import {
   Shield, AlertTriangle, ClipboardCheck, Search,
   ChevronRight, Users, Truck, Store, Filter,
-  CheckCircle, XCircle, Clock, ArrowUpDown,
+  CheckCircle, XCircle, Clock,
 } from 'lucide-react'
-import type { ComplianceViolation, ComplianceScorecard } from '@/types/pickup-security'
+import type { ComplianceViolation } from '@/types/pickup-security'
 
 const CONTAINER = {
   hidden: { opacity: 0 },

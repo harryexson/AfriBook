@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import type { Booking, Order } from '@/types';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;

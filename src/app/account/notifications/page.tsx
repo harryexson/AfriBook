@@ -5,14 +5,12 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Bell,
-  Check,
   CheckCheck,
   Package,
   Truck,
   Tag,
   CreditCard,
   Settings,
-  Trash2,
   ShoppingBag,
 } from 'lucide-react';
 

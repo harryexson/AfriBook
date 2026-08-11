@@ -11,10 +11,8 @@ import {
   Heart,
   Ticket,
   Users,
-  MessageCircle,
   ChevronRight,
   ExternalLink,
-  Globe,
   Check,
   Plus,
   Minus,
@@ -23,12 +21,8 @@ import {
   Send,
   Eye,
   ArrowLeft,
-  Star,
   CalendarPlus,
-  Download,
   Shield,
-  AlertTriangle,
-  Info,
 } from 'lucide-react';
 import { Facebook, Twitter, Instagram } from '@/components/icons/SocialIcons';
 import {

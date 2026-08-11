@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
 import {
-  Image, Eye, MousePointerClick, TrendingUp, DollarSign, Target,
-  Plus, Search, Download, X, Globe, Calendar, BarChart3,
+  Image, Eye, MousePointerClick, TrendingUp, DollarSign,
+  Plus, Search, Download, X, Globe, Calendar,
   Upload, ExternalLink,
 } from 'lucide-react'
 import {

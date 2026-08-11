@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, MapPin, Clock, CheckCircle, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { CheckInType } from '@/types/pickup-security'
 
 interface CheckInModalProps {
@@ -15,7 +14,7 @@ interface CheckInModalProps {
   onCompleted?: () => void
 }
 
-export default function CheckInModal({ isOpen, onClose, driverId, checkInType, scheduledAt, onCompleted }: CheckInModalProps) {
+export default function CheckInModal({ isOpen, onClose, driverId: _driverId, checkInType, scheduledAt, onCompleted }: CheckInModalProps) {
   const [step, setStep] = useState<'location' | 'photo' | 'confirming' | 'done'>('location')
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)

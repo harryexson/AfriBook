@@ -12,10 +12,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Camera,
-  Image as ImageIcon,
-  Clock,
   HardDrive,
-  Plus,
   MessageCircle,
 } from 'lucide-react';
 

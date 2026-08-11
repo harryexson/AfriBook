@@ -298,7 +298,6 @@ export default function BookingPage() {
                   promoError={promoError}
                   promoApplied={promoApplied}
                   platformFeePercent={10}
-                  taxRate={taxRate}
                 />
 
                 <button

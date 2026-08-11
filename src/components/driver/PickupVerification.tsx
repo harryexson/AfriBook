@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
 import { Key, CheckCircle, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
-  ArrowRight,
   Ticket,
   Users,
   Tag,
@@ -13,7 +12,6 @@ import {
   Smartphone,
   Building2,
   Lock,
-  AlertCircle,
   Check,
   Minus,
   Plus,
@@ -25,11 +23,6 @@ import {
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
-};
-
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
 };
 
 const mockTier = {

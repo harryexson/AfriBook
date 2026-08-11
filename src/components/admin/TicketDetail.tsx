@@ -4,8 +4,8 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn, timeAgo } from '@/lib/utils'
 import {
-  ArrowLeft, Send, Paperclip, ChevronDown,
-  AlertTriangle, GitMerge, ArrowUpDown, X, CheckCircle,
+  ArrowLeft, Send, Paperclip,
+  AlertTriangle, GitMerge, ArrowUpDown, CheckCircle,
   User, MessageSquare, Shield,
 } from 'lucide-react'
 

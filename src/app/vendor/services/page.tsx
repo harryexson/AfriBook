@@ -51,10 +51,6 @@ export default function ServicesPage() {
     )
   }
 
-  const toggleAll = () => {
-    setSelected(selected.length === filtered.length ? [] : filtered.map((s) => s.id))
-  }
-
   return (
     <motion.div variants={CONTAINER} initial="hidden" animate="visible" className="space-y-6">
       <motion.div variants={ITEM} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">

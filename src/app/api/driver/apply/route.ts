@@ -116,6 +116,7 @@ export async function POST(req: NextRequest) {
       vehicleRegistration: vehicleRegistration ?? null,
       insuranceDocument: insuranceDocument ?? null,
       profilePhoto: profilePhoto ?? null,
+      dateOfBirth: dateOfBirth ?? null,
     };
 
     const payoutInfo = {
@@ -198,7 +199,7 @@ export async function POST(req: NextRequest) {
 }
 
 // --- GET: Check application status --------------------------
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const supabase = await getDb();
 

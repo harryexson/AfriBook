@@ -8,7 +8,7 @@ import AdminStatCard from '@/components/admin/StatCard'
 import { DisputeQueue } from '@/components/admin/DisputeCard'
 import {
   Scale, AlertTriangle, CheckCircle, Clock,
-  BarChart3, TrendingUp, ArrowUpDown,
+  ArrowUpDown,
 } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
@@ -39,7 +39,7 @@ const RESOLUTION_TIME = [
 export default function AdminDisputesPage() {
   const [toast, setToast] = useState<{ type: 'success'; message: string } | null>(null)
 
-  const handleResolve = async (dispute: Dispute, resolution: 'refund' | 'release' | 'partial', notes: string) => {
+  const handleResolve = async (dispute: Dispute, resolution: 'refund' | 'release' | 'partial', _notes: string) => {
     setToast({ type: 'success', message: `Dispute ${dispute.id} resolved: ${resolution}` })
     setTimeout(() => setToast(null), 3000)
   }

@@ -28,8 +28,8 @@ class ApiClient {
     };
   }
 
-  private async throwResponseError(path: string, res: Response): Promise<never> {
-    let message = `${res.method ?? ''} ${path} failed: ${res.status}`;
+  private async throwResponseError(method: string, path: string, res: Response): Promise<never> {
+    let message = `${method} ${path} failed: ${res.status}`;
     try {
       const body = await res.json();
       if (body?.error) message = body.error;
@@ -43,7 +43,7 @@ class ApiClient {
   async get<T>(path: string): Promise<T> {
     const headers = await this.getHeaders();
     const res = await fetch(`${this.baseUrl}${path}`, { method: 'GET', headers });
-    if (!res.ok) await this.throwResponseError(path, res);
+    if (!res.ok) await this.throwResponseError('GET', path, res);
     return res.json();
   }
 
@@ -54,7 +54,7 @@ class ApiClient {
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) await this.throwResponseError(path, res);
+    if (!res.ok) await this.throwResponseError('POST', path, res);
     return res.json();
   }
 
@@ -65,7 +65,7 @@ class ApiClient {
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) await this.throwResponseError(path, res);
+    if (!res.ok) await this.throwResponseError('PUT', path, res);
     return res.json();
   }
 
@@ -76,7 +76,7 @@ class ApiClient {
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-    if (!res.ok) await this.throwResponseError(path, res);
+    if (!res.ok) await this.throwResponseError('DELETE', path, res);
     return res.json();
   }
 }

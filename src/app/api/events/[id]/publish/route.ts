@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -23,7 +23,6 @@ export async function POST(
     const isAdmin =
       profileResponse.data?.role === "admin" ||
       profileResponse.data?.role === "super_admin";
-    const body = await req.json().catch(() => ({}));
 
     const { data: event, error: fetchError } = await supabase
       .from("events")

@@ -7,7 +7,6 @@ import {
   CreditCard,
   MapPin,
   Users,
-  Ban,
   AlertTriangle,
   Globe,
   Mail,

@@ -6,12 +6,10 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronLeft, CheckCircle, Clock, MapPin, Phone, MessageCircle,
   XCircle, AlertTriangle, Truck, Package, ChefHat, ShoppingBag,
-  User, Loader2,
+  Loader2,
 } from 'lucide-react'
 import MapEmbed from '@/components/shared/MapEmbed'
 import { cn, formatCurrency, timeAgo } from '@/lib/utils'
-import { getCountryConfig } from '@/lib/localization'
-import type { CountryConfig } from '@/lib/localization/countries'
 import type { Order, OrderStatus, Driver, Delivery } from '@/types'
 
 const MOCK_ORDER: Order = {
@@ -62,8 +60,6 @@ function getCurrentStep(status: OrderStatus): number {
 export default function OrderTrackingPage() {
   const params = useParams()
   const router = useRouter()
-  const countryCode = (params?.country as string)?.toUpperCase() ?? 'NG'
-  const country = getCountryConfig(countryCode) as CountryConfig | undefined
 
   const order = MOCK_ORDER
   const driver = MOCK_DRIVER
@@ -71,7 +67,7 @@ export default function OrderTrackingPage() {
 
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelling, setCancelling] = useState(false)
-  const [eta, setEta] = useState('35 min')
+  const [eta] = useState('35 min')
 
   const currentStep = getCurrentStep(order.status)
   const canCancel = CANCELABLE_STATUSES.includes(order.status)

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Camera, Upload, X, CheckCircle } from 'lucide-react'
+import { Camera, X, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface PhotoCaptureProps {

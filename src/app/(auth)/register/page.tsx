@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -62,9 +62,6 @@ export default function RegisterPage() {
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [city, setCity] = useState('')
-
-  // Step 4 location
-  const [detectedCountry, setDetectedCountry] = useState<string>('')
 
   const {
     register,

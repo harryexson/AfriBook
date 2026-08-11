@@ -1,24 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
   Globe,
   Users,
-  Store,
-  Heart,
   Shield,
   Lightbulb,
-  Handshake,
   Accessibility,
   Award,
   ArrowRight,
   ChevronRight,
-  MapPin,
-  Star,
-  TrendingUp,
-  Zap,
 } from 'lucide-react';
 
 const fadeIn = {

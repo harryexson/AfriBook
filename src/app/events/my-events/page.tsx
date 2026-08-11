@@ -6,23 +6,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
   Calendar,
-  TrendingUp,
-  DollarSign,
   Eye,
-  Users,
   BarChart3,
   Share2,
   Edit3,
   QrCode,
-  ChevronRight,
   Search,
   Filter,
   ArrowUpDown,
   MoreHorizontal,
-  Ticket,
-  Clock,
   CheckCircle2,
-  AlertCircle,
 } from 'lucide-react';
 
 const fadeIn = {

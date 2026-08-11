@@ -2,10 +2,9 @@
 
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { cn } from '@/lib/utils'
 import {
   Camera, Upload, ScanLine, Loader2, Check, X, Pencil,
-  RotateCcw, Sparkles, Eye, EyeOff, Trash2, Image as ImageIcon,
+  RotateCcw, Sparkles, EyeOff, Trash2, Image as ImageIcon,
 } from 'lucide-react'
 
 export interface ImportItem {
@@ -187,8 +186,8 @@ export default function MenuPhotoScanner({ onImport, onCancel }: MenuPhotoScanne
   const [isScanning, setIsScanning] = useState(false)
   const [scanComplete, setScanComplete] = useState(false)
   const [items, setItems] = useState<ImportItem[]>([])
-  const [editMode, setEditMode] = useState(false)
-  const [preFillForEdit, setPreFillForEdit] = useState<ImportItem | null>(null)
+  const [, setEditMode] = useState(false)
+  const [, setPreFillForEdit] = useState<ImportItem | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 

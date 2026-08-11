@@ -269,7 +269,7 @@ export class AdyenProvider implements PaymentProvider {
   }
 
   async getTransactionStatus(
-    providerTransactionId: string,
+    _providerTransactionId: string,
   ): Promise<OrchestratorPaymentStatus> {
     // Adyen status is webhook-driven; default to pending until a webhook lands.
     return 'pending';

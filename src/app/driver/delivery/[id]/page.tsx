@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Navigation, Phone, MapPin, Store, User, Clock } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ArrowLeft, Navigation, Phone, Store, User } from 'lucide-react'
 import DeliveryProgress from '@/components/driver/DeliveryProgress'
 import PickupVerification from '@/components/driver/PickupVerification'
 import ItemVerification from '@/components/driver/ItemVerification'
@@ -42,7 +41,6 @@ const MOCK_DELIVERY = {
 }
 
 export default function ActiveDeliveryPage() {
-  const params = useParams()
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState<DeliveryStep>('assigned')
   const [showVerification, setShowVerification] = useState(false)

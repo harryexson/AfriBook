@@ -7,9 +7,8 @@ import { SUBSCRIPTION_PLANS, type SubscriptionPlanId, type SubscriptionPlanConfi
 import AdminStatCard from '@/components/admin/StatCard'
 import {
   Users, DollarSign, TrendingUp, Calendar, AlertTriangle,
-  ArrowUpRight, ArrowDownRight, Pencil, X, Check, Crown,
-  Activity, Clock, CheckCircle, XCircle, ChevronDown,
-  Zap, BarChart3, RefreshCw, Eye,
+  ArrowUpRight, Pencil, X, Check, Crown,
+  Activity, Clock, Zap, BarChart3,
 } from 'lucide-react'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }

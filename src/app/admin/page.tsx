@@ -1,12 +1,11 @@
 'use client'
 
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
   Users, Building2, CreditCard, DollarSign, TrendingUp,
-  UserPlus, AlertTriangle, Activity, Shield, ArrowRight,
+  AlertTriangle, Activity, Shield, ArrowRight,
   CheckCircle,
 } from 'lucide-react'
 import AdminStatCard from '@/components/admin/StatCard'
@@ -48,8 +47,6 @@ const QUICK_ACTIONS = [
 ]
 
 export default function AdminDashboardPage() {
-  const [period, setPeriod] = useState<'7d' | '30d'>('30d')
-
   return (
     <motion.div variants={CONTAINER} initial="hidden" animate="visible" className="space-y-6">
       {/* Header */}

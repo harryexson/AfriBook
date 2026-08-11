@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { Phone, ArrowLeft, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react'
+import { Phone, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react'
 
 interface PhoneVerificationProps {
   phoneNumber: string

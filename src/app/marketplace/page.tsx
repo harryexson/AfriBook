@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import PhoneMockup from '@/components/showcase/PhoneMockup';
 import { MarketAppScreen } from '@/components/showcase/AppScreens';
+import { useCountry } from '@/components/shared/CountryProvider';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -154,12 +155,15 @@ const stats = [
 
 export default function MarketplacePage() {
   const router = useRouter();
+  const { countryCode } = useCountry();
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      router.push(
+        `/${countryCode}/search?q=${encodeURIComponent(searchQuery.trim())}`,
+      );
     }
   };
 

@@ -8,8 +8,8 @@ import { OnboardingLayout } from '@/components/onboarding'
 import { COUNTRIES } from '@/lib/localization/countries'
 import {
   Store, TrendingUp, CreditCard, ChevronDown,
-  ArrowRight, CheckCircle2, MapPin, Globe,
-  Plus, Trash2, Info, Package,
+  ArrowRight, CheckCircle2, MapPin,
+  Plus, Trash2, Info,
 } from 'lucide-react'
 
 const CATEGORIES = [

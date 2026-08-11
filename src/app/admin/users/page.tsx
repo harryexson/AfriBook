@@ -15,7 +15,7 @@ const ITEM = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, trans
 
 export default function AdminUsersPage() {
   const router = useRouter()
-  const { user, startImpersonating } = useAuthStore()
+  const { user: _user, startImpersonating } = useAuthStore()
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const handleImpersonate = (target: User) => {

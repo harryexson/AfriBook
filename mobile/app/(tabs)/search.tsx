@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   StyleSheet,
   FlatList,
 } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import Input from '../../src/components/ui/Input';
@@ -15,6 +16,15 @@ import BusinessCard from '../../src/components/BusinessCard';
 import type { Business } from '../../src/types';
 
 const FILTERS = ['All', 'Beauty', 'Health', 'Food', 'Home', 'Auto', 'Education'];
+
+const CATEGORY_TO_FILTER: Record<string, string> = {
+  'Beauty & Wellness': 'Beauty',
+  Healthcare: 'Health',
+  'Food & Dining': 'Food',
+  'Home Services': 'Home',
+  Automotive: 'Auto',
+  Education: 'Education',
+};
 
 const MOCK_BUSINESSES: Business[] = [
   {
@@ -68,8 +78,19 @@ const MOCK_BUSINESSES: Business[] = [
 ];
 
 export default function SearchScreen() {
+  const params = useLocalSearchParams<{ category?: string }>();
+  const categoryParam =
+    typeof params.category === 'string' ? params.category : '';
   const [query, setQuery] = useState('');
-  const [activeFilter, setActiveFilter] = useState('All');
+  const [activeFilter, setActiveFilter] = useState(
+    categoryParam ? (CATEGORY_TO_FILTER[categoryParam] ?? 'All') : 'All',
+  );
+
+  useEffect(() => {
+    if (categoryParam) {
+      setActiveFilter(CATEGORY_TO_FILTER[categoryParam] ?? 'All');
+    }
+  }, [categoryParam]);
 
   const filtered = MOCK_BUSINESSES.filter((b) => {
     const matchesQuery = !query || b.name.toLowerCase().includes(query.toLowerCase());

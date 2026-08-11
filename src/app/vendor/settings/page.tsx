@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import {
-  User, Building2, Bell, Shield, Palette, Globe, Check, Save,
+  Building2, Bell, Shield, Palette, Globe, Check, Save,
   Mail, Phone, MapPin, Clock, Store, CreditCard, Ban,
 } from 'lucide-react'
 

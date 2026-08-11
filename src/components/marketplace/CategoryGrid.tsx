@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useCountry } from "@/components/shared/CountryProvider";
 import {
   Sparkles,
   Heart,
@@ -20,23 +21,24 @@ import {
 
 interface Category {
   name: string;
-  href: string;
+  href?: string;
+  category?: string;
   icon: React.ComponentType<{ className?: string }>;
 }
 
 const CATEGORIES: Category[] = [
-  { name: "Beauty", href: "/marketplace/beauty", icon: Sparkles },
-  { name: "Health", href: "/marketplace/health", icon: Heart },
-  { name: "Automotive", href: "/marketplace/automotive", icon: Car },
+  { name: "Beauty", category: "Beauty & Wellness", icon: Sparkles },
+  { name: "Health", category: "Healthcare", icon: Heart },
+  { name: "Automotive", category: "Automotive", icon: Car },
   { name: "Food", href: "/food", icon: Utensils },
   { name: "Rides", href: "/rides", icon: Truck },
-  { name: "Home Services", href: "/marketplace/home-services", icon: Home },
-  { name: "Events", href: "/marketplace/events", icon: Music },
-  { name: "Education", href: "/marketplace/education", icon: GraduationCap },
-  { name: "Shopping", href: "/marketplace/shopping", icon: ShoppingBag },
+  { name: "Home Services", category: "Home Services", icon: Home },
+  { name: "Events", href: "/events", icon: Music },
+  { name: "Education", category: "Education", icon: GraduationCap },
+  { name: "Shopping", href: "/marketplace/products", icon: ShoppingBag },
   { name: "Delivery", href: "/deliveries", icon: Bike },
-  { name: "Wellness", href: "/marketplace/wellness", icon: Smile },
-  { name: "Repairs", href: "/marketplace/repairs", icon: Wrench },
+  { name: "Wellness", category: "Beauty & Wellness", icon: Smile },
+  { name: "Repairs", category: "Home Services", icon: Wrench },
 ];
 
 const containerVariants = {
@@ -60,6 +62,12 @@ const itemVariants = {
 };
 
 export default function CategoryGrid() {
+  const { countryCode } = useCountry();
+
+  const hrefFor = (category: Category): string =>
+    category.href ??
+    `/${countryCode}/search?category=${encodeURIComponent(category.category ?? "")}`;
+
   return (
     <section className="py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -99,7 +107,7 @@ export default function CategoryGrid() {
           {CATEGORIES.map((category) => (
             <motion.div key={category.name} variants={itemVariants}>
               <Link
-                href={category.href}
+                href={hrefFor(category)}
                 className="group flex flex-col gap-5 rounded-[32px] border border-border bg-surface/95 p-6 shadow-[0_24px_60px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:border-amber-500/30 hover:shadow-[0_32px_80px_rgba(15,23,42,0.14)]"
               >
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 transition-all duration-300 group-hover:bg-amber-500 group-hover:text-white">

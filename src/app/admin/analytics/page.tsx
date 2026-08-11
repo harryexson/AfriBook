@@ -5,12 +5,12 @@ import { motion } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
 import {
-  BarChart3, TrendingUp, DollarSign, Users, ShoppingBag,
-  Globe, Download, Calendar,
+  BarChart3, TrendingUp, DollarSign, ShoppingBag,
+  Download,
 } from 'lucide-react'
 import {
   ResponsiveContainer, AreaChart, Area, BarChart, Bar,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   PieChart, Pie, Cell,
 } from 'recharts'
 import type { TooltipValueType as ValueType } from 'recharts'
@@ -180,7 +180,7 @@ export default function AdminAnalyticsPage() {
         <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border p-6">
           <h3 className="text-lg font-semibold text-text-primary font-heading mb-4">Top Vendors</h3>
           <div className="space-y-3">
-            {TOP_VENDORS.map((v, i) => (
+            {TOP_VENDORS.map((v, _i) => (
               <div key={v.name} className="flex items-center justify-between p-3 rounded-xl bg-surface-secondary">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xs font-bold">

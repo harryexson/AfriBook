@@ -10,20 +10,6 @@ async function getAdminDb() {
   return createAdminClient() as any;
 }
 
-function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-  const sinHalfLat = Math.sin(dLat / 2);
-  const sinHalfLng = Math.sin(dLng / 2);
-  const h =
-    sinHalfLat * sinHalfLat +
-    Math.cos((a.lat * Math.PI) / 180) *
-      Math.cos((b.lat * Math.PI) / 180) *
-      sinHalfLng * sinHalfLng;
-  return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-}
-
 function calculateSurgeMultiplier(activeDrivers: number, activeRequests: number): number {
   if (activeDrivers === 0) return 3.0;
   const ratio = activeRequests / activeDrivers;

@@ -1,5 +1,3 @@
-type TranslationMap = Record<string, string | Record<string, string | Record<string, string>>>;
-
 export interface Translations {
   common: Record<string, string>;
   auth: Record<string, string>;

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
   MapPin, DollarSign, Route, Star, Wifi, WifiOff,
-  ChevronRight, Car, TrendingUp, Clock,
+  ChevronRight, Car,
 } from 'lucide-react'
 import TripCard from '@/components/shared/TripCard'
 import TripRequest from '@/components/shared/TripRequest'
@@ -63,11 +63,11 @@ export default function DriverDashboardPage() {
     type: 'delivery',
   })
 
-  const handleAccept = (id: string) => {
+  const handleAccept = (_id: string) => {
     setTripRequest(null)
   }
 
-  const handleDecline = (id: string) => {
+  const handleDecline = (_id: string) => {
     setTripRequest(null)
   }
 

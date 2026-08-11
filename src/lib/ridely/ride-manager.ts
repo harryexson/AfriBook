@@ -24,24 +24,6 @@ import { COUNTRIES } from '@/lib/localization/countries';
 
 // ─── Cancellation Fee Configs by Country ──────────────────────
 
-const CANCELLATION_FEES: Record<string, CancellationFeeConfig> = {
-  NG: { beforeAssignment: 0, withinTwoMinutes: 500, afterEnRoute: 1000, afterArrived: 2000 },
-  US: { beforeAssignment: 0, withinTwoMinutes: 1, afterEnRoute: 2, afterArrived: 4 },
-  GB: { beforeAssignment: 0, withinTwoMinutes: 1, afterEnRoute: 2, afterArrived: 4 },
-  KE: { beforeAssignment: 0, withinTwoMinutes: 50, afterEnRoute: 100, afterArrived: 200 },
-  ZA: { beforeAssignment: 0, withinTwoMinutes: 10, afterEnRoute: 20, afterArrived: 40 },
-  IN: { beforeAssignment: 0, withinTwoMinutes: 20, afterEnRoute: 50, afterArrived: 100 },
-  GH: { beforeAssignment: 0, withinTwoMinutes: 5, afterEnRoute: 10, afterArrived: 20 },
-  TZ: { beforeAssignment: 0, withinTwoMinutes: 2000, afterEnRoute: 4000, afterArrived: 8000 },
-  UG: { beforeAssignment: 0, withinTwoMinutes: 2000, afterEnRoute: 4000, afterArrived: 8000 },
-  MW: { beforeAssignment: 0, withinTwoMinutes: 1000, afterEnRoute: 2000, afterArrived: 4000 },
-  EG: { beforeAssignment: 0, withinTwoMinutes: 10, afterEnRoute: 20, afterArrived: 40 },
-  AE: { beforeAssignment: 0, withinTwoMinutes: 5, afterEnRoute: 10, afterArrived: 20 },
-  CA: { beforeAssignment: 0, withinTwoMinutes: 1.5, afterEnRoute: 3, afterArrived: 6 },
-  FR: { beforeAssignment: 0, withinTwoMinutes: 1.5, afterEnRoute: 3, afterArrived: 6 },
-  DE: { beforeAssignment: 0, withinTwoMinutes: 2, afterEnRoute: 4, afterArrived: 8 },
-};
-
 const DEFAULT_CANCELLATION_FEES: CancellationFeeConfig = {
   beforeAssignment: 0,
   withinTwoMinutes: 2,
@@ -99,6 +81,18 @@ export async function createRideRequest(params: {
       surge_multiplier: estimate.surgeMultiplier,
       payment_type: params.paymentType,
       route_polyline: null,
+      currency: currencyCode,
+      metadata: {
+        pricing: {
+          baseFare: pricing.baseFare,
+          perKmRate: pricing.perKmRate,
+          perMinRate: pricing.perMinRate,
+          minimumFare: pricing.minimumFare,
+          surgeMultiplier: pricing.surgeMultiplier,
+          estimatedFare: pricing.estimatedFare,
+          currencyCode: pricing.currencyCode,
+        },
+      } as Record<string, unknown>,
     } as any)
     .select()
     .single();
@@ -154,6 +148,7 @@ export async function updateRideStatus(
   if (status === 'en_route') updatePayload.accepted_at = new Date().toISOString();
   if (status === 'arrived') updatePayload.arrived_at = new Date().toISOString();
   if (status === 'in_progress') updatePayload.started_at = new Date().toISOString();
+  if (metadata) updatePayload.metadata = metadata;
 
   const { error } = await supabase
     .from('ride_requests')
@@ -380,6 +375,9 @@ function rowToRideRequest(row: Record<string, unknown>): RideRequest {
   const pickupLoc = row.pickup_location as GeoLocation;
   const destLoc = row.destination_location as GeoLocation;
 
+  const metadata = (row.metadata as Record<string, unknown> | null) ?? {};
+  const pricingMeta = (metadata.pricing as Record<string, unknown> | undefined) ?? {};
+
   return {
     id: row.id as string,
     riderId: row.rider_id as string,
@@ -393,13 +391,13 @@ function rowToRideRequest(row: Record<string, unknown>): RideRequest {
     distanceKm: row.distance_km as number,
     durationMin: (row.estimated_duration_min as number) ?? 0,
     pricing: {
-      baseFare: row.estimated_fare as number,
-      perKmRate: 0,
-      perMinRate: 0,
-      minimumFare: 0,
-      surgeMultiplier: row.surge_multiplier as number,
-      estimatedFare: row.estimated_fare as number,
-      currencyCode: (row.currency_code as string) ?? 'USD',
+      baseFare: (pricingMeta.baseFare as number) ?? (row.estimated_fare as number),
+      perKmRate: (pricingMeta.perKmRate as number) ?? 0,
+      perMinRate: (pricingMeta.perMinRate as number) ?? 0,
+      minimumFare: (pricingMeta.minimumFare as number) ?? 0,
+      surgeMultiplier: (pricingMeta.surgeMultiplier as number) ?? (row.surge_multiplier as number),
+      estimatedFare: (pricingMeta.estimatedFare as number) ?? (row.estimated_fare as number),
+      currencyCode: (pricingMeta.currencyCode as string) ?? ((row.currency as string) ?? 'USD'),
     },
     paymentType: row.payment_type as RideRequest['paymentType'],
     routePolyline: row.route_polyline as string | undefined,

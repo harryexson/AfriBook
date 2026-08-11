@@ -24,18 +24,6 @@ interface DriverEarning {
   createdAt: string;
 }
 
-interface DriverPayout {
-  id: string;
-  driverId: string;
-  amount: number;
-  currencyCode: string;
-  method: 'bank_transfer' | 'mobile_money' | 'instant';
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  reference: string;
-  processedAt?: string;
-  createdAt: string;
-}
-
 interface DriverBalance {
   available: number;
   pending: number;

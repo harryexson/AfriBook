@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Upload, Camera, X, ChevronUp, ChevronDown, Trash2, CheckSquare,
+  Camera, X, ChevronUp, ChevronDown, Trash2, CheckSquare,
   Square, Eye, Film, AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

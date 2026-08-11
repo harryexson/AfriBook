@@ -8,7 +8,6 @@ import {
   Camera,
   Search,
   CheckCircle2,
-  XCircle,
   Undo2,
   Users,
   Clock,

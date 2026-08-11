@@ -370,9 +370,3 @@ export async function calculateScore(params: {
 
   return data as number;
 }
-
-function scorecardStatusToDb(
-  status: 'active' | 'probation' | 'suspended' | 'excellent',
-): string {
-  return status;
-}

@@ -12,10 +12,8 @@ import type {
   DriverSafetyZone,
   DriverEmergencyContact,
   DriverSafetyTraining,
-  SafetyRating,
   SafetyEventType,
   CheckInType,
-  SafetyTrainingLevel,
 } from '@/types/pickup-security';
 
 // ─── Record Safety Event ──────────────────────────────────────

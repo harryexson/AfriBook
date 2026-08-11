@@ -12,6 +12,7 @@ import { useRouter, Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '../../src/theme';
 import { useAuth } from '../../src/hooks/useAuth';
+import { createClient } from '../../src/lib/supabase';
 import Input from '../../src/components/ui/Input';
 import Button from '../../src/components/ui/Button';
 
@@ -44,7 +45,6 @@ export default function RegisterScreen() {
   const recordTermsConsent = async (userId?: string) => {
     if (!userId) return;
     try {
-      const { createClient } = await import('../../src/lib/supabase');
       await (createClient().from('user_consents') as any).upsert(
         {
           user_id: userId,

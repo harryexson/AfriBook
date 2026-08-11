@@ -8,7 +8,7 @@ declare module 'posthog-node' {
 }
 
 declare module '@sentry/nextjs' {
-  import type { ErrorBoundaryProps, FallbackRender } from '@sentry/react';
+  import type { ErrorBoundaryProps } from '@sentry/react';
   import type { NodeOptions } from '@sentry/node';
 
   export function init(options: NodeOptions & { integrations?: unknown[] }): void;

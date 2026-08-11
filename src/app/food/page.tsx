@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Search,
-  MapPin,
   Star,
   Clock,
   Truck,
@@ -213,23 +212,6 @@ const restaurants: Restaurant[] = [
     gradient: "from-indigo-500 to-blue-600",
   },
 ];
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <Star
-          key={star}
-          className={`h-3.5 w-3.5 ${
-            star <= Math.round(rating)
-              ? "fill-amber-500 text-amber-500"
-              : "text-text-tertiary"
-          }`}
-        />
-      ))}
-    </div>
-  );
-}
 
 export default function FoodPage() {
   const [searchQuery, setSearchQuery] = useState("");

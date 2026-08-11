@@ -184,7 +184,7 @@ export default function ContentAgreementPage() {
                         legal@afribook.com
                       </a>{' '}
                       or visit our{' '}
-                      <Link href="/support" className="text-amber-500 hover:underline">
+                      <Link href="/help" className="text-amber-500 hover:underline">
                         support center
                       </Link>.
                     </p>

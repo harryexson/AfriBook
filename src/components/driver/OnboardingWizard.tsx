@@ -3,8 +3,8 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  User, Car, FileText, Shield, CheckCircle, ArrowRight, ArrowLeft,
-  Upload, Camera, MapPin, Phone, CreditCard,
+  User, Car, FileText, CheckCircle, ArrowRight, ArrowLeft,
+  Upload, MapPin, Phone, CreditCard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 

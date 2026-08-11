@@ -1,20 +1,12 @@
 'use client'
 
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
-import { ChevronLeft, Search, Filter, ArrowUpDown } from 'lucide-react'
-import type { ComplianceViolation } from '@/types/pickup-security'
+import { ChevronLeft } from 'lucide-react'
 
 const CONTAINER = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.05 } },
-}
-
-const ITEM = {
-  hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
 }
 
 export default function ViolationsPage() {

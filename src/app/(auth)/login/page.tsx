@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Eye, EyeOff, Mail, Lock, ShoppingBag, Calendar, Truck } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import OAuthButtons from '@/components/shared/OAuthButtons'
 
@@ -18,13 +18,6 @@ const loginSchema = z.object({
 })
 
 type LoginForm = z.infer<typeof loginSchema>
-
-const floatingIcons = [
-  { Icon: ShoppingBag, delay: 0, x: '15%', y: '20%', size: 40, rotate: -12 },
-  { Icon: Calendar, delay: 0.3, x: '80%', y: '15%', size: 36, rotate: 8 },
-  { Icon: Truck, delay: 0.6, x: '70%', y: '75%', size: 44, rotate: -6 },
-  { Icon: ShoppingBag, delay: 0.9, x: '20%', y: '80%', size: 32, rotate: 15 },
-]
 
 export default function LoginPage() {
   const router = useRouter()

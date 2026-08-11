@@ -2,7 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { PenTool, RotateCcw, Check } from 'lucide-react'
+import { RotateCcw, Check } from 'lucide-react'
 
 interface SignatureCaptureProps {
   onSign: (signatureDataUrl: string) => void
@@ -14,7 +14,7 @@ interface SignatureCaptureProps {
 export default function SignatureCapture({
   onSign,
   onCancel,
-  width = 400,
+  width: _width = 400,
   height = 200,
 }: SignatureCaptureProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)

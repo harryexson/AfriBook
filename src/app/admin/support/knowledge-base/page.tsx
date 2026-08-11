@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn, timeAgo } from '@/lib/utils'
 import {
   Search, Plus, BookOpen, Eye, ThumbsUp, Clock,
-  Edit3, Trash2, X, Save, Tag, FileText, ChevronRight,
+  Edit3, Trash2, X, Save, Tag, FileText,
 } from 'lucide-react'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }

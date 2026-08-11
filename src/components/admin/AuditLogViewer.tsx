@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { formatDate, timeAgo } from '@/lib/utils'
 import type { AuditLog, UserRole } from '@/types'
 import {
-  Search, ChevronDown, Eye, Clock, Filter,
+  Search, Clock,
   Shield, User, Building2, CreditCard, Settings,
   Globe, AlertTriangle,
 } from 'lucide-react'

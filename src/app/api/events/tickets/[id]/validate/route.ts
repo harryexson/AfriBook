@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id: ticketId } = await params;
+    const { id: _ticketId } = await params;
     const body = await req.json();
     const { ticketCode } = body;
 

@@ -10,7 +10,6 @@ import {
   Settings,
   CreditCard,
   LogOut,
-  ChevronRight,
   User,
 } from 'lucide-react';
 

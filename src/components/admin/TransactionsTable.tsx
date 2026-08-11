@@ -6,9 +6,8 @@ import { cn } from '@/lib/utils'
 import { formatDate, formatCurrency, timeAgo } from '@/lib/utils'
 import type { Payment, PaymentStatus, PaymentMethod, EscrowStatus } from '@/types'
 import {
-  Search, ChevronDown, Eye, Download, RotateCcw,
-  ExternalLink, Clock, CheckCircle, XCircle, AlertTriangle,
-  ArrowLeftRight,
+  Search, Eye, Download, RotateCcw,
+  ExternalLink, XCircle,
 } from 'lucide-react'
 
 type SortField = 'amount' | 'status' | 'method' | 'createdAt'
@@ -59,8 +58,8 @@ export default function TransactionsTable({
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<PaymentStatus | 'all'>('all')
   const [methodFilter, setMethodFilter] = useState<PaymentMethod | 'all'>('all')
-  const [sortField, setSortField] = useState<SortField>('createdAt')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [sortField] = useState<SortField>('createdAt')
+  const [sortDir] = useState<SortDir>('desc')
   const [selected, setSelected] = useState<Payment | null>(null)
   const [page, setPage] = useState(0)
   const perPage = 10
@@ -81,11 +80,6 @@ export default function TransactionsTable({
 
   const paged = filtered.slice(page * perPage, (page + 1) * perPage)
   const totalPages = Math.ceil(filtered.length / perPage)
-
-  const toggleSort = (f: SortField) => {
-    if (sortField === f) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
-    else { setSortField(f); setSortDir('asc') }
-  }
 
   if (loading) {
     return <div className="rounded-2xl bg-surface border border-border p-6 animate-pulse space-y-4">

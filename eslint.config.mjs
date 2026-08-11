@@ -11,6 +11,16 @@ const eslintConfig = defineConfig([
       // The codebase legitimately handles untyped Supabase rows in many
       // places; keep `any` visible as a warning rather than blocking CI.
       "@typescript-eslint/no-explicit-any": "warn",
+      // `_`-prefixed bindings are intentionally unused (matches existing
+      // convention, e.g. `_code` in handleVerifyCode).
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
       // React Compiler is not enabled in next.config.ts. The compiler-era
       // rules in eslint-plugin-react-hooks (v7+) assume the compiler is
       // active, so they are disabled here; the classic Rules of Hooks rules

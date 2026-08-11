@@ -27,24 +27,6 @@ import { COUNTRIES } from '@/lib/localization/countries';
 
 // ─── Cancellation Fee Configs by Country ──────────────────────
 
-const CANCELLATION_FEES: Record<string, { beforeAssignment: number; afterAssignment: number; afterPickup: number }> = {
-  NG: { beforeAssignment: 0, afterAssignment: 500, afterPickup: 1500 },
-  US: { beforeAssignment: 0, afterAssignment: 1, afterPickup: 3 },
-  GB: { beforeAssignment: 0, afterAssignment: 1, afterPickup: 3 },
-  KE: { beforeAssignment: 0, afterAssignment: 50, afterPickup: 150 },
-  ZA: { beforeAssignment: 0, afterAssignment: 10, afterPickup: 30 },
-  IN: { beforeAssignment: 0, afterAssignment: 20, afterPickup: 60 },
-  GH: { beforeAssignment: 0, afterAssignment: 5, afterPickup: 15 },
-  TZ: { beforeAssignment: 0, afterAssignment: 2000, afterPickup: 6000 },
-  UG: { beforeAssignment: 0, afterAssignment: 2000, afterPickup: 6000 },
-  MW: { beforeAssignment: 0, afterAssignment: 1000, afterPickup: 3000 },
-  EG: { beforeAssignment: 0, afterAssignment: 10, afterPickup: 30 },
-  AE: { beforeAssignment: 0, afterAssignment: 5, afterPickup: 15 },
-  CA: { beforeAssignment: 0, afterAssignment: 1.5, afterPickup: 4.5 },
-  FR: { beforeAssignment: 0, afterAssignment: 1.5, afterPickup: 4.5 },
-  DE: { beforeAssignment: 0, afterAssignment: 2, afterPickup: 6 },
-};
-
 const DEFAULT_CANCELLATION_FEES = { beforeAssignment: 0, afterAssignment: 2, afterPickup: 5 };
 
 // ─── Create Delivery Request ──────────────────────────────────
@@ -99,6 +81,18 @@ export async function createDeliveryRequest(params: {
       surge_multiplier: estimate.surgeMultiplier,
       payment_type: params.paymentType,
       signature_required: params.packageDetails.fragile,
+      currency: currencyCode,
+      metadata: {
+        pricing: {
+          baseFare: estimate.baseFare,
+          perKmRate: 0,
+          perMinRate: 0,
+          minimumFare: 0,
+          surgeMultiplier: estimate.surgeMultiplier,
+          estimatedFare: adjustedTotal,
+          currencyCode,
+        },
+      } as Record<string, unknown>,
     } as any)
     .select()
     .single();
@@ -152,6 +146,7 @@ export async function updateDeliveryStatus(
   if (status === 'delivered') updatePayload.delivered_at = new Date().toISOString();
   if (status === 'cancelled') updatePayload.cancelled_at = new Date().toISOString();
   if (status === 'picked_up') updatePayload.picked_up_at = new Date().toISOString();
+  if (metadata) updatePayload.metadata = metadata;
 
   const { error } = await supabase
     .from('delivery_requests')
@@ -197,6 +192,7 @@ export async function cancelDelivery(
     .from('delivery_requests')
     .update({
       status: 'cancelled',
+      cancel_reason: reason,
       cancelled_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     } as any)
@@ -349,6 +345,9 @@ function rowToDeliveryRequest(row: Record<string, unknown>): DeliveryRequest {
   const pickupLoc = row.pickup_location as GeoLocation;
   const destLoc = row.destination_location as GeoLocation;
 
+  const metadata = (row.metadata as Record<string, unknown> | null) ?? {};
+  const pricingMeta = (metadata.pricing as Record<string, unknown> | undefined) ?? {};
+
   const proofOfDelivery: ProofOfDelivery | undefined =
     row.signature || row.photo_url
       ? {
@@ -377,13 +376,13 @@ function rowToDeliveryRequest(row: Record<string, unknown>): DeliveryRequest {
     distanceKm: row.distance_km as number,
     durationMin: row.estimated_duration_min as number,
     pricing: {
-      baseFare: row.estimated_fare as number,
-      perKmRate: 0,
-      perMinRate: 0,
-      minimumFare: 0,
-      surgeMultiplier: row.surge_multiplier as number,
-      estimatedFare: row.estimated_fare as number,
-      currencyCode: (row.currency_code as string) ?? 'USD',
+      baseFare: (pricingMeta.baseFare as number) ?? (row.estimated_fare as number),
+      perKmRate: (pricingMeta.perKmRate as number) ?? 0,
+      perMinRate: (pricingMeta.perMinRate as number) ?? 0,
+      minimumFare: (pricingMeta.minimumFare as number) ?? 0,
+      surgeMultiplier: (pricingMeta.surgeMultiplier as number) ?? (row.surge_multiplier as number),
+      estimatedFare: (pricingMeta.estimatedFare as number) ?? (row.estimated_fare as number),
+      currencyCode: (pricingMeta.currencyCode as string) ?? ((row.currency as string) ?? 'USD'),
     },
     paymentType: row.payment_type as DeliveryRequest['paymentType'],
     cancelledBy: row.cancelled_by as CancellationActor | undefined,

@@ -6,7 +6,7 @@ import { cn, formatCurrency, randomId } from '@/lib/utils'
 import {
   Plus, Search, Edit3, Trash2, Eye, EyeOff, GripVertical,
   Utensils, DollarSign, X, Upload, Download, Grid3X3, List,
-  CheckSquare, Square, Tag, ArrowUpDown, Package,
+  CheckSquare, Square, Tag,
 } from 'lucide-react'
 import MenuItemForm from '@/components/vendor/MenuItemForm'
 import ImportWizard, { type ImportItem } from '@/components/vendor/ImportWizard'
