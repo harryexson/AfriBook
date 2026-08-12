@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import MapEmbed from '@/components/shared/MapEmbed';
+import { useCountry } from '@/components/shared/CountryProvider';
+import { formatMoneySymbol, getCurrencyForCountry } from '@/lib/money';
 import {
   Clock,
   Truck,
@@ -168,15 +170,17 @@ function getStatusIndex(status: DeliveryStatus): number {
   return STATUS_STEPS.findIndex((s) => s.id === status);
 }
 
-function formatCurrency(amount: number): string {
-  return `₦${amount.toLocaleString()}`;
+function formatCurrency(amount: number, currencyCode: string): string {
+  return formatMoneySymbol(amount, currencyCode);
 }
 
 // ── Page ───────────────────────────────────────────────────────
 
 export default function DeliveryTrackingPage() {
   const router = useRouter();
+  const { countryCode } = useCountry();
   const delivery = MOCK_DELIVERY;
+  const currencyCode = getCurrencyForCountry(countryCode);
 
   const [etaSeconds, setEtaSeconds] = useState(delivery.etaMinutes * 60);
 
@@ -414,19 +418,19 @@ export default function DeliveryTrackingPage() {
           <div className="space-y-2.5">
             <div className="flex justify-between items-center">
               <span className="text-sm text-text-secondary">Base fare</span>
-              <span className="text-sm text-text-primary">{formatCurrency(delivery.baseFare)}</span>
+              <span className="text-sm text-text-primary">{formatCurrency(delivery.baseFare, currencyCode)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-text-secondary">Distance fee</span>
-              <span className="text-sm text-text-primary">{formatCurrency(delivery.distanceFee)}</span>
+              <span className="text-sm text-text-primary">{formatCurrency(delivery.distanceFee, currencyCode)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-text-secondary">Weight surcharge ({delivery.packageWeight} kg)</span>
-              <span className="text-sm text-text-primary">{formatCurrency(delivery.weightSurcharge)}</span>
+              <span className="text-sm text-text-primary">{formatCurrency(delivery.weightSurcharge, currencyCode)}</span>
             </div>
             <div className="border-t border-border pt-2.5 flex justify-between items-center">
               <span className="text-sm font-bold text-text-primary">Total</span>
-              <span className="font-heading text-lg font-bold text-amber-500">{formatCurrency(delivery.total)}</span>
+              <span className="font-heading text-lg font-bold text-amber-500">{formatCurrency(delivery.total, currencyCode)}</span>
             </div>
           </div>
         </motion.div>

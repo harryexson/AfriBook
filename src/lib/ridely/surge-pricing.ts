@@ -17,10 +17,10 @@ import type {
   SurgePricingInfo,
   PricingEstimate,
 } from '@/types/ridely';
-import { RIDE_TYPE_CONFIG } from '@/types/ridely';
 import { calculateDistance } from './geospatial';
 import { COUNTRIES } from '@/lib/localization/countries';
 import { getSurgeMultiplierForLocation } from './h3-grid';
+import { COUNTRY_PRICING, DEFAULT_PRICING, getRideTypeMultiplier } from './ride-pricing';
 
 // ─── Surge Thresholds ─────────────────────────────────────────
 
@@ -39,40 +39,10 @@ const SURGE_THRESHOLDS: SurgeThreshold[] = [
 ];
 
 // ─── Country Pricing Configs ──────────────────────────────────
-
-interface CountryRidePricing {
-  baseFare: number;
-  perKm: number;
-  perMinute: number;
-  minimumFare: number;
-  platformFeePercent: number;
-}
-
-const COUNTRY_PRICING: Record<string, CountryRidePricing> = {
-  NG: { baseFare: 500, perKm: 150, perMinute: 25, minimumFare: 800, platformFeePercent: 0.20 },
-  KE: { baseFare: 100, perKm: 50, perMinute: 8, minimumFare: 200, platformFeePercent: 0.20 },
-  ZA: { baseFare: 15, perKm: 8, perMinute: 1.5, minimumFare: 30, platformFeePercent: 0.20 },
-  US: { baseFare: 2.50, perKm: 1.20, perMinute: 0.25, minimumFare: 5.00, platformFeePercent: 0.25 },
-  GB: { baseFare: 2.00, perKm: 1.00, perMinute: 0.20, minimumFare: 4.00, platformFeePercent: 0.25 },
-  IN: { baseFare: 50, perKm: 12, perMinute: 2, minimumFare: 100, platformFeePercent: 0.20 },
-  GH: { baseFare: 5, perKm: 3, perMinute: 0.5, minimumFare: 10, platformFeePercent: 0.20 },
-  TZ: { baseFare: 2000, perKm: 800, perMinute: 150, minimumFare: 4000, platformFeePercent: 0.20 },
-  UG: { baseFare: 2000, perKm: 1000, perMinute: 200, minimumFare: 5000, platformFeePercent: 0.20 },
-  MW: { baseFare: 1000, perKm: 500, perMinute: 100, minimumFare: 2000, platformFeePercent: 0.20 },
-  EG: { baseFare: 10, perKm: 5, perMinute: 1, minimumFare: 20, platformFeePercent: 0.20 },
-  AE: { baseFare: 10, perKm: 2, perMinute: 0.5, minimumFare: 15, platformFeePercent: 0.20 },
-  CA: { baseFare: 3.00, perKm: 1.50, perMinute: 0.30, minimumFare: 6.00, platformFeePercent: 0.25 },
-  FR: { baseFare: 2.50, perKm: 1.20, perMinute: 0.25, minimumFare: 5.00, platformFeePercent: 0.25 },
-  DE: { baseFare: 3.00, perKm: 1.50, perMinute: 0.30, minimumFare: 6.00, platformFeePercent: 0.25 },
-};
-
-const DEFAULT_PRICING: CountryRidePricing = {
-  baseFare: 5,
-  perKm: 2,
-  perMinute: 0.5,
-  minimumFare: 10,
-  platformFeePercent: 0.20,
-};
+// Shared per-country fare tables live in `./ride-pricing` (pure module)
+// so the booking page and API routes can use them without pulling in
+// the Supabase server client.
+export { COUNTRY_PRICING, DEFAULT_PRICING } from './ride-pricing';
 
 // ─── Calculate Surge Multiplier ───────────────────────────────
 
@@ -264,8 +234,7 @@ export async function getPricingEstimate(
 
   const surgeInfo = await calculateSurgeMultiplier(pickup, rideType);
 
-  const typeConfig = RIDE_TYPE_CONFIG[rideType] ?? RIDE_TYPE_CONFIG.economy;
-  const typeMultiplier = typeConfig.baseFare / RIDE_TYPE_CONFIG.economy.baseFare;
+  const typeMultiplier = getRideTypeMultiplier(rideType);
 
   const baseFare = pricing.baseFare * typeMultiplier;
   const distanceFare = distanceKm * pricing.perKm * typeMultiplier;

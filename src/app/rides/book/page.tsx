@@ -10,10 +10,10 @@ import {
   CreditCard, Banknote, Wallet,
 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
-import { RIDE_TYPE_CONFIG, type RideType, type RideStatus } from '@/types/ridely'
+import { type RideType, type RideStatus } from '@/types/ridely'
 import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
 import { useCountry } from '@/components/shared/CountryProvider'
-import { getCurrencyForCountry } from '@/lib/money'
+import { estimateRideFare } from '@/lib/ridely/ride-pricing'
 import { cn, formatCurrency } from '@/lib/utils'
 
 /** Estimate a driver's ETA to pickup in minutes from their last GPS report. */
@@ -134,18 +134,14 @@ export default function BookRidePage() {
   // Ride-status polling handle (replaces the old fake driver matching)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Price estimate (computed from distance)
+  // Price estimate (computed from distance) — per-country local currency
   const estimatedDistance = 5.2 // Placeholder — in production, use geocoding + route API
   const estimatedDuration = Math.round(estimatedDistance * 2.5)
-  const config = RIDE_TYPE_CONFIG[selectedRideType]
-  const estimatedFare = Math.max(
-    config.minimumFare,
-    Math.round(config.baseFare + estimatedDistance * config.perKmRate + estimatedDuration * config.perMinRate),
-  )
+  const estimated = estimateRideFare(selectedRideType, estimatedDistance, estimatedDuration, countryCode)
+  const estimatedFare = estimated.estimatedFare
 
-  const currency = getCurrencyForCountry(countryCode)
   const displayFare = serverFare ?? estimatedFare
-  const displayCurrency = serverCurrency ?? currency
+  const displayCurrency = serverCurrency ?? estimated.currencyCode
   const displayDistance = serverDistance ?? estimatedDistance
   const displayDuration = serverDuration ?? estimatedDuration
 
@@ -272,7 +268,7 @@ export default function BookRidePage() {
 
       if (data.data.pricing) {
         setServerFare(data.data.pricing.estimatedFare ?? data.data.estimatedFare ?? null)
-        setServerCurrency(data.data.pricing.currencyCode ?? currency)
+        setServerCurrency(data.data.pricing.currencyCode ?? estimated.currencyCode)
       } else {
         setServerFare(data.data.estimatedFare ?? null)
       }
@@ -292,7 +288,7 @@ export default function BookRidePage() {
       setStep('details')
       setLoading(false)
     }
-  }, [user, pickupAddress, destinationAddress, selectedRideType, paymentType, countryCode, currency, beginMatching, router])
+  }, [user, pickupAddress, destinationAddress, selectedRideType, paymentType, countryCode, estimated.currencyCode, beginMatching, router])
 
   const handlePaymentSuccess = useCallback(() => {
     if (rideId) beginMatching(rideId)
@@ -451,15 +447,12 @@ export default function BookRidePage() {
               {/* Ride type cards */}
               <div className="space-y-3 mb-6">
                 {RIDE_TYPES.map((type) => {
-                  const typeConfig = RIDE_TYPE_CONFIG[type.id]
-                  const fare = Math.max(
-                    typeConfig.minimumFare,
-                    Math.round(
-                      typeConfig.baseFare +
-                        estimatedDistance * typeConfig.perKmRate +
-                        estimatedDuration * typeConfig.perMinRate,
-                    ),
-                  )
+                  const fare = estimateRideFare(
+                    type.id,
+                    estimatedDistance,
+                    estimatedDuration,
+                    countryCode,
+                  ).estimatedFare
                   const isSelected = selectedRideType === type.id
 
                   return (
@@ -488,7 +481,7 @@ export default function BookRidePage() {
                       </div>
                       <div className="text-right shrink-0">
                         <p className="font-heading font-bold text-text-primary">
-                          {formatCurrency(fare, currency)}
+                          {formatCurrency(fare, estimated.currencyCode)}
                         </p>
                         <p className="text-xs text-text-tertiary">{type.eta}</p>
                       </div>
@@ -524,7 +517,7 @@ export default function BookRidePage() {
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">Estimated fare</span>
                   <span className="font-heading text-xl font-bold text-text-primary">
-                    {formatCurrency(estimatedFare, currency)}
+                    {formatCurrency(estimatedFare, estimated.currencyCode)}
                   </span>
                 </div>
                 <p className="text-xs text-text-tertiary mt-1">
@@ -581,7 +574,8 @@ export default function BookRidePage() {
 
               <StripePaymentSection
                 amount={displayFare}
-                countryCode="US"
+                countryCode={countryCode}
+                currency={displayCurrency}
                 method="card"
                 rideId={rideId ?? undefined}
                 description={`AfriBook ${selectedRideType} ride`}

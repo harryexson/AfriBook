@@ -5,7 +5,7 @@ import {
   RIDE_STATUS_TRANSITIONS,
   type RidePricing,
 } from '@/types/ridely';
-import { getCurrencyForCountry } from '@/lib/money';
+import { estimateRideFare } from '@/lib/ridely/ride-pricing';
 
 async function getDb() {
   const { createClient } = await import('@/lib/supabase/server');
@@ -38,22 +38,7 @@ function estimatePricing(
   surgeMultiplier: number = 1,
   countryCode: string = 'NG',
 ): RidePricing {
-  const cfg = RIDE_TYPE_CONFIG[rideType];
-  const baseFare = cfg.baseFare;
-  const distanceFare = distanceKm * cfg.perKmRate;
-  const timeFare = durationMin * cfg.perMinRate;
-  const raw = baseFare + distanceFare + timeFare;
-  const estimatedFare = Math.max(cfg.minimumFare, Math.round(raw * surgeMultiplier));
-
-  return {
-    baseFare,
-    perKmRate: cfg.perKmRate,
-    perMinRate: cfg.perMinRate,
-    minimumFare: cfg.minimumFare,
-    surgeMultiplier,
-    estimatedFare,
-    currencyCode: getCurrencyForCountry(countryCode),
-  };
+  return estimateRideFare(rideType, distanceKm, durationMin, countryCode, surgeMultiplier);
 }
 
 export async function POST(req: NextRequest) {

@@ -11,6 +11,7 @@ import {
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
 import { getCountryConfig } from '@/lib/localization'
+import { getCurrencyForCountry } from '@/lib/money'
 import type { CountryConfig } from '@/lib/localization/countries'
 import ServiceCard from '@/components/marketplace/ServiceCard'
 import ReviewForm from '@/components/marketplace/ReviewForm'
@@ -90,6 +91,7 @@ export default function BusinessDetailPage() {
   const countryCode = (params?.country as string)?.toUpperCase() ?? 'NG'
   const businessId = (params?.id as string) ?? ''
   const country = getCountryConfig(countryCode) as CountryConfig | undefined
+  const currencyCode = country?.currency.code ?? getCurrencyForCountry(countryCode)
 
   const allBusinesses = getCountryBusinesses(countryCode)
   const allServices = getCountryServices(countryCode)
@@ -577,7 +579,7 @@ export default function BusinessDetailPage() {
           <div className="flex items-center justify-between gap-4 max-w-lg mx-auto">
             <div>
               <p className="text-xs text-text-secondary">Starting from</p>
-              <p className="font-bold text-text-primary">{formatCurrency(startingPrice, country?.currency.code ?? 'NGN')}</p>
+              <p className="font-bold text-text-primary">{formatCurrency(startingPrice, currencyCode)}</p>
             </div>
             <button
               onClick={() => router.push(`/${params?.country}/book/${business.id}/${services[0].id}`)}

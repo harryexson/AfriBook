@@ -313,9 +313,272 @@ VALUES
    'KE', 'active', 'approved', 4.7, ST_SetSRID(ST_MakePoint(36.80, -1.28), 4326)::geography,
    '[]', '{"is_demo":true,"seed":true}'),
   -- Nigeria
-  ('b0000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000003',
-   'AfriBook Demo Barber - Lagos', 'Demo barbershop in Lagos. is_demo.',
-   (SELECT id FROM public.business_categories WHERE name = 'Beauty & Wellness'),
-   'NG', 'active', 'approved', 4.5, ST_SetSRID(ST_MakePoint(3.39, 6.52), 4326)::geography,
-   '[]', '{"is_demo":true,"seed":true}')
+   ('b0000000-0000-4000-8000-000000000005', '00000000-0000-4000-8000-000000000003',
+    'AfriBook Demo Barber - Lagos', 'Demo barbershop in Lagos. is_demo.',
+    (SELECT id FROM public.business_categories WHERE name = 'Beauty & Wellness'),
+    'NG', 'active', 'approved', 4.5, ST_SetSRID(ST_MakePoint(3.39, 6.52), 4326)::geography,
+    '[]', '{"is_demo":true,"seed":true}'),
+  -- Food & Dining — restaurants (used by the /food ordering flow)
+  ('b0000000-0000-4000-8000-000000000006', '00000000-0000-4000-8000-000000000003',
+    'Lagos Jollof House', 'Authentic Nigerian kitchen — wood-fired jollof, suya and small chops. is_demo.',
+    (SELECT id FROM public.business_categories WHERE name = 'Food & Dining'),
+    'NG', 'active', 'approved', 4.8, ST_SetSRID(ST_MakePoint(3.39, 6.45), 4326)::geography,
+    '[]', '{"is_demo":true,"seed":true,"delivery_fee":1500,"minimum_order":3000}'),
+  ('b0000000-0000-4000-8000-000000000007', '00000000-0000-4000-8000-000000000004',
+    'Nyama Choma Nairobi', 'The home of Kenyan nyama choma, ugali and cold drinks. is_demo.',
+    (SELECT id FROM public.business_categories WHERE name = 'Food & Dining'),
+    'KE', 'active', 'approved', 4.7, ST_SetSRID(ST_MakePoint(36.82, -1.26), 4326)::geography,
+    '[]', '{"is_demo":true,"seed":true,"delivery_fee":250,"minimum_order":500}'),
+  ('b0000000-0000-4000-8000-000000000008', '00000000-0000-4000-8000-000000000005',
+    'Cape Malay Kitchen', 'Home-style Cape Malay cooking — bobotie, curries and koeksisters. is_demo.',
+    (SELECT id FROM public.business_categories WHERE name = 'Food & Dining'),
+    'ZA', 'active', 'approved', 4.6, ST_SetSRID(ST_MakePoint(18.42, -33.93), 4326)::geography,
+    '[]', '{"is_demo":true,"seed":true,"delivery_fee":35,"minimum_order":80}'),
+  ('b0000000-0000-4000-8000-000000000009', '00000000-0000-4000-8000-000000000003',
+    'Accra Waakye Spot', 'Ghanaian street-food favourite — waakye, banku, tilapia and kelewele. is_demo.',
+    (SELECT id FROM public.business_categories WHERE name = 'Food & Dining'),
+    'GH', 'active', 'approved', 4.5, ST_SetSRID(ST_MakePoint(-0.19, 5.56), 4326)::geography,
+    '[]', '{"is_demo":true,"seed":true,"delivery_fee":20,"minimum_order":30}')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- 8b. RESTAURANTS (food-specific extensions for Food & Dining businesses)
+-- ============================================================================
+
+INSERT INTO public.restaurants (id, business_id, cuisine_type, preparation_time,
+                                delivery_radius_km, minimum_order, service_hours)
+VALUES
+  ('r0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000006',
+   'Nigerian', 25, 8.00, 3000, '{"mon":["09:00","22:00"],"tue":["09:00","22:00"],"wed":["09:00","22:00"],"thu":["09:00","22:00"],"fri":["09:00","23:00"],"sat":["10:00","23:00"],"sun":["12:00","21:00"]}'),
+  ('r0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000007',
+   'Kenyan / BBQ', 30, 10.00, 500, '{"mon":["10:00","22:00"],"tue":["10:00","22:00"],"wed":["10:00","22:00"],"thu":["10:00","22:00"],"fri":["10:00","23:00"],"sat":["11:00","23:00"],"sun":["12:00","22:00"]}'),
+  ('r0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000008',
+   'South African / Cape Malay', 20, 7.00, 80, '{"mon":["08:00","21:00"],"tue":["08:00","21:00"],"wed":["08:00","21:00"],"thu":["08:00","21:00"],"fri":["08:00","22:00"],"sat":["09:00","22:00"],"sun":["09:00","20:00"]}'),
+  ('r0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000009',
+   'Ghanaian', 20, 6.00, 30, '{"mon":["07:00","21:00"],"tue":["07:00","21:00"],"wed":["07:00","21:00"],"thu":["07:00","21:00"],"fri":["07:00","22:00"],"sat":["08:00","22:00"],"sun":["09:00","20:00"]}')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- 8c. MENU CATEGORIES
+-- ============================================================================
+
+INSERT INTO public.menu_categories (id, restaurant_id, name, description, sort_order, is_available)
+VALUES
+  -- Lagos Jollof House (NG)
+  ('mc0000000-0000-4000-8000-000000000001', 'r0000000-0000-4000-8000-000000000001',
+   'Mains', 'Rice dishes, stews and swallows.', 1, true),
+  ('mc0000000-0000-4000-8000-000000000002', 'r0000000-0000-4000-8000-000000000001',
+   'Small Chops', 'Street-food bites and sides.', 2, true),
+  ('mc0000000-0000-4000-8000-000000000003', 'r0000000-0000-4000-8000-000000000001',
+   'Drinks', 'Coolers and mocktails.', 3, true),
+  -- Nyama Choma Nairobi (KE)
+  ('mc0000000-0000-4000-8000-000000000004', 'r0000000-0000-4000-8000-000000000002',
+   'Grill', 'Signature grilled meats.', 1, true),
+  ('mc0000000-0000-4000-8000-000000000005', 'r0000000-0000-4000-8000-000000000002',
+   'Sides', 'Ugali, chips and more.', 2, true),
+  ('mc0000000-0000-4000-8000-000000000006', 'r0000000-0000-4000-8000-000000000002',
+   'Drinks', 'Fresh juices and sodas.', 3, true),
+  -- Cape Malay Kitchen (ZA)
+  ('mc0000000-0000-4000-8000-000000000007', 'r0000000-0000-4000-8000-000000000003',
+   'Breakfast', 'Morning favourites.', 1, true),
+  ('mc0000000-0000-4000-8000-000000000008', 'r0000000-0000-4000-8000-000000000003',
+   'Mains', 'Cape Malay classics.', 2, true),
+  ('mc0000000-0000-4000-8000-000000000009', 'r0000000-0000-4000-8000-000000000003',
+   'Desserts', 'Sweet treats.', 3, true),
+  -- Accra Waakye Spot (GH)
+  ('mc0000000-0000-4000-8000-000000000010', 'r0000000-0000-4000-8000-000000000004',
+   'Mains', 'Comfort plates.', 1, true),
+  ('mc0000000-0000-4000-8000-000000000011', 'r0000000-0000-4000-8000-000000000004',
+   'Street Food', 'Kelewele, bofrot and more.', 2, true),
+  ('mc0000000-0000-4000-8000-000000000012', 'r0000000-0000-4000-8000-000000000004',
+   'Drinks', 'Chilled drinks.', 3, true)
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- 8d. MENU ITEMS (priced in each market's currency)
+-- ============================================================================
+
+INSERT INTO public.menu_items (id, category_id, restaurant_id, name, description, price,
+                               currency, image, ingredients, allergens, preparation_time,
+                               is_available, modifiers, metadata)
+VALUES
+  -- Lagos Jollof House — Nigerian (NGN)
+  ('mi0000000-0000-4000-8000-000000000001', 'mc0000000-0000-4000-8000-000000000001',
+   'r0000000-0000-4000-8000-000000000001', 'Smoky Party Jollof & Chicken',
+   'Long-grain rice slow-cooked in rich tomato-pepper base with grilled chicken.', 4500,
+   'NGN', '', ARRAY['rice','tomatoes','peppers','chicken'], ARRAY['none'], 25,
+   true, '[]', '{"is_demo":true,"spicy":true}'),
+  ('mi0000000-0000-4000-8000-000000000002', 'mc0000000-0000-4000-8000-000000000001',
+   'r0000000-0000-4000-8000-000000000001', 'Egusi Soup & Pounded Yam',
+   'Melon-seed soup with assorted meat and leafy greens, served with smooth pounded yam.', 4800,
+   'NGN', '', ARRAY['egusi','yam','beef','leafy greens'], ARRAY['none'], 30,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000003', 'mc0000000-0000-4000-8000-000000000001',
+   'r0000000-0000-4000-8000-000000000001', 'Fried Rice & Grilled Beef',
+   'Nigerian fried rice with liver, prawns and grilled beef skewers.', 4200,
+   'NGN', '', ARRAY['rice','liver','prawns','beef','vegetables'], ARRAY['shellfish'], 25,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000004', 'mc0000000-0000-4000-8000-000000000002',
+   'r0000000-0000-4000-8000-000000000001', 'Suya Skewers (5 pcs)',
+   'Spicy chargrilled beef skewers dusted with yaji spice mix.', 2500,
+   'NGN', '', ARRAY['beef','yaji','peanuts'], ARRAY['peanuts'], 15,
+   true, '[]', '{"is_demo":true,"spicy":true}'),
+  ('mi0000000-0000-4000-8000-000000000005', 'mc0000000-0000-4000-8000-000000000002',
+   'r0000000-0000-4000-8000-000000000001', 'Puff Puff (8 pcs)',
+   'Golden deep-fried dough balls, lightly sweet.', 1500,
+   'NGN', '', ARRAY['flour','yeast','sugar'], ARRAY['gluten'], 15,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000006', 'mc0000000-0000-4000-8000-000000000002',
+   'r0000000-0000-4000-8000-000000000001', 'Moi Moi (wrap)',
+   'Steamed bean pudding with eggs and peppers.', 1200,
+   'NGN', '', ARRAY['beans','onions','peppers','egg'], ARRAY['none'], 10,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000007', 'mc0000000-0000-4000-8000-000000000003',
+   'r0000000-0000-4000-8000-000000000001', 'Chilled Zobo',
+   'Hibiscus cooler with ginger and pineapple.', 800,
+   'NGN', '', ARRAY['hibiscus','ginger','pineapple'], ARRAY['none'], 5,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000008', 'mc0000000-0000-4000-8000-000000000003',
+   'r0000000-0000-4000-8000-000000000001', 'Chapman',
+   'Nigerian mocktail with citrus, grenadine and bitters.', 1000,
+   'NGN', '', ARRAY['citrus','grenadine','bitters','soda'], ARRAY['none'], 5,
+   true, '[]', '{"is_demo":true}'),
+  -- Nyama Choma Nairobi — Kenyan (KES)
+  ('mi0000000-0000-4000-8000-000000000009', 'mc0000000-0000-4000-8000-000000000004',
+   'r0000000-0000-4000-8000-000000000002', 'Nyama Choma (1 kg)',
+   'Slow-roasted goat meat with kachumbari and ugali on the side.', 1450,
+   'KES', '', ARRAY['goat meat','onions','tomatoes','cilantro'], ARRAY['none'], 30,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000010', 'mc0000000-0000-4000-8000-000000000004',
+   'r0000000-0000-4000-8000-000000000002', 'Chicken Tikka',
+   'Charcoal-grilled chicken thighs in spiced yoghurt marinade.', 850,
+   'KES', '', ARRAY['chicken','yoghurt','spices'], ARRAY['dairy'], 20,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000011', 'mc0000000-0000-4000-8000-000000000005',
+   'r0000000-0000-4000-8000-000000000002', 'Ugali & Sukuma Wiki',
+   'Classic white ugali with sautéed collard greens.', 250,
+   'KES', '', ARRAY['maize meal','collard greens','onions'], ARRAY['none'], 10,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000012', 'mc0000000-0000-4000-8000-000000000005',
+   'r0000000-0000-4000-8000-000000000002', 'Chips Masala',
+   'Crispy fries tossed in tangy spiced masala sauce.', 350,
+   'KES', '', ARRAY['potatoes','masala','onions'], ARRAY['none'], 15,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000013', 'mc0000000-0000-4000-8000-000000000005',
+   'r0000000-0000-4000-8000-000000000002', 'Chapati',
+   'Soft flaky flatbread.', 80,
+   'KES', '', ARRAY['flour','oil','salt'], ARRAY['gluten'], 10,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000014', 'mc0000000-0000-4000-8000-000000000006',
+   'r0000000-0000-4000-8000-000000000002', 'Fresh Mango Juice',
+   'Cold-pressed Kenyan mango juice.', 200,
+   'KES', '', ARRAY['mango'], ARRAY['none'], 5,
+   true, '[]', '{"is_demo":true}'),
+  -- Cape Malay Kitchen — South African (ZAR)
+  ('mi0000000-0000-4000-8000-000000000015', 'mc0000000-0000-4000-8000-000000000007',
+   'r0000000-0000-4000-8000-000000000003', 'Cape Malay Breakfast',
+   'Eggs, boerewors, grilled tomato and roosterkoek.', 110,
+   'ZAR', '', ARRAY['eggs','boerewors','tomato','roosterkoek'], ARRAY['gluten'], 15,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000016', 'mc0000000-0000-4000-8000-000000000008',
+   'r0000000-0000-4000-8000-000000000003', 'Bobotie',
+   'Spiced minced lamb baked with an egg topping, served with yellow rice.', 145,
+   'ZAR', '', ARRAY['lamb','eggs','curry','rice'], ARRAY['gluten','dairy'], 25,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000017', 'mc0000000-0000-4000-8000-000000000008',
+   'r0000000-0000-4000-8000-000000000003', 'Cape Malay Curry',
+   'Fragrant chicken curry with apricots and sambal.', 135,
+   'ZAR', '', ARRAY['chicken','apricots','curry','sambal'], ARRAY['none'], 25,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000018', 'mc0000000-0000-4000-8000-000000000008',
+   'r0000000-0000-4000-8000-000000000003', 'Gatsby',
+   'Overloaded roll of spiced steak, chips and sauce.', 95,
+   'ZAR', '', ARRAY['steak','chips','sauce','roll'], ARRAY['gluten'], 20,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000019', 'mc0000000-0000-4000-8000-000000000009',
+   'r0000000-0000-4000-8000-000000000003', 'Milk Tart',
+   'Creamy cinnamon-dusted milk tart.', 55,
+   'ZAR', '', ARRAY['milk','sugar','cinnamon','pastry'], ARRAY['gluten','dairy'], 10,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000020', 'mc0000000-0000-4000-8000-000000000009',
+   'r0000000-0000-4000-8000-000000000003', 'Koeksisters (4 pcs)',
+   'Syrupy twisted doughnuts with a coconut crumb.', 35,
+   'ZAR', '', ARRAY['flour','syrup','coconut'], ARRAY['gluten'], 10,
+   true, '[]', '{"is_demo":true}'),
+  -- Accra Waakye Spot — Ghanaian (GHS)
+  ('mi0000000-0000-4000-8000-000000000021', 'mc0000000-0000-4000-8000-000000000010',
+   'r0000000-0000-4000-8000-000000000004', 'Waakye & Fried Fish',
+   'Rice and beans with fried tilapia, shito and gari.', 45,
+   'GHS', '', ARRAY['rice','beans','tilapia','shito','gari'], ARRAY['fish'], 20,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000022', 'mc0000000-0000-4000-8000-000000000010',
+   'r0000000-0000-4000-8000-000000000004', 'Jollof & Grilled Chicken',
+   'Ghanaian-style jollof rice with juicy grilled chicken.', 55,
+   'GHS', '', ARRAY['rice','tomatoes','chicken','peppers'], ARRAY['none'], 25,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000023', 'mc0000000-0000-4000-8000-000000000010',
+   'r0000000-0000-4000-8000-000000000004', 'Banku & Tilapia',
+   'Fermented corn-cassava dumplings with grilled tilapia and pepper sauce.', 65,
+   'GHS', '', ARRAY['banku','tilapia','pepper sauce'], ARRAY['fish'], 25,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000024', 'mc0000000-0000-4000-8000-000000000011',
+   'r0000000-0000-4000-8000-000000000004', 'Kelewele',
+   'Spiced fried plantain bites.', 20,
+   'GHS', '', ARRAY['plantain','ginger','pepper','nutmeg'], ARRAY['none'], 10,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000025', 'mc0000000-0000-4000-8000-000000000011',
+   'r0000000-0000-4000-8000-000000000004', 'Bofrot (4 pcs)',
+   'Light Ghanaian doughnuts.', 10,
+   'GHS', '', ARRAY['flour','sugar','yeast'], ARRAY['gluten'], 10,
+   true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000026', 'mc0000000-0000-4000-8000-000000000012',
+   'r0000000-0000-4000-8000-000000000004', 'Sobolo',
+   'Chilled hibiscus drink with ginger.', 8,
+   'GHS', '', ARRAY['hibiscus','ginger','sugar'], ARRAY['none'], 5,
+   true, '[]', '{"is_demo":true}')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- 9. MARKETPLACE PRODUCTS (demo catalogue, priced per market)
+-- ============================================================================
+
+INSERT INTO public.products (id, business_id, name, description, price, compare_price,
+                             currency, stock, images, variants, category, tags,
+                             is_available, metadata)
+VALUES
+  -- AfriBook Demo Store - Lilongwe (MW)
+  ('p0000000-0000-4000-8000-000000000001', 'b0000000-0000-4000-8000-000000000002',
+   'Handwoven Chitenje Bag', 'Colourful hand-stitched fabric tote, perfect for daily use.', 12000, 15000,
+   'MWK', 25, '[]', '[]', 'Fashion', ARRAY['handmade','bags'], true, '{"is_demo":true}'),
+  ('p0000000-0000-4000-8000-000000000002', 'b0000000-0000-4000-8000-000000000002',
+   'Shea & Baobab Skincare Set', 'Nourishing shea butter balm with baobab oil, body bar and scrub.', 18500, NULL,
+   'MWK', 40, '[]', '[]', 'Beauty', ARRAY['skincare','natural'], true, '{"is_demo":true}'),
+  ('p0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000002',
+   'Handwoven Sisal Basket', 'Sturdy market basket hand-coiled from dyed sisal.', 9500, NULL,
+   'MWK', 30, '[]', '[]', 'Home & Garden', ARRAY['handmade','home'], true, '{"is_demo":true}'),
+  -- AfriBook Demo Hair Salon - Nairobi (KES)
+  ('p0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000003',
+   'Natural Hair Growth Oil', 'Cold-pressed castor, rosemary and peppermint blend for scalp care.', 950, 1250,
+   'KES', 60, '[]', '[]', 'Beauty', ARRAY['hair','natural'], true, '{"is_demo":true}'),
+  ('p0000000-0000-4000-8000-000000000005', 'b0000000-0000-4000-8000-000000000003',
+   'Silk Hair Scarf Set', 'Two-pack satin-lined scarves to protect braids and twists.', 1200, NULL,
+   'KES', 45, '[]', '[]', 'Fashion', ARRAY['hair','accessories'], true, '{"is_demo":true}'),
+  -- AfriBook Demo Barber - Lagos (NGN)
+  ('p0000000-0000-4000-8000-000000000006', 'b0000000-0000-4000-8000-000000000005',
+   'Premium Hair Clipper', 'Professional cordless clipper with titanium blades.', 25000, 32000,
+   'NGN', 15, '[]', '[]', 'Electronics', ARRAY['grooming','tools'], true, '{"is_demo":true}'),
+  ('p0000000-0000-4000-8000-000000000007', 'b0000000-0000-4000-8000-000000000005',
+   'Beard Grooming Kit', 'Beard oil, balm, comb and scissors in a travel case.', 12000, NULL,
+   'NGN', 35, '[]', '[]', 'Beauty', ARRAY['grooming','beard'], true, '{"is_demo":true}'),
+  ('p0000000-0000-4000-8000-000000000008', 'b0000000-0000-4000-8000-000000000005',
+   'Ankara Print Cap', 'Men''s snapback cap in bold Ankara print.', 5000, 6500,
+   'NGN', 50, '[]', '[]', 'Fashion', ARRAY['caps','ankara'], true, '{"is_demo":true}'),
+  -- Lagos Jollof House (NGN) — retail pantry items
+  ('p0000000-0000-4000-8000-000000000009', 'b0000000-0000-4000-8000-000000000006',
+   'House Suya Spice (150g)', 'Signature yaji blend — smoky, nutty, spicy.', 3500, NULL,
+   'NGN', 80, '[]', '[]', 'Home & Garden', ARRAY['spices','suya'], true, '{"is_demo":true}'),
+  -- Cape Malay Kitchen (ZAR) — retail pantry items
+  ('p0000000-0000-4000-8000-000000000010', 'b0000000-0000-4000-8000-000000000008',
+   'Cape Malay Curry Powder (120g)', 'Warm curry blend with coriander, turmeric and fennel.', 85, 110,
+   'ZAR', 70, '[]', '[]', 'Home & Garden', ARRAY['spices','curry'], true, '{"is_demo":true}')
 ON CONFLICT (id) DO NOTHING;

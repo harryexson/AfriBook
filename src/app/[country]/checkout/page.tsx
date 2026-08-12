@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { getCountryConfig } from '@/lib/localization'
+import { getCurrencyForCountry } from '@/lib/money'
 import type { CountryConfig } from '@/lib/localization/countries'
 import PriceBreakdown from '@/components/marketplace/PriceBreakdown'
 import type { PriceLineItem } from '@/components/marketplace/PriceBreakdown'
@@ -33,6 +34,7 @@ export default function CheckoutPage() {
   const router = useRouter()
   const countryCode = (params?.country as string)?.toUpperCase() ?? 'NG'
   const country = getCountryConfig(countryCode) as CountryConfig | undefined
+  const currencyCode = country?.currency.code ?? getCurrencyForCountry(countryCode)
 
   const [selectedPayment, setSelectedPayment] = useState<string>()
   const [promoCode, setPromoCode] = useState<string | null>(null)
@@ -221,7 +223,7 @@ export default function CheckoutPage() {
             >
               <PriceBreakdown
                 items={priceItems}
-                currencyCode={country?.currency.code ?? 'NGN'}
+                currencyCode={currencyCode}
                 promoCode={promoCode}
                 onApplyPromo={handlePromoApply}
                 onRemovePromo={() => { setPromoCode(null); setPromoApplied(false); setPromoError(null) }}
@@ -270,7 +272,7 @@ export default function CheckoutPage() {
                 ) : (
                   <>
                     <Lock className="w-5 h-5" />
-                    Pay {formatCurrency(total, country?.currency.code ?? 'NGN')}
+                    Pay {formatCurrency(total, currencyCode)}
                   </>
                 )}
               </button>
@@ -296,14 +298,14 @@ export default function CheckoutPage() {
                       <p className="text-sm font-medium text-text-primary">{item.name}</p>
                       <p className="text-xs text-text-secondary">Qty: {item.qty}</p>
                     </div>
-                    <span className="text-sm font-medium text-text-primary">{formatCurrency(item.price * item.qty, country?.currency.code ?? 'NGN')}</span>
+                    <span className="text-sm font-medium text-text-primary">{formatCurrency(item.price * item.qty, currencyCode)}</span>
                   </div>
                 ))}
               </div>
 
               <PriceBreakdown
                 items={priceItems}
-                currencyCode={country?.currency.code ?? 'NGN'}
+                currencyCode={currencyCode}
                 platformFeePercent={10}
               />
             </div>

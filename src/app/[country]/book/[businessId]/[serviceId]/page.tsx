@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { getCountryConfig } from '@/lib/localization'
+import { getCurrencyForCountry } from '@/lib/money'
 import type { CountryConfig } from '@/lib/localization/countries'
 import BookingCalendar from '@/components/marketplace/BookingCalendar'
 import PriceBreakdown from '@/components/marketplace/PriceBreakdown'
@@ -35,6 +36,7 @@ export default function BookingPage() {
   const router = useRouter()
   const countryCode = (params?.country as string)?.toUpperCase() ?? 'NG'
   const country = getCountryConfig(countryCode) as CountryConfig | undefined
+  const currencyCode = country?.currency.code ?? getCurrencyForCountry(countryCode)
 
   const service = MOCK_SERVICE
 
@@ -221,7 +223,7 @@ export default function BookingPage() {
                           />
                           <span className="text-sm font-medium text-text-primary">{addon.name}</span>
                         </div>
-                        <span className="text-sm font-semibold text-text-primary">+{formatCurrency(addon.price, service.currencyCode ?? 'NGN')}</span>
+                        <span className="text-sm font-semibold text-text-primary">+{formatCurrency(addon.price, service.currencyCode ?? currencyCode)}</span>
                       </label>
                     ))}
                   </div>
@@ -291,7 +293,7 @@ export default function BookingPage() {
 
                 <PriceBreakdown
                   items={priceItems}
-                  currencyCode={service.currencyCode ?? 'NGN'}
+                  currencyCode={service.currencyCode ?? currencyCode}
                   promoCode={promoCode}
                   onApplyPromo={handlePromoApply}
                   onRemovePromo={() => { setPromoCode(null); setPromoApplied(false); setPromoError(null) }}
@@ -304,7 +306,7 @@ export default function BookingPage() {
                   onClick={handleBook}
                   className="w-full py-3.5 rounded-xl bg-amber-500 text-white font-bold text-base hover:bg-amber-600 transition-all shadow-sm"
                 >
-                  Book Now &middot; {formatCurrency(total, service.currencyCode ?? 'NGN')}
+                  Book Now &middot; {formatCurrency(total, service.currencyCode ?? currencyCode)}
                 </button>
 
                 <button onClick={() => setStep(2)} className="w-full text-center text-sm text-text-secondary hover:text-text-primary transition-colors">
@@ -334,7 +336,7 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Price</span>
-                  <span className="font-semibold text-text-primary">{formatCurrency(service.price, service.currencyCode ?? 'NGN')}</span>
+                  <span className="font-semibold text-text-primary">{formatCurrency(service.price, service.currencyCode ?? currencyCode)}</span>
                 </div>
                 {step >= 1 && selectedDate && selectedTime && (
                   <div className="flex justify-between">

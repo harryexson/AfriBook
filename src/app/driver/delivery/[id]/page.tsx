@@ -10,6 +10,8 @@ import ItemVerification from '@/components/driver/ItemVerification'
 import PhotoCapture from '@/components/driver/PhotoCapture'
 import SOSButton from '@/components/driver/SOSButton'
 import type { DeliveryStep } from '@/components/driver/DeliveryProgress'
+import { useCountry } from '@/components/shared/CountryProvider'
+import { formatMoneySymbol, getCurrencyForCountry } from '@/lib/money'
 
 const CONTAINER = {
   hidden: { opacity: 0 },
@@ -42,6 +44,7 @@ const MOCK_DELIVERY = {
 
 export default function ActiveDeliveryPage() {
   const router = useRouter()
+  const { countryCode } = useCountry()
   const [currentStep, setCurrentStep] = useState<DeliveryStep>('assigned')
   const [showVerification, setShowVerification] = useState(false)
   const [showItemCheck, setShowItemCheck] = useState(false)
@@ -90,7 +93,7 @@ export default function ActiveDeliveryPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-amber-100 font-medium">Estimated Earnings</p>
-              <p className="text-2xl font-bold">₦{delivery.estimatedEarnings.toLocaleString()}</p>
+              <p className="text-2xl font-bold">{formatMoneySymbol(delivery.estimatedEarnings, getCurrencyForCountry(countryCode))}</p>
             </div>
             <div className="text-right">
               <p className="text-sm text-amber-100">{delivery.distanceKm} km</p>

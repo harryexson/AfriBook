@@ -6,6 +6,8 @@ import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useCartStore } from '@/stores/cart-store'
 import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
+import { useCountry } from '@/components/shared/CountryProvider'
+import { formatMoneySymbol, getCurrencyForCountry } from '@/lib/money'
 import {
   Truck, Package,
   ChevronLeft, CheckCircle, ArrowRight, Clock,
@@ -24,6 +26,7 @@ const ITEM = {
 export default function CheckoutPage() {
   const router = useRouter()
   const store = useCartStore()
+  const { countryCode } = useCountry()
   const [submitting, setSubmitting] = useState(false)
   const [orderResult, setOrderResult] = useState<any>(null)
   const [paymentCompleted, setPaymentCompleted] = useState(false)
@@ -34,16 +37,23 @@ export default function CheckoutPage() {
     setError(null)
 
     try {
-      if (store.items.length === 0 || store.items[0]?.type !== 'product') {
-        throw new Error('No products in cart')
+      if (store.items.length === 0) {
+        throw new Error('Your cart is empty')
       }
 
       const orderItems = store.items.map((item) => {
-        if (item.type !== 'product') throw new Error('Only product orders supported')
+        if (item.type === 'booking') throw new Error('Bookings cannot be placed from checkout')
+        if (item.type === 'product') {
+          return {
+            productId: item.product.id,
+            quantity: item.quantity,
+            variant: item.variantId,
+            notes: item.notes,
+          }
+        }
         return {
-          productId: item.product.id,
+          menuItemId: item.item.id,
           quantity: item.quantity,
-          variant: item.variantId,
           notes: item.notes,
         }
       })
@@ -98,6 +108,14 @@ export default function CheckoutPage() {
 
   const subtotal = store.subtotal()
   const total = store.total()
+  const firstItem = store.items[0]
+  const currencyCode =
+    firstItem?.type === 'menu'
+      ? firstItem.item.currencyCode
+      : firstItem?.type === 'product'
+        ? firstItem.product.currencyCode
+        : getCurrencyForCountry(countryCode)
+  const fmt = (amount: number) => formatMoneySymbol(amount, currencyCode)
 
   if (orderResult && !paymentCompleted) {
     return (
@@ -119,15 +137,16 @@ export default function CheckoutPage() {
           </p>
           <div className="mb-4 p-4 rounded-xl bg-surface-secondary flex items-center justify-between">
             <span className="text-sm text-text-secondary">Order Total</span>
-            <span className="text-lg font-bold text-text-primary">₦{total.toLocaleString()}</span>
+            <span className="text-lg font-bold text-text-primary">{fmt(total)}</span>
           </div>
           <StripePaymentSection
             amount={total}
-            countryCode="US"
+            countryCode={countryCode}
+            currency={currencyCode}
             method="card"
             orderId={orderResult.id}
             businessId={store.businessId ?? undefined}
-            buttonLabel={`Pay ₦${total.toLocaleString()}`}
+            buttonLabel={`Pay ${fmt(total)}`}
             onSuccess={handlePaymentSuccess}
             onError={setError}
           />
@@ -260,17 +279,24 @@ export default function CheckoutPage() {
             <h2 className="text-sm font-semibold text-text-primary mb-3">Order Summary</h2>
             <div className="space-y-2">
               {store.items.map((item, i) => {
-                if (item.type !== 'product') return null
+                const name =
+                  item.type === 'menu' ? item.item.name : item.type === 'product' ? item.product.name : ''
+                const unitPrice =
+                  item.type === 'menu'
+                    ? item.item.price
+                    : item.type === 'product'
+                      ? item.product.price
+                      : 0
                 return (
                   <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-surface-secondary">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="w-6 h-6 rounded-lg bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-xs font-bold text-amber-600 shrink-0">
                         {item.quantity}
                       </span>
-                      <span className="text-sm text-text-primary truncate">{item.product.name}</span>
+                      <span className="text-sm text-text-primary truncate">{name}</span>
                     </div>
                     <span className="text-sm font-medium text-text-primary">
-                      ₦{(item.product.price * item.quantity).toLocaleString()}
+                      {fmt(unitPrice * item.quantity)}
                     </span>
                   </div>
                 )
@@ -279,17 +305,17 @@ export default function CheckoutPage() {
             <div className="mt-3 pt-3 border-t border-border space-y-1">
               <div className="flex justify-between text-sm text-text-secondary">
                 <span>Subtotal</span>
-                <span>₦{subtotal.toLocaleString()}</span>
+                <span>{fmt(subtotal)}</span>
               </div>
               {store.discount > 0 && (
                 <div className="flex justify-between text-sm text-emerald-600">
                   <span>Discount</span>
-                  <span>-₦{store.discount.toLocaleString()}</span>
+                  <span>-{fmt(store.discount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-text-primary pt-1">
                 <span>Total</span>
-                <span>₦{total.toLocaleString()}</span>
+                <span>{fmt(total)}</span>
               </div>
             </div>
           </motion.div>

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import {
   Search,
@@ -10,10 +11,12 @@ import {
   ChevronDown,
   Navigation,
   Sparkles,
+  UtensilsCrossed,
 } from "lucide-react";
 import FeaturedRestaurants from "@/components/food/FeaturedRestaurants";
 import PhoneMockup from "@/components/showcase/PhoneMockup";
 import { FoodAppScreen } from "@/components/showcase/AppScreens";
+import { formatMoneySymbol } from "@/lib/money";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -25,201 +28,60 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.08 } },
 };
 
-const categories = [
-  "All",
-  "Fast Food",
-  "Nigerian",
-  "Ethiopian",
-  "Moroccan",
-  "Seafood",
-  "Vegetarian",
-  "Chinese",
-];
-
-const sortOptions = [
-  "Recommended",
-  "Rating",
-  "Delivery Time",
-  "Price",
-] as const;
-type SortOption = (typeof sortOptions)[number];
-
-interface Restaurant {
+export interface RestaurantSummary {
   id: string;
+  businessId: string;
   name: string;
-  cuisine: string;
-  category: string[];
+  description: string;
+  cuisineType: string;
   rating: number;
-  deliveryTime: string;
-  deliveryTimeMinutes: number;
-  deliveryFee: string;
-  priceRange: string;
-  location: string;
-  initials: string;
-  featured: boolean;
-  gradient: string;
+  preparationTime: number;
+  deliveryRadiusKm: number;
+  minimumOrder: number;
+  deliveryFee: number;
+  currency: string;
+  countryCode: string;
+  address: string;
 }
 
-const restaurants: Restaurant[] = [
-  {
-    id: "1",
-    name: "Mama Nkechi's Kitchen",
-    cuisine: "Nigerian",
-    category: ["Nigerian"],
-    rating: 4.9,
-    deliveryTime: "25-35 min",
-    deliveryTimeMinutes: 30,
-    deliveryFee: "$1.50",
-    priceRange: "$$",
-    location: "Lekki, Lagos",
-    initials: "MN",
-    featured: true,
-    gradient: "from-amber-500 to-orange-600",
-  },
-  {
-    id: "2",
-    name: "Carnivore Nairobi",
-    cuisine: "Kenyan / BBQ",
-    category: ["Seafood"],
-    rating: 4.8,
-    deliveryTime: "30-40 min",
-    deliveryTimeMinutes: 35,
-    deliveryFee: "$2.00",
-    priceRange: "$$$",
-    location: "Westlands, Nairobi",
-    initials: "CN",
-    featured: true,
-    gradient: "from-emerald-500 to-teal-600",
-  },
-  {
-    id: "3",
-    name: "Addis in Cape",
-    cuisine: "Ethiopian",
-    category: ["Ethiopian"],
-    rating: 4.7,
-    deliveryTime: "30-45 min",
-    deliveryTimeMinutes: 37,
-    deliveryFee: "$1.80",
-    priceRange: "$$",
-    location: "Woodstock, Cape Town",
-    initials: "AC",
-    featured: false,
-    gradient: "from-yellow-500 to-amber-600",
-  },
-  {
-    id: "4",
-    name: "Medina Grill",
-    cuisine: "Moroccan",
-    category: ["Moroccan"],
-    rating: 4.6,
-    deliveryTime: "35-50 min",
-    deliveryTimeMinutes: 42,
-    deliveryFee: "$2.20",
-    priceRange: "$$",
-    location: "Guéliz, Marrakech",
-    initials: "MG",
-    featured: false,
-    gradient: "from-red-500 to-rose-600",
-  },
-  {
-    id: "5",
-    name: "Lagos Street Bites",
-    cuisine: "Fast Food / Nigerian",
-    category: ["Fast Food", "Nigerian"],
-    rating: 4.5,
-    deliveryTime: "15-25 min",
-    deliveryTimeMinutes: 20,
-    deliveryFee: "$0.99",
-    priceRange: "$",
-    location: "Victoria Island, Lagos",
-    initials: "LB",
-    featured: false,
-    gradient: "from-orange-500 to-red-600",
-  },
-  {
-    id: "6",
-    name: "Zanzibar Spice House",
-    cuisine: "Seafood / Tanzanian",
-    category: ["Seafood"],
-    rating: 4.8,
-    deliveryTime: "30-40 min",
-    deliveryTimeMinutes: 35,
-    deliveryFee: "$1.70",
-    priceRange: "$$",
-    location: "Stone Town, Zanzibar",
-    initials: "ZS",
-    featured: true,
-    gradient: "from-cyan-500 to-blue-600",
-  },
-  {
-    id: "7",
-    name: "Green Leaf Vegan",
-    cuisine: "Vegetarian / Pan-African",
-    category: ["Vegetarian"],
-    rating: 4.4,
-    deliveryTime: "25-35 min",
-    deliveryTimeMinutes: 30,
-    deliveryFee: "$1.40",
-    priceRange: "$$",
-    location: "Kigali, Rwanda",
-    initials: "GL",
-    featured: false,
-    gradient: "from-green-500 to-emerald-600",
-  },
-  {
-    id: "8",
-    name: "Dragon Wok Accra",
-    cuisine: "Chinese / West African Fusion",
-    category: ["Chinese"],
-    rating: 4.3,
-    deliveryTime: "20-30 min",
-    deliveryTimeMinutes: 25,
-    deliveryFee: "$1.30",
-    priceRange: "$",
-    location: "Osu, Accra",
-    initials: "DW",
-    featured: false,
-    gradient: "from-purple-500 to-violet-600",
-  },
-  {
-    id: "9",
-    name: "Buka Hut",
-    cuisine: "Ghanaian",
-    category: ["Nigerian", "Fast Food"],
-    rating: 4.6,
-    deliveryTime: "20-30 min",
-    deliveryTimeMinutes: 25,
-    deliveryFee: "$1.20",
-    priceRange: "$",
-    location: "East Legon, Accra",
-    initials: "BH",
-    featured: false,
-    gradient: "from-pink-500 to-rose-600",
-  },
-  {
-    id: "10",
-    name: "Spice Route Kigali",
-    cuisine: "Pan-African",
-    category: ["Moroccan", "Ethiopian"],
-    rating: 4.8,
-    deliveryTime: "35-45 min",
-    deliveryTimeMinutes: 40,
-    deliveryFee: "$2.50",
-    priceRange: "$$$",
-    location: "Kigali, Rwanda",
-    initials: "SR",
-    featured: true,
-    gradient: "from-indigo-500 to-blue-600",
-  },
-];
+const sortOptions = ["Recommended", "Rating", "Delivery Time", "Price"] as const;
+type SortOption = (typeof sortOptions)[number];
 
 export default function FoodPage() {
+  const [restaurants, setRestaurants] = useState<RestaurantSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [sortBy, setSortBy] = useState<SortOption>("Recommended");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const res = await fetch("/api/restaurants", { signal: controller.signal });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? "Failed to load restaurants");
+        setRestaurants(json.data?.restaurants ?? []);
+      } catch (err) {
+        if ((err as Error).name !== "AbortError") {
+          setError((err as Error).message);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    return () => controller.abort();
+  }, []);
+
+  const categories = useMemo(() => {
+    const cuisineSet = new Set<string>(restaurants.map((r) => r.cuisineType));
+    return ["All", ...Array.from(cuisineSet).sort()];
+  }, [restaurants]);
 
   const handleUseLocation = () => {
     if (!navigator.geolocation) return;
@@ -246,13 +108,13 @@ export default function FoodPage() {
       result = result.filter(
         (r) =>
           r.name.toLowerCase().includes(q) ||
-          r.cuisine.toLowerCase().includes(q) ||
-          r.location.toLowerCase().includes(q),
+          r.cuisineType.toLowerCase().includes(q) ||
+          r.address.toLowerCase().includes(q),
       );
     }
 
     if (selectedCategory !== "All") {
-      result = result.filter((r) => r.category.includes(selectedCategory));
+      result = result.filter((r) => r.cuisineType === selectedCategory);
     }
 
     switch (sortBy) {
@@ -260,17 +122,23 @@ export default function FoodPage() {
         result.sort((a, b) => b.rating - a.rating);
         break;
       case "Delivery Time":
-        result.sort((a, b) => a.deliveryTimeMinutes - b.deliveryTimeMinutes);
+        result.sort((a, b) => a.preparationTime - b.preparationTime);
         break;
       case "Price":
-        result.sort((a, b) => a.priceRange.length - b.priceRange.length);
+        result.sort((a, b) => a.minimumOrder - b.minimumOrder);
         break;
       default:
-        result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
+        result.sort((a, b) => b.rating - a.rating);
     }
 
     return result;
-  }, [searchQuery, selectedCategory, sortBy]);
+  }, [restaurants, searchQuery, selectedCategory, sortBy]);
+
+  const averageDelivery = useMemo(() => {
+    if (!restaurants.length) return 0;
+    const total = restaurants.reduce((sum, r) => sum + r.preparationTime, 0);
+    return Math.round(total / restaurants.length);
+  }, [restaurants]);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -282,11 +150,7 @@ export default function FoodPage() {
 
         <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
           <div className="grid items-center gap-16 lg:grid-cols-2 lg:gap-12">
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={staggerContainer}
-            >
+            <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
               <motion.span
                 variants={fadeIn}
                 className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200"
@@ -345,17 +209,23 @@ export default function FoodPage() {
                 className="mt-10 flex flex-wrap items-center gap-6"
               >
                 {[
-                  { label: "Restaurants", value: "5,000+" },
-                  { label: "Avg. delivery", value: "28 min" },
-                  { label: "Rating", value: "4.8★" },
+                  { label: "Restaurants", value: `${restaurants.length}+` },
+                  { label: "Avg. prep", value: `${averageDelivery} min` },
+                  {
+                    label: "Rating",
+                    value: restaurants.length
+                      ? `${(
+                          restaurants.reduce((s, r) => s + r.rating, 0) /
+                          restaurants.length
+                        ).toFixed(1)}★`
+                      : "—",
+                  },
                 ].map((stat) => (
                   <div
                     key={stat.label}
                     className="rounded-3xl bg-white/5 px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.08)] backdrop-blur-xl"
                   >
-                    <p className="text-2xl font-semibold text-white">
-                      {stat.value}
-                    </p>
+                    <p className="text-2xl font-semibold text-white">{stat.value}</p>
                     <p className="mt-1 text-xs uppercase tracking-[0.22em] text-white/50">
                       {stat.label}
                     </p>
@@ -387,7 +257,7 @@ export default function FoodPage() {
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-white">
-                      25-35 min
+                      {averageDelivery || 25}-{averageDelivery + 10 || 35} min
                     </p>
                     <p className="text-xs text-white/50">Fastest delivery</p>
                   </div>
@@ -400,12 +270,12 @@ export default function FoodPage() {
                 transition={{ delay: 0.8 }}
                 className="absolute -right-6 bottom-24 hidden rounded-[2rem] border border-white/10 bg-dark-800/90 p-4 shadow-2xl backdrop-blur-xl sm:block"
               >
-                <p className="text-xs text-white/50">Order total</p>
+                <p className="text-xs text-white/50">Kitchens online</p>
                 <p className="text-sm font-semibold text-white">
-                  3 items · $24.50
+                  {restaurants.length} restaurants
                 </p>
                 <p className="mt-1 flex items-center gap-1 text-xs text-emerald-300">
-                  <Truck className="h-3 w-3" /> Free delivery
+                  <Truck className="h-3 w-3" /> Delivery available
                 </p>
               </motion.div>
             </motion.div>
@@ -480,85 +350,124 @@ export default function FoodPage() {
               Discover restaurants near you
             </h2>
             <p className="mt-2 text-base text-text-secondary">
-              {filteredRestaurants.length} restaurant
-              {filteredRestaurants.length !== 1 ? "s" : ""} found
-              {selectedCategory !== "All" && ` in ${selectedCategory}`}.
+              {loading
+                ? "Loading restaurants..."
+                : error
+                  ? "Could not load restaurants."
+                  : `${filteredRestaurants.length} restaurant${filteredRestaurants.length !== 1 ? "s" : ""} found${selectedCategory !== "All" ? ` in ${selectedCategory}` : ""}.`}
             </p>
           </motion.div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={staggerContainer}
-            className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
-          >
-            {filteredRestaurants.map((restaurant) => (
-              <motion.div
-                key={restaurant.id}
-                variants={fadeIn}
-                className="group overflow-hidden rounded-[2rem] border border-border bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)]"
-              >
+          {loading ? (
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {Array.from({ length: 6 }).map((_, i) => (
                 <div
-                  className={`relative h-52 bg-gradient-to-br ${restaurant.gradient} overflow-hidden`}
-                >
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.25),_transparent_35%)]" />
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(0,0,0,0.15),_transparent_40%)]" />
-                  <div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text-primary shadow-sm">
-                    {restaurant.priceRange}
-                  </div>
-                  <div className="absolute right-5 top-5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
-                    {restaurant.deliveryFee}
-                  </div>
-                </div>
-
-                <div className="space-y-5 p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-text-primary transition group-hover:text-amber-500">
-                        {restaurant.name}
-                      </h3>
-                      <p className="mt-1 text-sm text-text-secondary">
-                        {restaurant.cuisine}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-600">
-                      <Star className="h-4 w-4" />
-                      {restaurant.rating}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
-                      <p className="font-semibold text-text-primary">
-                        Delivery
-                      </p>
-                      <p>{restaurant.deliveryTime}</p>
-                    </div>
-                    <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
-                      <p className="font-semibold text-text-primary">
-                        Location
-                      </p>
-                      <p>{restaurant.location}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    {restaurant.category.slice(0, 2).map((label) => (
-                      <span
-                        key={label}
-                        className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600"
+                  key={i}
+                  className="h-80 animate-pulse rounded-[2rem] border border-border bg-surface-secondary"
+                />
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={staggerContainer}
+              className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
+            >
+              {filteredRestaurants.map((restaurant, i) => {
+                const gradients = [
+                  "from-amber-500 to-orange-600",
+                  "from-emerald-500 to-teal-600",
+                  "from-yellow-500 to-amber-600",
+                  "from-red-500 to-rose-600",
+                  "from-cyan-500 to-blue-600",
+                  "from-purple-500 to-violet-600",
+                  "from-pink-500 to-rose-600",
+                  "from-indigo-500 to-blue-600",
+                ];
+                const gradient = gradients[i % gradients.length];
+                const initials = restaurant.name
+                  .split(" ")
+                  .map((w) => w[0])
+                  .join("")
+                  .slice(0, 2)
+                  .toUpperCase();
+                const priceRange =
+                  restaurant.minimumOrder > 0
+                    ? `Min ${formatMoneySymbol(restaurant.minimumOrder, restaurant.currency)}`
+                    : "No minimum";
+                const deliveryFeeText =
+                  restaurant.deliveryFee > 0
+                    ? formatMoneySymbol(restaurant.deliveryFee, restaurant.currency)
+                    : "Free";
+                return (
+                  <motion.div key={restaurant.id} variants={fadeIn}>
+                    <Link
+                      href={`/food/${restaurant.id}`}
+                      className="group block h-full overflow-hidden rounded-[2rem] border border-border bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)]"
+                    >
+                      <div
+                        className={`relative h-52 bg-gradient-to-br ${gradient} overflow-hidden`}
                       >
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.25),_transparent_35%)]" />
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(0,0,0,0.15),_transparent_40%)]" />
+                        <div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text-primary shadow-sm">
+                          {priceRange}
+                        </div>
+                        <div className="absolute right-5 top-5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
+                          {deliveryFeeText} delivery
+                        </div>
+                        <div className="absolute bottom-5 left-5 grid h-14 w-14 place-items-center rounded-2xl bg-white/15 text-lg font-bold text-white backdrop-blur-md">
+                          {initials}
+                        </div>
+                      </div>
 
-          {filteredRestaurants.length === 0 && (
+                      <div className="space-y-5 p-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <h3 className="text-xl font-semibold text-text-primary transition group-hover:text-amber-500">
+                              {restaurant.name}
+                            </h3>
+                            <p className="mt-1 text-sm text-text-secondary">
+                              {restaurant.cuisineType}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-600">
+                            <Star className="h-4 w-4" />
+                            {restaurant.rating.toFixed(1)}
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+                            <p className="font-semibold text-text-primary">Prep time</p>
+                            <p>{restaurant.preparationTime}-{restaurant.preparationTime + 10} min</p>
+                          </div>
+                          <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+                            <p className="font-semibold text-text-primary">Location</p>
+                            <p className="truncate">{restaurant.address}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600">
+                            {restaurant.cuisineType}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-surface-secondary px-3 py-1 text-xs font-semibold text-text-secondary">
+                            <UtensilsCrossed className="h-3 w-3" />
+                            Order food
+                          </span>
+                        </div>
+                      </div>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+
+          {!loading && filteredRestaurants.length === 0 && (
             <div className="py-16 text-center">
               <p className="text-lg text-text-secondary">
                 No restaurants found. Try a different search or category.
