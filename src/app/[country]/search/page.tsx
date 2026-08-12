@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Map, X, ChevronLeft } from 'lucide-react'
@@ -58,6 +58,15 @@ export default function SearchPage() {
     if (filters.deliveryAvailable) count++
     return count
   }, [filters])
+
+  useEffect(() => {
+    setQuery(searchParams?.get('q') ?? '')
+    setFilters((f) => ({
+      ...f,
+      categories: searchParams?.get('category') ? [searchParams.get('category') as string] : [],
+    }))
+    setPage(1)
+  }, [searchParams])
 
   const filteredBusinesses = useMemo(() => {
     let results = MOCK_BUSINESSES

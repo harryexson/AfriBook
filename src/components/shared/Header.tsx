@@ -15,11 +15,11 @@ import MobileNav from './MobileNav'
 import CountrySelector from './CountrySelector'
 
 const NAV_LINKS = [
-  { label: 'Marketplace', href: '/search', icon: ShoppingBag, category: '' },
-  { label: 'Events', href: '/search', icon: Calendar, category: 'Entertainment' },
-  { label: 'Food', href: '/search', icon: Utensils, category: 'Food & Dining' },
-  { label: 'Rides', href: '/search', icon: Truck, category: 'Transportation' },
-  { label: 'Deliveries', href: '/search', icon: Package, category: 'Logistics' },
+  { label: 'Marketplace', href: '/search', icon: ShoppingBag, scoped: true },
+  { label: 'Events', href: '/events', icon: Calendar },
+  { label: 'Food', href: '/food', icon: Utensils },
+  { label: 'Rides', href: '/rides', icon: Truck },
+  { label: 'Deliveries', href: '/deliveries', icon: Package },
 ]
 
 // Routes that have a dark hero behind the header and rely on the
@@ -108,8 +108,8 @@ export default function Header() {
             <nav className="hidden lg:flex items-center gap-1">
               {NAV_LINKS.map((link) => (
                 <Link
-                  key={`${link.label}-${link.category}`}
-                  href={`/${countryCode}${link.href}${link.category ? `?category=${encodeURIComponent(link.category)}` : ''}`}
+                  key={link.label}
+                  href={link.scoped ? `/${countryCode}${link.href}` : link.href}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     solid

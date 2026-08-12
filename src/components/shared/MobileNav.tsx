@@ -16,12 +16,12 @@ interface MobileNavProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Marketplace', href: '/search', icon: ShoppingBag, category: '' },
-  { label: 'Events', href: '/search', icon: Calendar, category: 'Entertainment' },
-  { label: 'Sell', href: '/sell', icon: Store, category: null },
-  { label: 'Rides', href: '/search', icon: Truck, category: 'Transportation' },
-  { label: 'Food', href: '/search', icon: Utensils, category: 'Food & Dining' },
-  { label: 'Deliveries', href: '/search', icon: Package, category: 'Logistics' },
+  { label: 'Marketplace', href: '/search', icon: ShoppingBag, scoped: true },
+  { label: 'Events', href: '/events', icon: Calendar },
+  { label: 'Sell', href: '/sell', icon: Store, plain: true },
+  { label: 'Rides', href: '/rides', icon: Truck },
+  { label: 'Food', href: '/food', icon: Utensils },
+  { label: 'Deliveries', href: '/deliveries', icon: Package },
 ]
 
 const ACCOUNT_ITEMS = [
@@ -127,10 +127,8 @@ export default function MobileNav({ open, onClose }: MobileNavProps) {
                   </p>
                   {NAV_ITEMS.map((item) => (
                     <Link
-                      key={`${item.label}-${item.category}`}
-                      href={item.category === null
-                        ? item.href
-                        : `/${countryCode}${item.href}${item.category ? `?category=${encodeURIComponent(item.category)}` : ''}`}
+                      key={item.label}
+                      href={item.plain ? item.href : item.scoped ? `/${countryCode}${item.href}` : item.href}
                       onClick={onClose}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors"
                     >
