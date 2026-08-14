@@ -57,7 +57,7 @@ export async function resolvePlannerMarket(
     .eq('id', userId)
     .single();
 
-  const countryCode = (profile?.country_code ?? 'US').toUpperCase();
+  const countryCode = (profile?.country_code ?? 'NG').toUpperCase();
   const currencyCode = getCurrencyForCountry(countryCode);
   const config = getCurrencyConfig(currencyCode);
   const exchangeRate = config?.exchangeRate ?? 1;
@@ -70,7 +70,7 @@ export function marketFromEvent(event: {
   country_code?: string | null;
   currency_code?: string | null;
 }): PlannerMarket {
-  const countryCode = (event.country_code ?? 'US').toUpperCase();
+  const countryCode = (event.country_code ?? 'NG').toUpperCase();
   const currencyCode = event.currency_code ?? getCurrencyForCountry(countryCode);
   const config = getCurrencyConfig(currencyCode);
   const exchangeRate = config?.exchangeRate ?? 1;

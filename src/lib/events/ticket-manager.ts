@@ -125,14 +125,15 @@ export async function createRegistration(
   const isFreeEvent = event.is_free && ticketType.price === 0;
 
   let pricing: PricingBreakdown;
+  const countryCode = event.country_code ?? event.venue_country ?? 'NG';
   if (isFreeEvent) {
-    pricing = calculateFreeEventPricing(params.quantity, event.venue_country ?? 'US');
+    pricing = calculateFreeEventPricing(params.quantity, countryCode);
   } else {
     pricing = calculateTotalPricing(
       ticketType.price,
       params.quantity,
       'free', // TODO: get organizer's actual plan
-      event.venue_country ?? 'US',
+      countryCode,
       params.paymentMethod ?? 'card',
       promoDiscount,
     );

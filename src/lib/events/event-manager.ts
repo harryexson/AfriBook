@@ -9,6 +9,7 @@ import type {
 } from '@/types/events';
 import type { CreateEventParams, EventFilters } from './types';
 import { SUBSCRIPTION_PLANS } from '@/types/subscription-plans';
+import { getCurrencyForCountry } from '../money';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -686,7 +687,7 @@ function mapEvent(row: Record<string, unknown>): Event {
     ticketsSold: (row.tickets_sold as number) ?? 0,
     waitlistEnabled: (row.enable_waitlist as boolean) ?? (row.waitlist_enabled as boolean) ?? false,
 
-    currencyCode: (row.currency_code as string) ?? 'USD',
+    currencyCode: (row.currency_code as string) ?? getCurrencyForCountry((row.country_code as string) ?? (row.venue_country as string) ?? 'NG'),
     minPrice: (row.min_price as number) ?? undefined,
     maxPrice: (row.max_price as number) ?? undefined,
     isFree,
@@ -730,7 +731,7 @@ function mapTicket(row: Record<string, unknown>): EventTypeTicket {
     description: (row.description as string) ?? '',
     price: (row.price as number) ?? 0,
     originalPrice: (row.original_price as number) ?? undefined,
-    currencyCode: (row.currency_code as string) ?? 'USD',
+    currencyCode: (row.currency_code as string) ?? getCurrencyForCountry((row.country_code as string) ?? 'NG'),
     quantityAvailable: (row.quantity_available as number) ?? 0,
     quantitySold: (row.quantity_sold as number) ?? 0,
     maxPerOrder: (row.max_per_order as number) ?? 10,

@@ -17,11 +17,13 @@ const FOOTER_LINKS = {
   Marketplace: [
     { label: 'All Categories', href: '/marketplace' },
     { label: 'Features', href: '/features' },
+    { label: 'Hotels', href: '/stays' },
+    { label: 'Restaurants', href: '/food' },
     { label: 'Services', href: '/marketplace/services' },
     { label: 'Products', href: '/marketplace/products' },
     { label: 'Events & Tickets', href: '/events' },
-    { label: 'Food & Dining', href: '/food' },
     { label: 'Rides', href: '/rides' },
+    { label: 'Delivery', href: '/deliveries' },
   ],
   Support: [
     { label: 'Help Center', href: '/help' },

@@ -180,7 +180,7 @@ export function calculateTotalPricing(
   ticketPrice: number,
   quantity: number,
   organizerPlan: SubscriptionPlanId = 'free',
-  countryCode: string = 'US',
+  countryCode: string = 'NG',
   paymentMethod: string = 'card',
   promoCode?: PromoCodeDiscount,
 ): PricingBreakdown {
@@ -224,7 +224,7 @@ export function calculateTotalPricing(
 
 export function calculateFreeEventPricing(
   quantity: number,
-  countryCode: string = 'US',
+  countryCode: string = 'NG',
 ): PricingBreakdown {
   return {
     subtotal: 0,

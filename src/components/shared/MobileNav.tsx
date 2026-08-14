@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, X, ShoppingBag, Store, Truck, Utensils, Package,
-  LogIn, Heart, HelpCircle, ChevronRight, Calendar,
+  LogIn, Heart, HelpCircle, ChevronRight, Calendar, BedDouble, Sparkles,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useCountry } from './CountryProvider'
@@ -16,12 +16,14 @@ interface MobileNavProps {
 }
 
 const NAV_ITEMS = [
-  { label: 'Marketplace', href: '/search', icon: ShoppingBag, scoped: true },
+  { label: 'Hotels', href: '/stays', icon: BedDouble },
+  { label: 'Restaurants', href: '/food', icon: Utensils },
+  { label: 'Services', href: '/marketplace/services', icon: Sparkles },
+  { label: 'Products', href: '/marketplace/products', icon: ShoppingBag },
+  { label: 'Rides', href: '/rides', icon: Truck },
+  { label: 'Deliveries', href: '/deliveries', icon: Package },
   { label: 'Events', href: '/events', icon: Calendar },
   { label: 'Sell', href: '/sell', icon: Store, plain: true },
-  { label: 'Rides', href: '/rides', icon: Truck },
-  { label: 'Food', href: '/food', icon: Utensils },
-  { label: 'Deliveries', href: '/deliveries', icon: Package },
 ]
 
 const ACCOUNT_ITEMS = [
@@ -128,7 +130,7 @@ export default function MobileNav({ open, onClose }: MobileNavProps) {
                   {NAV_ITEMS.map((item) => (
                     <Link
                       key={item.label}
-                      href={item.plain ? item.href : item.scoped ? `/${countryCode}${item.href}` : item.href}
+                      href={item.plain ? item.href : item.href}
                       onClick={onClose}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-text-secondary hover:text-text-primary hover:bg-surface-secondary transition-colors"
                     >

@@ -42,3 +42,6 @@ next-env.d.ts
 
 # lint output
 /lint-output*.txt
+
+# debug
+dev-server.log

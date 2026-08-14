@@ -42,7 +42,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     location?.countryCode ??
     getCountryFromUrl() ??
     getCountryFromCookie() ??
-    'US'
+    ''
 
   const detect = useCallback(async () => {
     setLoading(true)

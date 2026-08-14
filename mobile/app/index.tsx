@@ -238,6 +238,20 @@ export default function HomeScreen() {
           <View style={styles.actionsGrid}>
             <TouchableOpacity
               style={styles.actionCard}
+              onPress={() => router.push("/stays")}
+            >
+              <Text style={styles.actionIcon}>🏨</Text>
+              <Text style={styles.actionLabel}>Hotels</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionCard}
+              onPress={() => router.push("/food")}
+            >
+              <Text style={styles.actionIcon}>🍽️</Text>
+              <Text style={styles.actionLabel}>Restaurants</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionCard}
               onPress={() => router.push("/(tabs)/bookings")}
             >
               <Text style={styles.actionIcon}>📋</Text>

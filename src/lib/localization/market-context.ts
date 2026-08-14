@@ -15,7 +15,7 @@ import { getCurrencyForCountry } from '../money';
  *   3. Cloudflare `cf-ipcountry` (IP geolocation)
  *   4. Vercel `x-vercel-ip-country`
  *   5. `Accept-Language` (weakest signal, maps to supported market)
- *   6. Default market (US)
+ *   6. Default market (NG — never silently assumes the United States)
  */
 
 export interface MarketContext {
@@ -30,7 +30,7 @@ export interface MarketContext {
   categories: string[];
 }
 
-export const DEFAULT_COUNTRY = 'US';
+export const DEFAULT_COUNTRY = 'NG';
 
 /** All countries with a full config (upper-case code → name). */
 export const SUPPORTED_COUNTRIES: Record<string, string> = Object.fromEntries(
@@ -51,7 +51,7 @@ function countryFromLanguage(lang: string | null): string | null {
   const [langCode, region] = tag.trim().split('-');
   if (region && COUNTRIES[region.toUpperCase()]) return region.toUpperCase();
   // Language-only match (e.g. "fr" → FR, "ar" → EG, "sw" → KE)
-  const byLang: Record<string, string> = { fr: 'FR', de: 'DE', ar: 'EG', es: 'ES', sw: 'KE', hi: 'IN', en: 'US' };
+  const byLang: Record<string, string> = { fr: 'FR', de: 'DE', ar: 'EG', es: 'ES', sw: 'KE', hi: 'IN', en: 'NG' };
   return byLang[langCode] ?? null;
 }
 

@@ -150,9 +150,10 @@ describe('resolveMarketContext — header resolution order', () => {
     expect(c.countryCode).toBe('GB');
   });
 
-  it('defaults to US when no signal is available', () => {
+  it('defaults to NG (never US) when no signal is available', () => {
     const c = ctx({});
-    expect(c.countryCode).toBe('US');
+    expect(c.countryCode).toBe('NG');
+    expect(c.currencyCode).toBe('NGN');
   });
 });
 
@@ -192,7 +193,7 @@ describe('events pricing — tax and currency localization', () => {
 
   it('free events also carry a market currency', () => {
     expect(calculateFreeEventPricing(3, 'KE').currencyCode).toBe('KES');
-    expect(calculateFreeEventPricing(3).currencyCode).toBe('USD');
+    expect(calculateFreeEventPricing(3).currencyCode).toBe('NGN');
   });
 
   it('tax is computed on the discounted subtotal', () => {

@@ -8,6 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { StayHotelData, StayRoomData } from './stays-data'
+import { getCurrencyForCountry } from '@/lib/money'
 
 export type StayHotelStatus = 'draft' | 'published' | 'suspended' | 'archived'
 
@@ -281,7 +282,7 @@ export function stayHotelFromDb(row: DbRow): StayHotel | null {
     checkInTime: str(row.check_in_time, '14:00'),
     checkOutTime: str(row.check_out_time, '11:00'),
     galleryImages: strArr(row.gallery_images),
-    currencyCode: str(row.currency_code, 'USD'),
+    currencyCode: str(row.currency_code, getCurrencyForCountry(str(row.country_code))),
     priceFrom: num(row.price_from),
     priceTo: num(row.price_to),
     platformFeePercent: num(row.platform_fee_percent, DEFAULT_PLATFORM_FEE_PERCENT),
@@ -312,7 +313,7 @@ export function stayRoomFromDb(row: DbRow): StayRoom | null {
     bathrooms: num(row.bathrooms, 1),
     sizeSqm: row.size_sqm != null ? num(row.size_sqm) : null,
     pricePerNight: num(row.price_per_night),
-    currencyCode: str(row.currency_code, 'USD'),
+    currencyCode: str(row.currency_code, getCurrencyForCountry(str(row.country_code))),
     minNights: num(row.min_nights, 1),
     quantity: num(row.quantity, 1),
     photos: strArr(row.photos),
@@ -341,7 +342,7 @@ export function stayBookingFromDb(row: DbRow): StayBooking | null {
     platformFee: num(row.platform_fee),
     tax: num(row.tax),
     total: num(row.total),
-    currencyCode: str(row.currency_code, 'USD'),
+    currencyCode: str(row.currency_code, 'NGN'),
     status: (str(row.status, 'pending') as StayBookingStatus) ?? 'pending',
     paymentStatus:
       (str(row.payment_status, 'pending') as StayPaymentStatus) ?? 'pending',

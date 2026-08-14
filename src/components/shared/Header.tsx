@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe, Search, X, Menu, ChevronDown, ShoppingBag,
   Package, LogOut, Settings, Heart, Bell, Store, Truck, Utensils, Calendar,
+  BedDouble, Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
@@ -15,11 +16,13 @@ import MobileNav from './MobileNav'
 import CountrySelector from './CountrySelector'
 
 const NAV_LINKS = [
-  { label: 'Marketplace', href: '/search', icon: ShoppingBag, scoped: true },
-  { label: 'Events', href: '/events', icon: Calendar },
-  { label: 'Food', href: '/food', icon: Utensils },
+  { label: 'Hotels', href: '/stays', icon: BedDouble },
+  { label: 'Restaurants', href: '/food', icon: Utensils },
+  { label: 'Services', href: '/marketplace/services', icon: Sparkles },
+  { label: 'Products', href: '/marketplace/products', icon: ShoppingBag },
   { label: 'Rides', href: '/rides', icon: Truck },
-  { label: 'Deliveries', href: '/deliveries', icon: Package },
+  { label: 'Delivery', href: '/deliveries', icon: Package },
+  { label: 'Events', href: '/events', icon: Calendar },
 ]
 
 // Routes that have a dark hero behind the header and rely on the
@@ -41,10 +44,13 @@ const TRANSPARENT_HEADER_PATHS = new Set([
   '/rides',
   '/rides/prime',
   '/sell',
+  '/stays',
 ])
 
 function shouldUseTransparentHeader(pathname: string): boolean {
   if (TRANSPARENT_HEADER_PATHS.has(pathname)) return true
+  // Stays detail pages (e.g. /stays/stay-mw-0) use a dark hero.
+  if (pathname.startsWith('/stays/')) return true
   // Country home pages (e.g. /US) have a dark hero.
   return pathname.split('/').filter(Boolean).length === 1
 }
@@ -60,7 +66,7 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const { user, authenticated, signOut } = useAuth()
-  const { countryCode, country: selectedCountry } = useCountry()
+  const { country: selectedCountry } = useCountry()
 
   const isHeroRoute = shouldUseTransparentHeader(pathname ?? '')
   const solid = scrolled || !isHeroRoute
@@ -109,7 +115,7 @@ export default function Header() {
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.label}
-                  href={link.scoped ? `/${countryCode}${link.href}` : link.href}
+                  href={link.href}
                   className={cn(
                     'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     solid
