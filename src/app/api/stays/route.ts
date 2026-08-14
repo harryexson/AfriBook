@@ -82,7 +82,12 @@ export async function GET(req: NextRequest) {
     else if (sort === 'price-desc') sorted.sort((a, b) => b.priceFrom - a.priceFrom)
     else if (sort === 'rating') sorted.sort((a, b) => b.rating - a.rating)
     else if (sort === 'reviews') sorted.sort((a, b) => b.reviewCount - a.reviewCount)
-    else sorted.sort((a, b) => Number(b.isFeatured) - Number(a.isFeatured) || b.rating - a.rating)
+    else sorted.sort(
+      (a, b) =>
+        Number(b.isSponsored) - Number(a.isSponsored) ||
+        Number(b.isFeatured) - Number(a.isFeatured) ||
+        b.rating - a.rating,
+    )
 
     total = sorted.length
     data = sorted.slice((page - 1) * limit, page * limit).map((h) => toStayHotel(h))

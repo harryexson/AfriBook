@@ -79,6 +79,7 @@ export async function seedCountryStays(supabase: Db, countryCode: string): Promi
       rating: hotel.rating,
       review_count: hotel.reviewCount,
       is_featured: hotel.isFeatured,
+      is_sponsored: hotel.isSponsored,
     }
 
     const { data: inserted, error: hotelError } = await supabase

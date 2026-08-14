@@ -107,6 +107,7 @@ CREATE TABLE stay_hotels (
     view_count                  BIGINT DEFAULT 0,
     favorite_count              BIGINT DEFAULT 0,
     is_featured                 BOOLEAN NOT NULL DEFAULT false,
+    is_sponsored                BOOLEAN NOT NULL DEFAULT false,
 
     -- SEO & Sharing
     meta_title                  VARCHAR(255),
@@ -141,6 +142,7 @@ CREATE INDEX idx_stay_hotels_location ON stay_hotels USING GIST(location);
 CREATE INDEX idx_stay_hotels_price_from ON stay_hotels(price_from);
 CREATE INDEX idx_stay_hotels_rating ON stay_hotels(rating);
 CREATE INDEX idx_stay_hotels_featured ON stay_hotels(is_featured);
+CREATE INDEX idx_stay_hotels_sponsored ON stay_hotels(is_sponsored);
 CREATE INDEX idx_stay_hotels_created ON stay_hotels(created_at);
 
 -- ---------------------------------------------------------------------------

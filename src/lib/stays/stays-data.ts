@@ -42,6 +42,7 @@ export interface StayHotelData {
   reviewCount: number
   roomsCount: number
   isFeatured: boolean
+  isSponsored: boolean
   contact: { phone: string; email: string }
 }
 
@@ -316,6 +317,7 @@ export function getStayHotels(countryCode: string): StayHotelData[] {
       reviewCount,
       roomsCount,
       isFeatured: i < 2,
+      isSponsored: i >= 2 && i < 4,
       contact: {
         phone: country.phoneFormat.replace(/X/g, () => String(Math.floor(rng() * 10))),
         email: `${slugify(name).replace(/-/g, '')}@${countryCode.toLowerCase()}.afribook.com`,

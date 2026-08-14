@@ -338,7 +338,13 @@ VALUES
     'Accra Waakye Spot', 'Ghanaian street-food favourite — waakye, banku, tilapia and kelewele. is_demo.',
     (SELECT id FROM public.business_categories WHERE name = 'Food & Dining'),
     'GH', 'active', 'approved', 4.5, ST_SetSRID(ST_MakePoint(-0.19, 5.56), 4326)::geography,
-    '[]', '{"is_demo":true,"seed":true,"delivery_fee":20,"minimum_order":30}')
+    '[]', '{"is_demo":true,"seed":true,"delivery_fee":20,"minimum_order":30}'),
+  -- Malawi — Lilongwe restaurant (used by the /food ordering flow)
+  ('b0000000-0000-4000-8000-000000000010', '00000000-0000-4000-8000-000000000003',
+    'Mango Tree Kitchen', 'Home-style Malawian kitchen in Lilongwe — nsima, chambo, and fresh local juices. is_demo.',
+    (SELECT id FROM public.business_categories WHERE name = 'Food & Dining'),
+    'MW', 'active', 'approved', 4.6, ST_SetSRID(ST_MakePoint(33.78, -13.96), 4326)::geography,
+    '[]', '{"is_demo":true,"seed":true,"delivery_fee":2500,"minimum_order":8000}')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
@@ -355,7 +361,10 @@ VALUES
   ('r0000000-0000-4000-8000-000000000003', 'b0000000-0000-4000-8000-000000000008',
    'South African / Cape Malay', 20, 7.00, 80, '{"mon":["08:00","21:00"],"tue":["08:00","21:00"],"wed":["08:00","21:00"],"thu":["08:00","21:00"],"fri":["08:00","22:00"],"sat":["09:00","22:00"],"sun":["09:00","20:00"]}'),
   ('r0000000-0000-4000-8000-000000000004', 'b0000000-0000-4000-8000-000000000009',
-   'Ghanaian', 20, 6.00, 30, '{"mon":["07:00","21:00"],"tue":["07:00","21:00"],"wed":["07:00","21:00"],"thu":["07:00","21:00"],"fri":["07:00","22:00"],"sat":["08:00","22:00"],"sun":["09:00","20:00"]}')
+   'Ghanaian', 20, 6.00, 30, '{"mon":["07:00","21:00"],"tue":["07:00","21:00"],"wed":["07:00","21:00"],"thu":["07:00","21:00"],"fri":["07:00","22:00"],"sat":["08:00","22:00"],"sun":["09:00","20:00"]}'),
+  -- Mango Tree Kitchen — Malawian (MWK)
+  ('r0000000-0000-4000-8000-000000000005', 'b0000000-0000-4000-8000-000000000010',
+   'Malawian', 25, 8.00, 8000, '{"mon":["09:00","21:00"],"tue":["09:00","21:00"],"wed":["09:00","21:00"],"thu":["09:00","21:00"],"fri":["09:00","22:00"],"sat":["10:00","22:00"],"sun":["12:00","20:00"]}')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
@@ -390,8 +399,15 @@ VALUES
    'Mains', 'Comfort plates.', 1, true),
   ('mc0000000-0000-4000-8000-000000000011', 'r0000000-0000-4000-8000-000000000004',
    'Street Food', 'Kelewele, bofrot and more.', 2, true),
-  ('mc0000000-0000-4000-8000-000000000012', 'r0000000-0000-4000-8000-000000000004',
-   'Drinks', 'Chilled drinks.', 3, true)
+('mc0000000-0000-4000-8000-000000000012', 'r0000000-0000-4000-8000-000000000004',
+    'Drinks', 'Chilled drinks.', 3, true),
+  -- Mango Tree Kitchen (MW)
+  ('mc0000000-0000-4000-8000-000000000013', 'r0000000-0000-4000-8000-000000000005',
+    'Mains', 'Nsima and hearty Malawian plates.', 1, true),
+  ('mc0000000-0000-4000-8000-000000000014', 'r0000000-0000-4000-8000-000000000005',
+    'Sides', 'Fresh sides and accompaniments.', 2, true),
+  ('mc0000000-0000-4000-8000-000000000015', 'r0000000-0000-4000-8000-000000000005',
+    'Drinks', 'Local juices and coolers.', 3, true)
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
@@ -531,11 +547,47 @@ VALUES
    'Light Ghanaian doughnuts.', 10,
    'GHS', '', ARRAY['flour','sugar','yeast'], ARRAY['gluten'], 10,
    true, '[]', '{"is_demo":true}'),
-  ('mi0000000-0000-4000-8000-000000000026', 'mc0000000-0000-4000-8000-000000000012',
-   'r0000000-0000-4000-8000-000000000004', 'Sobolo',
-   'Chilled hibiscus drink with ginger.', 8,
-   'GHS', '', ARRAY['hibiscus','ginger','sugar'], ARRAY['none'], 5,
-   true, '[]', '{"is_demo":true}')
+('mi0000000-0000-4000-8000-000000000026', 'mc0000000-0000-4000-8000-000000000012',
+    'r0000000-0000-4000-8000-000000000004', 'Sobolo',
+    'Chilled hibiscus drink with ginger.', 8,
+    'GHS', '', ARRAY['hibiscus','ginger','sugar'], ARRAY['none'], 5,
+    true, '[]', '{"is_demo":true}'),
+  -- Mango Tree Kitchen — Malawian (MWK)
+  ('mi0000000-0000-4000-8000-000000000027', 'mc0000000-0000-4000-8000-000000000013',
+    'r0000000-0000-4000-8000-000000000005', 'Nsima & Chicken Stew',
+    'Smooth white nsima served with rich tomato-chicken stew.', 6500,
+    'MWK', '', ARRAY['maize meal','chicken','tomatoes','onions'], ARRAY['none'], 25,
+    true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000028', 'mc0000000-0000-4000-8000-000000000013',
+    'r0000000-0000-4000-8000-000000000005', 'Chambo & Chips',
+    'Lake Malawi chambo grilled whole, served with golden chips and relish.', 7500,
+    'MWK', '', ARRAY['chambo','potatoes','lemon','relish'], ARRAY['fish'], 30,
+    true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000029', 'mc0000000-0000-4000-8000-000000000013',
+    'r0000000-0000-4000-8000-000000000005', 'Beef Curry & Nsima',
+    'Slow-cooked beef curry in a mild local spice blend with nsima.', 6000,
+    'MWK', '', ARRAY['beef','curry','maize meal','onions'], ARRAY['none'], 25,
+    true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000030', 'mc0000000-0000-4000-8000-000000000014',
+    'r0000000-0000-4000-8000-000000000005', 'Fried Plantain',
+    'Caramelised sweet plantain slices.', 2500,
+    'MWK', '', ARRAY['plantain','oil'], ARRAY['none'], 10,
+    true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000031', 'mc0000000-0000-4000-8000-000000000014',
+    'r0000000-0000-4000-8000-000000000005', 'Mashed Pumpkin',
+    'Creamy local pumpkin mash with herbs.', 2000,
+    'MWK', '', ARRAY['pumpkin','herbs'], ARRAY['none'], 10,
+    true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000032', 'mc0000000-0000-4000-8000-000000000015',
+    'r0000000-0000-4000-8000-000000000005', 'Fresh Mango Juice',
+    'Cold-pressed Malawian mango juice.', 1800,
+    'MWK', '', ARRAY['mango'], ARRAY['none'], 5,
+    true, '[]', '{"is_demo":true}'),
+  ('mi0000000-0000-4000-8000-000000000033', 'mc0000000-0000-4000-8000-000000000015',
+    'r0000000-0000-4000-8000-000000000005', 'Maheu',
+    'Traditional fermented grain drink, lightly sweet.', 1500,
+    'MWK', '', ARRAY['maize meal','sugar'], ARRAY['none'], 5,
+    true, '[]', '{"is_demo":true}')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================

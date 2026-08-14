@@ -8,10 +8,16 @@ import type { CountryConfig } from '@/lib/localization/countries'
 const COUNTRY_COOKIE = 'country'
 const COUNTRY_STORAGE_KEY = 'afribook-country'
 
+interface SetCountryOptions {
+  /** Hard-navigate to /CODE. Default true. Pass false when the caller
+   *  manages the destination itself (e.g. the in-page DestinationSelector). */
+  navigate?: boolean
+}
+
 interface CountryContextValue {
   countryCode: string
   country: CountryConfig
-  setCountry: (code: string) => void
+  setCountry: (code: string, options?: SetCountryOptions) => void
 }
 
 const CountryContext = createContext<CountryContextValue | null>(null)
@@ -63,7 +69,7 @@ export function CountryProvider({ children }: { children: ReactNode }) {
     getServerSnapshot,
   )
 
-  const setCountry = useCallback((code: string) => {
+  const setCountry = useCallback((code: string, options?: SetCountryOptions) => {
     const normalized = code.toUpperCase()
     if (!COUNTRIES[normalized]) return
     document.cookie = `${COUNTRY_COOKIE}=${normalized}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
@@ -72,7 +78,8 @@ export function CountryProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore storage errors
     }
-    if (window.location.pathname !== `/${normalized}`) {
+    const navigate = options?.navigate ?? true
+    if (navigate && window.location.pathname !== `/${normalized}`) {
       window.location.assign(`/${normalized}`)
     }
   }, [])

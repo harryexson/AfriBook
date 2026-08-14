@@ -17,6 +17,10 @@ import FeaturedRestaurants from "@/components/food/FeaturedRestaurants";
 import PhoneMockup from "@/components/showcase/PhoneMockup";
 import { FoodAppScreen } from "@/components/showcase/AppScreens";
 import { formatMoneySymbol } from "@/lib/money";
+import { useCountry } from "@/components/shared/CountryProvider";
+import { COUNTRIES } from "@/lib/localization/countries";
+import DestinationSelector, { DestinationChip } from "@/components/shared/DestinationSelector";
+import { useDestinationStore } from "@/stores/destination-store";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -48,6 +52,13 @@ const sortOptions = ["Recommended", "Rating", "Delivery Time", "Price"] as const
 type SortOption = (typeof sortOptions)[number];
 
 export default function FoodPage() {
+  const { countryCode } = useCountry();
+  const destination = useDestinationStore((s) => s.destination);
+
+  // The destination store is the source of truth once a user picks one.
+  const effectiveCountryCode = destination.countryCode || countryCode;
+  const effectiveCountry = COUNTRIES[effectiveCountryCode];
+
   const [restaurants, setRestaurants] = useState<RestaurantSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,15 +68,22 @@ export default function FoodPage() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [userLocation, setUserLocation] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [destinationOpen, setDestinationOpen] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
+      setLoading(true);
       try {
-        const res = await fetch("/api/restaurants", { signal: controller.signal });
+        const params = new URLSearchParams({ country: effectiveCountryCode });
+        if (destination.city) params.set("city", destination.city);
+        const res = await fetch(`/api/restaurants?${params.toString()}`, {
+          signal: controller.signal,
+        });
         const json = await res.json();
         if (!res.ok) throw new Error(json.error ?? "Failed to load restaurants");
         setRestaurants(json.data?.restaurants ?? []);
+        setSelectedCategory("All");
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
           setError((err as Error).message);
@@ -76,7 +94,7 @@ export default function FoodPage() {
     }
     load();
     return () => controller.abort();
-  }, []);
+  }, [effectiveCountryCode, destination.city]);
 
   const categories = useMemo(() => {
     const cuisineSet = new Set<string>(restaurants.map((r) => r.cuisineType));
@@ -176,14 +194,18 @@ export default function FoodPage() {
                 delivery experience in one app.
               </motion.p>
 
+              <motion.div variants={fadeIn} className="mt-8">
+                <DestinationChip onOpen={() => setDestinationOpen(true)} />
+              </motion.div>
+
               <motion.div
                 variants={fadeIn}
-                className="mt-10 flex flex-col gap-4 sm:flex-row"
+                className="mt-6 flex flex-col gap-4 sm:flex-row"
               >
                 <button
                   onClick={handleUseLocation}
                   disabled={locating}
-                  className="inline-flex items-center justify-center gap-2 rounded-3xl bg-amber-500 px-7 py-3.5 text-base font-semibold text-amber-950 shadow-gold-lg transition-colors hover:bg-amber-400 disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-3xl border border-white/15 bg-white/5 px-7 py-3.5 text-base font-semibold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-60"
                 >
                   <Navigation className="h-4 w-4" />
                   {locating
@@ -347,14 +369,21 @@ export default function FoodPage() {
             className="mb-10"
           >
             <h2 className="text-3xl font-semibold text-text-primary">
-              Discover restaurants near you
+              📍 Restaurants near{" "}
+              {destination.neighborhood ||
+                destination.city ||
+                effectiveCountry?.name}
             </h2>
             <p className="mt-2 text-base text-text-secondary">
               {loading
                 ? "Loading restaurants..."
                 : error
                   ? "Could not load restaurants."
-                  : `${filteredRestaurants.length} restaurant${filteredRestaurants.length !== 1 ? "s" : ""} found${selectedCategory !== "All" ? ` in ${selectedCategory}` : ""}.`}
+                  : `${filteredRestaurants.length} restaurant${filteredRestaurants.length !== 1 ? "s" : ""} found${selectedCategory !== "All" ? ` in ${selectedCategory}` : ""} in ${
+                      destination.city
+                        ? `${destination.city}, ${effectiveCountry?.name}`
+                        : effectiveCountry?.name
+                    }.`}
             </p>
           </motion.div>
 
@@ -470,12 +499,18 @@ export default function FoodPage() {
           {!loading && filteredRestaurants.length === 0 && (
             <div className="py-16 text-center">
               <p className="text-lg text-text-secondary">
-                No restaurants found. Try a different search or category.
+                No restaurants found{" "}
+                {destination.city
+                  ? `near ${destination.city}, ${effectiveCountry?.name}`
+                  : `in ${effectiveCountry?.name}`}
+                . Try a different destination, search, or category.
               </p>
             </div>
           )}
         </div>
       </section>
+
+      <DestinationSelector open={destinationOpen} onClose={() => setDestinationOpen(false)} />
 
       <FeaturedRestaurants />
     </div>

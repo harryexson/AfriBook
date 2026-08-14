@@ -73,6 +73,7 @@ export interface StayHotel {
   reviewCount: number
   roomsCount: number
   isFeatured: boolean
+  isSponsored: boolean
   contact: StayContact
 }
 
@@ -221,6 +222,7 @@ export function toStayHotel(data: StayHotelData): StayHotel {
     reviewCount: data.reviewCount,
     roomsCount: data.roomsCount,
     isFeatured: data.isFeatured,
+    isSponsored: data.isSponsored,
     contact: data.contact,
   }
 }
@@ -292,6 +294,7 @@ export function stayHotelFromDb(row: DbRow): StayHotel | null {
     reviewCount: num(row.review_count),
     roomsCount: num(row.rooms_count),
     isFeatured: Boolean(row.is_featured),
+    isSponsored: Boolean(row.is_sponsored),
     contact: {
       phone: str(row.host_phone),
       email: str(row.host_email),

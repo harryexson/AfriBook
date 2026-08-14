@@ -20,6 +20,16 @@ import {
 } from "lucide-react";
 import { useCountry } from "@/components/shared/CountryProvider";
 import { formatMoneySymbol } from "@/lib/money";
+import { COUNTRIES } from "@/lib/localization/countries";
+import DestinationSelector, { DestinationChip } from "@/components/shared/DestinationSelector";
+import RecommendationBadge from "@/components/recommendations/RecommendationBadge";
+import {
+  scoreCollection,
+  partitionCollection,
+  recommendedFallback,
+} from "@/lib/recommendations/engine";
+import type { ListingSignals, RecommendationContext, RecommendationReason } from "@/lib/recommendations/types";
+import { useDestinationStore } from "@/stores/destination-store";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -49,6 +59,7 @@ interface StayHotelSummary {
   rating: number;
   reviewCount: number;
   isFeatured: boolean;
+  isSponsored: boolean;
 }
 
 interface StaysResponse {
@@ -92,6 +103,14 @@ const amenityIconsFor = (amenities: string[]): Array<{ label: string; icon: type
 
 export default function StaysPage() {
   const { countryCode, country } = useCountry();
+  const destination = useDestinationStore((s) => s.destination);
+
+  // The destination store is the source of truth once a user picks one;
+  // CountryProvider won't re-render without a redirect, so derive the
+  // effective market here (zustand subscribers do re-render).
+  const effectiveCountryCode = destination.countryCode || countryCode;
+  const effectiveCountry = COUNTRIES[effectiveCountryCode] ?? country;
+
   const [hotels, setHotels] = useState<StayHotelSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,14 +119,18 @@ export default function StaysPage() {
   const [cities, setCities] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>("Recommended");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const [destinationOpen, setDestinationOpen] = useState(false);
+
+  const cityFilter =
+    destination.city || (selectedCity !== "All" ? selectedCity : "");
 
   const loadHotels = async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ countryCode });
+      const params = new URLSearchParams({ countryCode: effectiveCountryCode });
       if (searchQuery) params.set("q", searchQuery);
-      if (selectedCity !== "All") params.set("city", selectedCity);
+      if (cityFilter) params.set("city", cityFilter);
       if (sortBy === "Price: Low to High") params.set("sort", "price-asc");
       else if (sortBy === "Price: High to Low") params.set("sort", "price-desc");
       else if (sortBy === "Rating") params.set("sort", "rating");
@@ -130,13 +153,13 @@ export default function StaysPage() {
     loadHotels(controller.signal);
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countryCode, selectedCity, sortBy]);
+  }, [effectiveCountryCode, cityFilter, sortBy]);
 
   useEffect(() => {
     const controller = new AbortController();
     async function loadCities() {
       try {
-        const res = await fetch(`/api/stays/cities?countryCode=${countryCode}`, { signal: controller.signal });
+        const res = await fetch(`/api/stays/cities?countryCode=${effectiveCountryCode}`, { signal: controller.signal });
         const json = await res.json();
         if (res.ok && Array.isArray(json.data)) {
           setCities(json.data.map((c: { name: string }) => c.name));
@@ -147,13 +170,46 @@ export default function StaysPage() {
     }
     loadCities();
     return () => controller.abort();
-  }, [countryCode]);
+  }, [effectiveCountryCode]);
 
-  const featured = useMemo(() => hotels.filter((h) => h.isFeatured).slice(0, 2), [hotels]);
+  // Recommendation engine — turn hotels into explainable, grouped lists.
+  const ctx: RecommendationContext = {
+    countryCode: effectiveCountryCode,
+    city: destination.city || undefined,
+    userId: undefined,
+    previouslyBookedCities: [],
+    previouslyBookedCategories: [],
+  };
+
+  const ranked = useMemo(() => {
+    const signals: ListingSignals[] = hotels.map((h) => ({
+      id: h.id,
+      name: h.name,
+      city: h.city,
+      countryCode: h.countryCode,
+      rating: h.rating,
+      reviewCount: h.reviewCount,
+      price: h.priceFrom,
+      isFeatured: h.isFeatured,
+      isSponsored: h.isSponsored,
+      category: "hotel",
+    }));
+    return scoreCollection(signals, ctx);
+  }, [hotels, destination.city, effectiveCountryCode]);
+
+  const groups = useMemo(() => partitionCollection(ranked), [ranked]);
+  const recommended = useMemo(
+    () => recommendedFallback(ranked, ctx, 3),
+    [ranked, destination.city],
+  );
+  const featured = groups.featured;
+  const sponsored = groups.sponsored;
   const gridHotels = useMemo(() => {
     if (featured.length >= 2) return hotels.filter((h) => !h.isFeatured);
     return hotels;
   }, [hotels, featured]);
+
+  const effectiveCity = destination.neighborhood || cityFilter;
 
   return (
     <div className="min-h-screen bg-surface">
@@ -175,20 +231,25 @@ export default function StaysPage() {
           >
             <motion.p variants={fadeIn} className="flex items-center gap-2 text-amber-400 text-sm font-semibold uppercase tracking-widest">
               <BedDouble className="w-4 h-4" />
-              Stays · {country.flag} {country.name}
+              Stays · {effectiveCountry.flag} {effectiveCountry.name}
             </motion.p>
             <motion.h1
               variants={fadeIn}
               className="mt-3 max-w-3xl text-4xl font-bold font-heading tracking-tight text-white sm:text-5xl"
             >
-              Book hotels across {country.name} and beyond.
+              Book hotels across {effectiveCountry.name} and beyond.
             </motion.h1>
             <motion.p variants={fadeIn} className="mt-4 max-w-2xl text-lg text-white/70">
               From city hotels to beachfront escapes — 3% platform fee, no markup. Guests save, hosts keep more.
             </motion.p>
+            <motion.div variants={fadeIn} className="mt-6">
+              <DestinationChip onOpen={() => setDestinationOpen(true)} />
+            </motion.div>
           </motion.div>
         </div>
       </section>
+
+      <DestinationSelector open={destinationOpen} onClose={() => setDestinationOpen(false)} />
 
       {/* Controls */}
       <section className="sticky top-16 md:top-20 z-40 border-b border-border bg-surface/90 backdrop-blur-xl">
@@ -205,7 +266,7 @@ export default function StaysPage() {
                   loadHotels();
                 }
               }}
-              placeholder={`Search hotels in ${country.name}...`}
+              placeholder={`Search hotels in ${effectiveCountry.name}...`}
               className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-surface-secondary border border-border text-sm text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
             />
           </div>
@@ -287,11 +348,36 @@ export default function StaysPage() {
             </div>
             <h2 className="mt-4 text-xl font-semibold text-text-primary">No hotels found</h2>
             <p className="mt-1 text-sm text-text-secondary">
-              Try a different search or city in {country.name}.
+              Try a different search or city in {effectiveCountry.name}.
             </p>
           </div>
         ) : (
           <>
+            {sponsored.length > 0 && (
+              <div className="mb-12">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold font-heading text-text-primary">
+                      Sponsored stays
+                    </h2>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      Paid placements — always clearly labelled.
+                    </p>
+                  </div>
+                </div>
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={staggerContainer}
+                  className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {sponsored.slice(0, 3).map((item) => (
+                    <HotelCard key={item.listing.id} hotel={hotels.find((h) => h.id === item.listing.id)!} reason={item.reason} />
+                  ))}
+                </motion.div>
+              </div>
+            )}
+
             {featured.length > 0 && (
               <motion.div
                 initial="hidden"
@@ -299,16 +385,41 @@ export default function StaysPage() {
                 variants={staggerContainer}
                 className="mb-12 grid grid-cols-1 gap-6 lg:grid-cols-2"
               >
-                {featured.map((hotel) => (
-                  <HotelCard key={hotel.id} hotel={hotel} large />
+                {featured.map((item) => (
+                  <HotelCard key={item.listing.id} hotel={hotels.find((h) => h.id === item.listing.id)!} reason={item.reason} large />
                 ))}
               </motion.div>
+            )}
+
+            {recommended.length > 0 && (
+              <div className="mb-12">
+                <div className="mb-6 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold font-heading text-text-primary">
+                      Recommended for you
+                    </h2>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      Top-rated options in {effectiveCity || effectiveCountry.name}.
+                    </p>
+                  </div>
+                </div>
+                <motion.div
+                  initial="hidden"
+                  animate="visible"
+                  variants={staggerContainer}
+                  className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+                >
+                  {recommended.map((item) => (
+                    <HotelCard key={item.listing.id} hotel={hotels.find((h) => h.id === item.listing.id)!} reason={item.reason} />
+                  ))}
+                </motion.div>
+              </div>
             )}
 
             {gridHotels.length > 0 && (
               <div>
                 <h2 className="mb-6 text-2xl font-bold font-heading text-text-primary">
-                  {selectedCity !== "All" ? `Hotels in ${selectedCity}` : `Hotels in ${country.name}`}
+                  {effectiveCity ? `Hotels near ${effectiveCity}` : `Hotels in ${effectiveCountry.name}`}
                 </h2>
                 <motion.div
                   initial="hidden"
@@ -317,7 +428,7 @@ export default function StaysPage() {
                   className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
                 >
                   {gridHotels.map((hotel) => (
-                    <HotelCard key={hotel.id} hotel={hotel} />
+                    <HotelCard key={hotel.id} hotel={hotel} reason={ranked.find((r) => r.listing.id === hotel.id)?.reason ?? null} />
                   ))}
                 </motion.div>
               </div>
@@ -329,7 +440,7 @@ export default function StaysPage() {
   );
 }
 
-function HotelCard({ hotel, large = false }: { hotel: StayHotelSummary; large?: boolean }) {
+function HotelCard({ hotel, large = false, reason = null }: { hotel: StayHotelSummary; large?: boolean; reason?: RecommendationReason | null }) {
   const icons = amenityIconsFor(hotel.amenities);
   return (
     <motion.div variants={fadeIn}>
@@ -345,7 +456,12 @@ function HotelCard({ hotel, large = false }: { hotel: StayHotelSummary; large?: 
             alt={hotel.name}
             className={`w-full object-cover transition-transform duration-500 group-hover:scale-105 ${large ? "h-64 lg:h-full" : "h-52"}`}
           />
-          {hotel.isFeatured && (
+          {reason && (
+            <span className="absolute left-3 top-3">
+              <RecommendationBadge reason={reason} />
+            </span>
+          )}
+          {!reason && hotel.isFeatured && (
             <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-semibold text-amber-950 shadow">
               <Sparkles className="w-3 h-3" />
               Featured

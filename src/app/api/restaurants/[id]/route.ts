@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrencyForCountry } from '@/lib/money';
+import { getMockRestaurantById, getMockMenuForRestaurant } from '@/lib/restaurants/data';
 
 function parseLocation(location: unknown): { lat: number; lng: number } | null {
   if (!location) return null;
@@ -45,6 +46,65 @@ export async function GET(
       .single();
 
     if (restError || !restaurant) {
+      // Deterministic mock fallback so mock listings from the browse
+      // API (and DB-backed ones) never 404 when Supabase is unreachable
+      // or the record lives only in the fallback dataset.
+      const mockCountry = id.match(/^mock-rest-([a-z]{2})-\d+$/)
+        ? id.match(/^mock-rest-([a-z]{2})-\d+$/)?.[1].toUpperCase()
+        : null;
+      if (mockCountry) {
+        const mock = getMockRestaurantById(mockCountry, id);
+        if (mock) {
+          const menu = getMockMenuForRestaurant(id).map((category) => ({
+            id: category.id,
+            businessId: category.businessId,
+            name: category.name,
+            description: category.description,
+            sortOrder: category.sortOrder,
+            items: category.items.map((item) => ({
+              id: item.id,
+              businessId: item.businessId,
+              categoryId: item.categoryId,
+              restaurantId: item.restaurantId,
+              name: item.name,
+              description: item.description,
+              price: item.price,
+              currencyCode: item.currencyCode,
+              image: item.image,
+              ingredients: item.ingredients,
+              allergens: item.allergens,
+              available: item.available,
+              preparationTime: item.preparationTime,
+              modifiers: item.modifiers,
+            })),
+          }));
+
+          return NextResponse.json({
+            success: true,
+            data: {
+              restaurant: {
+                id: mock.id,
+                businessId: mock.businessId,
+                name: mock.name,
+                description: mock.description,
+                cuisineType: mock.cuisineType,
+                rating: mock.rating,
+                preparationTime: mock.preparationTime,
+                deliveryRadiusKm: mock.deliveryRadiusKm,
+                minimumOrder: mock.minimumOrder,
+                deliveryFee: mock.deliveryFee,
+                currency: mock.currency,
+                countryCode: mock.countryCode,
+                location: mock.location,
+                address: mock.address,
+                serviceHours: mock.serviceHours,
+              },
+              menu,
+            },
+          });
+        }
+      }
+
       return NextResponse.json(
         { success: false, error: 'Restaurant not found' },
         { status: 404 },
