@@ -18,6 +18,7 @@ import {
   calculateFreeEventPricing,
 } from '@/lib/events/pricing';
 import { getCurrencyForCountry as paymentsGetCurrencyForCountry } from '@/lib/payments/types';
+import { COUNTRIES } from '@/lib/localization/countries';
 
 const MARKET_MATRIX: Array<{ country: string; currency: string }> = [
   { country: 'MW', currency: 'MWK' },
@@ -209,5 +210,57 @@ describe('payment validation — market-derived currency', () => {
   it('payment types currency resolution delegates to the shared service', () => {
     expect(paymentsGetCurrencyForCountry('MW')).toBe('MWK');
     expect(paymentsGetCurrencyForCountry('XX')).toBe('USD');
+  });
+});
+
+describe('country configs — every market has a valid IANA timezone', () => {
+  it('covers all 198 countries/territories globally', () => {
+    expect(Object.keys(COUNTRIES).length).toBe(198);
+    expect(COUNTRIES.PS).toBeDefined();
+    expect(COUNTRIES.VA).toBeDefined();
+  });
+
+  it('every country declares a non-empty timezone', () => {
+    for (const [code, c] of Object.entries(COUNTRIES)) {
+      expect(c.timezone, `${code} missing timezone`).toBeTruthy();
+    }
+  });
+
+  it('every timezone is a valid IANA identifier', () => {
+    for (const [code, c] of Object.entries(COUNTRIES)) {
+      expect(
+        () => new Intl.DateTimeFormat('en', { timeZone: c.timezone }),
+        `${code} has invalid timezone ${c.timezone}`
+      ).not.toThrow();
+    }
+  });
+
+  it('uses accurate zones across North America, Europe, Africa and Asia', () => {
+    const expected: Record<string, string> = {
+      US: 'America/New_York',
+      CA: 'America/Toronto',
+      MX: 'America/Mexico_City',
+      GB: 'Europe/London',
+      FR: 'Europe/Paris',
+      DE: 'Europe/Berlin',
+      ES: 'Europe/Madrid',
+      IT: 'Europe/Rome',
+      PS: 'Asia/Gaza',
+      VA: 'Europe/Vatican',
+      NG: 'Africa/Lagos',
+      KE: 'Africa/Nairobi',
+      ZA: 'Africa/Johannesburg',
+      MW: 'Africa/Blantyre',
+      TZ: 'Africa/Dar_es_Salaam',
+      TD: 'Africa/Ndjamena',
+      IN: 'Asia/Kolkata',
+      AE: 'Asia/Dubai',
+      EG: 'Africa/Cairo',
+      AU: 'Australia/Sydney',
+      BR: 'America/Sao_Paulo',
+    };
+    for (const [code, tz] of Object.entries(expected)) {
+      expect(COUNTRIES[code]?.timezone, `${code}`).toBe(tz);
+    }
   });
 });
