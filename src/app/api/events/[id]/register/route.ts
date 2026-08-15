@@ -1,5 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { sendEmail } from '@/lib/email';
+import { sendSms } from '@/lib/sms';
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
 
 async function getDb() {
   const { createClient } = await import('@/lib/supabase/server');
@@ -335,6 +346,47 @@ export async function POST(
       },
     });
 
+    // Dispatch confirmation email + SMS for confirmed (free) registrations.
+    if (isFree && userEmail) {
+      const ticketCode = createdTickets[0]?.ticket_code ?? '';
+      const origin = process.env.NEXT_PUBLIC_APP_URL ?? '';
+      const ticketUrl = `${origin}/events/${eventId}/confirmation?registration=${registration.id}&code=${ticketCode}`;
+      const emailHtml = [
+        `Hi ${escapeHtml(userName)},`,
+        '',
+        `Your registration for <strong>${escapeHtml(event.title)}</strong> is confirmed!`,
+        '',
+        `Ticket code: <strong>${ticketCode}</strong>`,
+        `Tickets: ${quantity}`,
+        `Date: ${new Date(event.start_date).toLocaleDateString()}`,
+        `Venue: ${event.is_virtual ? 'Virtual event' : escapeHtml(event.venue_name ?? 'TBA')}`,
+        '',
+        `<a href="${ticketUrl}">View your ticket</a>`,
+        '',
+        'Present your QR code at the entrance for check-in.',
+        '- AfriBook Team',
+      ].join('<br/>');
+
+      await sendEmail({
+        to: userEmail,
+        subject: `Registration Confirmed: ${event.title}`,
+        html: emailHtml,
+        template: 'event_registration_confirmation',
+        userId: user.id,
+        metadata: { event_id: eventId, registration_id: registration.id, ticket_codes: createdTickets.map((t) => t.ticket_code) },
+      }).catch(() => {});
+
+      if (userPhone) {
+        await sendSms({
+          to: userPhone,
+          body: `AfriBook: You're registered for "${event.title}"! Code: ${ticketCode}. ${new Date(event.start_date).toLocaleDateString()} at ${event.is_virtual ? 'Virtual' : event.venue_name ?? 'TBA'}. Show QR at entrance.`,
+          eventId,
+          recipientName: userName,
+          templateKey: 'event_registration_confirmation',
+        }).catch(() => {});
+      }
+    }
+
     return NextResponse.json(
       {
         success: true,
@@ -411,7 +463,7 @@ export async function GET(
 
     let query = supabase
       .from('event_registrations')
-      .select('*, event_ticket_tiers(name, tier)', { count: 'exact' })
+      .select('*, event_ticket_tiers(name, tier), event_tickets(ticket_code, status, attendee_name)', { count: 'exact' })
       .eq('event_id', eventId);
 
     if (!isOrganizer) {

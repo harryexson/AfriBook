@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrencyConfig, getCurrencyForCountry } from '@/lib/money';
+import { DEFAULT_COUNTRY } from '@/lib/localization/market-context';
 import {
   getCelebrationPlans,
   resolvePlannerMarket,
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
       }
     } catch {
       // Public pricing page fallback: localize to the requested country or USD.
-      const countryCode = (countryOverride ?? 'US').toUpperCase();
+      const countryCode = (countryOverride ?? DEFAULT_COUNTRY).toUpperCase();
       market = {
         countryCode,
         currencyCode: getCurrencyForCountry(countryCode),

@@ -82,13 +82,11 @@ export default function ConsentSection({ items = DEFAULT_CONSENTS, onChange, com
   const [granted, setGranted] = useState<Set<ConsentType>>(new Set());
 
   const toggle = (type: ConsentType) => {
-    setGranted((prev) => {
-      const next = new Set(prev);
-      if (next.has(type)) next.delete(type);
-      else next.add(type);
-      onChange?.(Array.from(next));
-      return next;
-    });
+    const next = new Set(granted);
+    if (next.has(type)) next.delete(type);
+    else next.add(type);
+    setGranted(next);
+    onChange?.(Array.from(next));
   };
 
   const allGranted = items.every((item) => granted.has(item.type));

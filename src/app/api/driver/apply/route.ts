@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_COUNTRY } from '@/lib/localization/market-context';
 
 async function getDb() {
   const { createClient } = await import('@/lib/supabase/server');
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
         documents,
         payout_info: payoutInfo,
         city,
-        country_code: countryCode || 'US',
+        country_code: countryCode || DEFAULT_COUNTRY,
         updated_at: new Date().toISOString(),
       })
       .select()

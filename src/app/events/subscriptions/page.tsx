@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import {
@@ -15,9 +15,11 @@ import {
   Calendar,
   Ticket,
   CreditCard,
-  Download,
+  Loader2,
   AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
+import { StripeCheckout } from '@/components/checkout/StripeCheckout';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -29,113 +31,152 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.05 } },
 };
 
-const plans = [
-  {
-    name: 'Free',
-    icon: Star,
-    monthlyPrice: 0,
-    annualPrice: 0,
-    commission: '7%',
-    platformFee: '$1.50',
-    popular: false,
-    color: 'border-border',
-    features: [
-      { name: '3 events per month', included: true },
-      { name: 'Up to 500 tickets per event', included: true },
-      { name: 'Basic analytics', included: true },
-      { name: 'QR code check-in', included: true },
-      { name: 'Custom event pages', included: false },
-      { name: 'Promo codes', included: false },
-      { name: 'Referral system', included: false },
-      { name: 'Priority support', included: false },
-      { name: 'Custom branding', included: false },
-      { name: 'API access', included: false },
-    ],
-  },
-  {
-    name: 'Starter',
-    icon: Zap,
-    monthlyPrice: 15,
-    annualPrice: 150,
-    commission: '5%',
-    platformFee: '$1.00',
-    popular: false,
-    color: 'border-border',
-    features: [
-      { name: '10 events per month', included: true },
-      { name: 'Up to 2,000 tickets per event', included: true },
-      { name: 'Advanced analytics', included: true },
-      { name: 'QR code check-in', included: true },
-      { name: 'Custom event pages', included: true },
-      { name: 'Promo codes', included: true },
-      { name: 'Referral system', included: false },
-      { name: 'Priority support', included: false },
-      { name: 'Custom branding', included: false },
-      { name: 'API access', included: false },
-    ],
-  },
-  {
-    name: 'Professional',
-    icon: Crown,
-    monthlyPrice: 49,
-    annualPrice: 490,
-    commission: '3%',
-    platformFee: '$0.50',
-    popular: true,
-    color: 'border-amber-500',
-    features: [
-      { name: 'Unlimited events', included: true },
-      { name: 'Up to 10,000 tickets per event', included: true },
-      { name: 'Full analytics dashboard', included: true },
-      { name: 'QR code check-in', included: true },
-      { name: 'Custom event pages', included: true },
-      { name: 'Promo codes', included: true },
-      { name: 'Referral system', included: true },
-      { name: 'Priority support', included: true },
-      { name: 'Custom branding', included: false },
-      { name: 'API access', included: false },
-    ],
-  },
-  {
-    name: 'Enterprise',
-    icon: Building2,
-    monthlyPrice: 199,
-    annualPrice: 1990,
-    commission: '1.5%',
-    platformFee: '$0.25',
-    popular: false,
-    color: 'border-border',
-    features: [
-      { name: 'Unlimited events', included: true },
-      { name: 'Unlimited tickets', included: true },
-      { name: 'Full analytics dashboard', included: true },
-      { name: 'QR code check-in', included: true },
-      { name: 'Custom event pages', included: true },
-      { name: 'Promo codes', included: true },
-      { name: 'Referral system', included: true },
-      { name: 'Priority support', included: true },
-      { name: 'Custom branding', included: true },
-      { name: 'API access', included: true },
-    ],
-  },
-];
+interface Plan {
+  id: string;
+  name: string;
+  plan: string;
+  monthlyPrice: number;
+  annualPrice: number;
+  currency: string;
+  commissionRate: number;
+  platformFeeFixed: number;
+  maxEventsPerMonth: number;
+  maxTicketsPerEvent: number;
+  maxGuestsPerRegistration: number;
+  isPopular: boolean;
+  description: string;
+  features: {
+    name: string;
+    included: boolean;
+    limit?: number;
+    description: string;
+  }[];
+}
 
-const billingHistory = [
-  { date: 'Jul 1, 2026', description: 'Professional Plan - Monthly', amount: '$49.00', status: 'Paid' },
-  { date: 'Jun 1, 2026', description: 'Professional Plan - Monthly', amount: '$49.00', status: 'Paid' },
-  { date: 'May 1, 2026', description: 'Starter Plan - Monthly', amount: '$15.00', status: 'Paid' },
-  { date: 'Apr 1, 2026', description: 'Free Plan', amount: '$0.00', status: 'Free' },
-];
-
-const usageStats = [
-  { label: 'Events Created', value: '12', limit: 'Unlimited', icon: Calendar },
-  { label: 'Tickets Sold', value: '2,847', limit: 'Unlimited', icon: Ticket },
-  { label: 'Revenue Generated', value: '$67,320', limit: '-', icon: TrendingUp },
-];
+interface Subscription {
+  id: string;
+  plan: string;
+  status: string;
+  max_events?: number;
+  max_tickets_per_event?: number;
+  is_annual?: boolean;
+  monthly_price?: number;
+  annual_price?: number;
+  current_period_end?: string;
+  usage?: {
+    eventsCreated: number;
+    maxEvents: number;
+    totalTicketsSold: number;
+  };
+}
 
 export default function SubscriptionsPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
-  const currentPlan = 'Professional';
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [subscribing, setSubscribing] = useState<string | null>(null);
+  const [subscribeError, setSubscribeError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<{ clientSecret: string; plan: string } | null>(null);
+
+  const currentPlan = subscription?.plan ?? 'free';
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const [plansRes, subRes] = await Promise.all([
+          fetch('/api/events/subscriptions/plans'),
+          fetch('/api/events/subscriptions'),
+        ]);
+        const plansJson = await plansRes.json();
+        if (!plansRes.ok) throw new Error(plansJson.error ?? 'Failed to load plans');
+        setPlans(plansJson.data ?? []);
+
+        const subJson = await subRes.json();
+        if (subRes.ok && subJson.data) {
+          setSubscription(subJson.data);
+        }
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleSubscribe = async (plan: Plan) => {
+    if (!plan || subscribing) return;
+    setSubscribing(plan.plan);
+    setSubscribeError(null);
+    setSuccessMessage(null);
+
+    try {
+      const res = await fetch('/api/events/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: plan.plan, billingPeriod: billingCycle }),
+      });
+      const json = await res.json();
+
+      if (!res.ok) throw new Error(json.error ?? 'Failed to subscribe');
+
+      if (json.data?.payment?.clientSecret) {
+        setCheckout({
+          clientSecret: json.data.payment.clientSecret,
+          plan: plan.plan,
+        });
+        return;
+      }
+
+      setSubscription(json.data?.subscription ?? json.data);
+      setSuccessMessage(json.message ?? `${plan.name} plan activated`);
+    } catch (err) {
+      setSubscribeError((err as Error).message);
+    } finally {
+      setSubscribing(null);
+    }
+  };
+
+  const handleCheckoutSuccess = async () => {
+    setCheckout(null);
+    setSuccessMessage(`Your ${checkout?.plan} subscription is being activated. You'll be notified once payment confirms.`);
+    try {
+      const res = await fetch('/api/events/subscriptions');
+      const json = await res.json();
+      if (json.success && json.data) setSubscription(json.data);
+    } catch {
+      // Refresh failure is non-fatal
+    }
+  };
+
+  const usageStats = [
+    {
+      label: 'Events Created',
+      value: subscription?.usage?.eventsCreated ?? 0,
+      limit: (subscription?.usage?.maxEvents ?? -1) === -1 ? 'Unlimited' : (subscription?.usage?.maxEvents ?? 0),
+      icon: Calendar,
+    },
+    {
+      label: 'Tickets Sold',
+      value: subscription?.usage?.totalTicketsSold ?? 0,
+      limit: (subscription?.max_tickets_per_event ?? -1) === -1 ? 'Unlimited' : `Max ${subscription?.max_tickets_per_event ?? 0}/event`,
+      icon: Ticket,
+    },
+    {
+      label: 'Current Plan',
+      value: currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1),
+      limit: subscription?.is_annual ? 'Annual billing' : 'Monthly billing',
+      icon: TrendingUp,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-surface-secondary">
@@ -155,7 +196,7 @@ export default function SubscriptionsPage() {
             </Link>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3.5 py-1.5 text-xs font-semibold text-emerald-300">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-              Professional · Active
+              {currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1)} · {subscription?.status ?? 'Active'}
             </span>
           </div>
           <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
@@ -175,6 +216,25 @@ export default function SubscriptionsPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-8 rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4 text-sm text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="mb-8 flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20 p-4 text-sm text-green-700 dark:text-green-400">
+            <CheckCircle2 className="h-4 w-4 shrink-0" />
+            {successMessage}
+          </div>
+        )}
+
+        {subscribeError && (
+          <div className="mb-8 rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4 text-sm text-red-600 dark:text-red-400">
+            {subscribeError}
+          </div>
+        )}
+
         {/* Current Usage */}
         <motion.div
           initial="hidden"
@@ -194,7 +254,9 @@ export default function SubscriptionsPage() {
                 </div>
                 <div>
                   <p className="text-xs text-text-tertiary">{stat.label}</p>
-                  <p className="font-heading font-bold text-text-primary text-lg">{stat.value}</p>
+                  <p className="font-heading font-bold text-text-primary text-lg">
+                    {loading ? '…' : stat.value.toLocaleString()}
+                  </p>
                   <p className="text-xs text-text-tertiary">Limit: {stat.limit}</p>
                 </div>
               </div>
@@ -246,139 +308,100 @@ export default function SubscriptionsPage() {
           variants={staggerContainer}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12"
         >
-          {plans.map((plan) => (
-            <motion.div
-              key={plan.name}
-              variants={fadeIn}
-              className={`bg-surface rounded-2xl border-2 p-6 relative ${
-                plan.popular
-                  ? 'border-amber-500 shadow-lg shadow-amber-500/10'
-                  : 'border-border'
-              } ${currentPlan === plan.name ? 'ring-2 ring-amber-500/30' : ''}`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    Most Popular
-                  </span>
-                </div>
-              )}
-              {currentPlan === plan.name && (
-                <div className="absolute -top-3 right-4">
-                  <span className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                    Current Plan
-                  </span>
-                </div>
-              )}
-
-              <div className="text-center mb-6 pt-2">
-                <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                  <plan.icon className="w-6 h-6 text-amber-500" />
-                </div>
-                <h3 className="font-heading text-xl font-bold text-text-primary">{plan.name}</h3>
-                <div className="mt-3">
-                  <span className="font-heading text-3xl font-bold text-text-primary">
-                    ${billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice}
-                  </span>
-                  <span className="text-text-tertiary text-sm">
-                    /{billingCycle === 'monthly' ? 'mo' : 'yr'}
-                  </span>
-                </div>
-                <p className="text-text-secondary text-xs mt-2">
-                  {plan.commission} commission · {plan.platformFee} per ticket
-                </p>
-              </div>
-
-              <div className="space-y-3 mb-6">
-                {plan.features.map((feature) => (
-                  <div key={feature.name} className="flex items-center gap-2">
-                    {feature.included ? (
-                      <Check className="w-4 h-4 text-green-500 shrink-0" />
-                    ) : (
-                      <X className="w-4 h-4 text-text-tertiary shrink-0" />
-                    )}
-                    <span
-                      className={`text-sm ${
-                        feature.included ? 'text-text-primary' : 'text-text-tertiary'
-                      }`}
-                    >
-                      {feature.name}
+          {(plans.length > 0 ? plans : []).map((plan) => {
+            const price = billingCycle === 'monthly' ? plan.monthlyPrice : plan.annualPrice;
+            const isCurrent = currentPlan === plan.plan;
+            const Icon = plan.plan === 'enterprise' ? Building2 : plan.plan === 'professional' ? Crown : plan.plan === 'starter' ? Zap : Star;
+            return (
+              <motion.div
+                key={plan.id}
+                variants={fadeIn}
+                className={`bg-surface rounded-2xl border-2 p-6 relative ${
+                  plan.isPopular
+                    ? 'border-amber-500 shadow-lg shadow-amber-500/10'
+                    : 'border-border'
+                } ${isCurrent ? 'ring-2 ring-amber-500/30' : ''}`}
+              >
+                {plan.isPopular && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                      Most Popular
                     </span>
                   </div>
-                ))}
-              </div>
+                )}
+                {isCurrent && (
+                  <div className="absolute -top-3 right-4">
+                    <span className="bg-green-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                      Current Plan
+                    </span>
+                  </div>
+                )}
 
-              <button
-                className={`w-full py-3 rounded-xl font-semibold text-sm transition-colors ${
-                  currentPlan === plan.name
-                    ? 'bg-surface-secondary text-text-secondary cursor-default'
-                    : plan.popular
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                      : 'bg-surface-secondary text-text-primary hover:bg-surface-tertiary border border-border'
-                }`}
-              >
-                {currentPlan === plan.name
-                  ? 'Current Plan'
-                  : plan.monthlyPrice === 0
-                    ? 'Get Started Free'
-                    : 'Upgrade'}
-              </button>
-            </motion.div>
-          ))}
-        </motion.div>
+                <div className="text-center mb-6 pt-2">
+                  <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                    <Icon className="w-6 h-6 text-amber-500" />
+                  </div>
+                  <h3 className="font-heading text-xl font-bold text-text-primary">{plan.name}</h3>
+                  <div className="mt-3">
+                    <span className="font-heading text-3xl font-bold text-text-primary">
+                      {plan.currency === 'NGN' ? '₦' : '$'}
+                      {price.toLocaleString()}
+                    </span>
+                    <span className="text-text-tertiary text-sm">
+                      /{billingCycle === 'monthly' ? 'mo' : 'yr'}
+                    </span>
+                  </div>
+                  <p className="text-text-secondary text-xs mt-2">
+                    {plan.commissionRate}% commission · {plan.platformFeeFixed} per ticket
+                  </p>
+                </div>
 
-        {/* Billing History */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={fadeIn}
-          className="bg-surface rounded-2xl border border-border overflow-hidden mb-8"
-        >
-          <div className="p-6 border-b border-border flex items-center justify-between">
-            <h2 className="font-heading text-xl font-bold text-text-primary flex items-center gap-2">
-              <CreditCard className="w-5 h-5 text-amber-500" />
-              Billing History
-            </h2>
-            <button className="flex items-center gap-1.5 text-amber-500 text-sm font-medium">
-              <Download className="w-4 h-4" />
-              Export
-            </button>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-surface-secondary">
-                  <th className="text-left text-xs font-medium text-text-tertiary uppercase tracking-wider px-6 py-3">
-                    Date
-                  </th>
-                  <th className="text-left text-xs font-medium text-text-tertiary uppercase tracking-wider px-6 py-3">
-                    Description
-                  </th>
-                  <th className="text-left text-xs font-medium text-text-tertiary uppercase tracking-wider px-6 py-3">
-                    Amount
-                  </th>
-                  <th className="text-left text-xs font-medium text-text-tertiary uppercase tracking-wider px-6 py-3">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {billingHistory.map((item, i) => (
-                  <tr key={i} className="hover:bg-surface-secondary/50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-text-primary">{item.date}</td>
-                    <td className="px-6 py-4 text-sm text-text-secondary">{item.description}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-text-primary">{item.amount}</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-green-500/10 text-green-600 text-xs font-medium px-2.5 py-1 rounded-full">
-                        {item.status}
+                <div className="space-y-3 mb-6">
+                  {plan.features.map((feature) => (
+                    <div key={feature.name} className="flex items-center gap-2">
+                      {feature.included ? (
+                        <Check className="w-4 h-4 text-green-500 shrink-0" />
+                      ) : (
+                        <X className="w-4 h-4 text-text-tertiary shrink-0" />
+                      )}
+                      <span
+                        className={`text-sm ${
+                          feature.included ? 'text-text-primary' : 'text-text-tertiary'
+                        }`}
+                      >
+                        {feature.name}
                       </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  onClick={() => handleSubscribe(plan)}
+                  disabled={isCurrent || subscribing === plan.plan}
+                  className={`w-full py-3 rounded-xl font-semibold text-sm transition-colors ${
+                    isCurrent
+                      ? 'bg-surface-secondary text-text-secondary cursor-default'
+                      : plan.isPopular
+                        ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                        : 'bg-surface-secondary text-text-primary hover:bg-surface-tertiary border border-border'
+                  }`}
+                >
+                  {subscribing === plan.plan ? (
+                    <>
+                      <Loader2 className="w-4 h-4 inline animate-spin mr-1" />
+                      Processing...
+                    </>
+                  ) : isCurrent ? (
+                    'Current Plan'
+                  ) : plan.monthlyPrice === 0 ? (
+                    'Get Started Free'
+                  ) : (
+                    'Upgrade'
+                  )}
+                </button>
+              </motion.div>
+            );
+          })}
         </motion.div>
 
         {/* Cancel Subscription */}
@@ -396,16 +419,50 @@ export default function SubscriptionsPage() {
                 Cancel Subscription
               </h3>
               <p className="text-sm text-text-secondary mb-4">
-                If you cancel, you will lose access to Professional features at the end of your
+                If you cancel, you will lose access to {currentPlan} features at the end of your
                 current billing period. You can re-subscribe at any time.
               </p>
-              <button className="px-4 py-2 border border-red-500 text-red-500 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors">
-                Cancel Subscription
+              <button
+                onClick={() => handleSubscribe({ ...plans.find((p) => p.plan === 'free')! })}
+                disabled={currentPlan === 'free'}
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-xl text-sm font-medium hover:bg-red-50 transition-colors"
+              >
+                Switch to Free Plan
               </button>
             </div>
           </div>
         </motion.div>
       </div>
+
+      {/* Stripe Checkout Modal */}
+      {checkout && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-md bg-surface rounded-2xl border border-border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-heading text-xl font-bold text-text-primary flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-amber-500" />
+                Complete Payment
+              </h3>
+              <button
+                onClick={() => setCheckout(null)}
+                className="p-2 hover:bg-surface-secondary rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-text-tertiary" />
+              </button>
+            </div>
+            <p className="text-sm text-text-secondary mb-4">
+              Complete payment to activate your {checkout.plan} subscription.
+            </p>
+            <StripeCheckout
+              clientSecret={checkout.clientSecret}
+              publishableKey={process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? ''}
+              buttonLabel={`Subscribe to ${checkout.plan}`}
+              onSuccess={handleCheckoutSuccess}
+              onError={(message) => setSubscribeError(message)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

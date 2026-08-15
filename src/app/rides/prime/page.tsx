@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, CheckCircle, Loader2, Crown, Zap, Percent, Star } from 'lucide-react'
 import PrimeSubscription from '@/components/driver/PrimeSubscription'
 import { useAuthStore } from '@/stores/auth-store'
+import { DEFAULT_COUNTRY } from '@/lib/localization/market-context'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 24 },
@@ -132,7 +133,7 @@ export default function PrimePage() {
           <>
             <PrimeSubscription
               currentPlan="none"
-              countryCode={user?.countryCode ?? 'US'}
+              countryCode={user?.countryCode ?? DEFAULT_COUNTRY}
               onSubscribe={handleSubscribe}
             />
 

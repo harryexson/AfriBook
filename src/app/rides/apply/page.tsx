@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, CheckCircle, AlertCircle, Loader2, Car, Shield, Clock } from 'lucide-react'
 import OnboardingWizard, { type OnboardingData } from '@/components/driver/OnboardingWizard'
 import { useAuthStore } from '@/stores/auth-store'
+import { DEFAULT_COUNTRY } from '@/lib/localization/market-context'
 import { cn } from '@/lib/utils'
 
 // --- Application Status Types --------------------------------
@@ -290,7 +291,7 @@ export default function DriverApplyPage() {
         </div>
 
         <OnboardingWizard
-          countryCode={user.countryCode ?? 'US'}
+          countryCode={user.countryCode ?? DEFAULT_COUNTRY}
           onComplete={handleComplete}
         />
 

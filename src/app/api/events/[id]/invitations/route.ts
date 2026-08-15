@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/supabase/server';
+import { sendEmail } from '@/lib/email';
+import { sendSms } from '@/lib/sms';
 
 function generateReferralCode(): string {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 export async function POST(
@@ -97,6 +108,55 @@ export async function POST(
       body: `You sent ${recipients.length} invitation(s) for "${event.title}".`,
       data: { event_id: eventId, count: recipients.length, platform: selectedPlatform },
     });
+
+    // Dispatch invitation email/SMS to each recipient.
+    const invited = invitations ?? [];
+    await Promise.all(
+      invited.map((inv: Record<string, unknown>) => {
+        const jobs: Promise<unknown>[] = [];
+        const email = inv.recipient_email as string | null;
+        const phone = inv.recipient_phone as string | null;
+        const name = (inv.recipient_name as string) || 'there';
+        if (email) {
+          jobs.push(
+            sendEmail({
+              to: email,
+              subject: `You're invited: ${event.title}`,
+              html: [
+                `Hi ${escapeHtml(name)},`,
+                '',
+                `${escapeHtml(String(inv.inviter_name ?? 'Someone'))} invited you to <strong>${escapeHtml(event.title)}</strong> on AfriBook.`,
+                '',
+                `Date: ${new Date(event.start_date).toLocaleDateString()}`,
+                `Venue: ${escapeHtml(event.venue_name ?? 'TBA')}${event.venue_city ? `, ${escapeHtml(event.venue_city)}` : ''}`,
+                '',
+                `<a href="${eventUrl}">Get your tickets</a>`,
+                '',
+                customMessage ? `"${escapeHtml(customMessage)}"` : '',
+                '- AfriBook',
+              ]
+                .filter(Boolean)
+                .join('<br/>'),
+              template: 'event_invitation',
+              userId: user.id,
+              metadata: { event_id: eventId, invitation_id: inv.id },
+            }).catch(() => {}),
+          );
+        }
+        if (phone) {
+          jobs.push(
+            sendSms({
+              to: phone,
+              body: `${String(inv.inviter_name ?? 'Someone')} invited you to "${event.title}"! ${new Date(event.start_date).toLocaleDateString()} at ${event.venue_name ?? 'Virtual'}. Get tickets: ${eventUrl}`,
+              eventId,
+              recipientName: name,
+              templateKey: 'event_invitation',
+            }).catch(() => {}),
+          );
+        }
+        return Promise.all(jobs);
+      }),
+    );
 
     return NextResponse.json(
       {

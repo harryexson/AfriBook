@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -10,102 +10,104 @@ import {
   MapPin,
   Download,
   Share2,
-  RefreshCw,
   XCircle,
-  Smartphone,
   Search,
   QrCode,
+  Loader2,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
+import { formatEventDate, formatAmount } from '../utils';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0 },
 };
 
-const staggerContainer = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.05 } },
-};
-
-const tabs = [
-  { id: 'upcoming', label: 'Upcoming', count: 3 },
-  { id: 'past', label: 'Past', count: 8 },
-];
-
-const upcomingTickets = [
-  {
-    id: 'tkt-001',
-    eventId: 'evt-001',
-    eventTitle: 'Afrobeats Night: The Ultimate Concert',
-    date: 'Sat, Aug 15, 2026 · 8:00 PM',
-    venue: 'Eko Convention Centre, Lagos',
-    tier: 'VIP',
-    ticketCode: 'AFB-EVT001-VIP-0847',
-    quantity: 2,
-    status: 'active' as const,
-    image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400&h=300&fit=crop',
-  },
-  {
-    id: 'tkt-002',
-    eventId: 'evt-009',
-    eventTitle: 'Afro Jazz & Wine Evening',
-    date: 'Sat, Jul 19, 2026 · 6:00 PM',
-    venue: 'The Wheatbaker, Lagos',
-    tier: 'VIP',
-    ticketCode: 'AFB-AJW-VIP-0234',
-    quantity: 1,
-    status: 'active' as const,
-    image: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=400&h=300&fit=crop',
-  },
-  {
-    id: 'tkt-003',
-    eventId: 'evt-007',
-    eventTitle: 'Cape Town Marathon 2026',
-    date: 'Sun, Jul 20, 2026 · 6:00 AM',
-    venue: 'Cape Town Stadium',
-    tier: 'General',
-    ticketCode: 'AFB-CTM-GEN-0891',
-    quantity: 1,
-    status: 'active' as const,
-    image: 'https://images.unsplash.com/photo-1461896836934-bd45ba648136?w=400&h=300&fit=crop',
-  },
-];
-
-const pastTickets = [
-  {
-    id: 'tkt-004',
-    eventTitle: 'Afrobeats Night Chapter 1',
-    date: 'Feb 14, 2026',
-    venue: 'Eko Convention Centre, Lagos',
-    tier: 'General',
-    quantity: 2,
-    status: 'used' as const,
-  },
-  {
-    id: 'tkt-005',
-    eventTitle: 'Lagos Food Festival 2025',
-    date: 'Dec 20, 2025',
-    venue: 'Muri Okunola Park',
-    tier: 'VIP',
-    quantity: 1,
-    status: 'used' as const,
-  },
-  {
-    id: 'tkt-006',
-    eventTitle: 'Tech Summit 2025',
-    date: 'Nov 8, 2025',
-    venue: 'Kenyatta ICC, Nairobi',
-    tier: 'General',
-    quantity: 1,
-    status: 'cancelled' as const,
-  },
-];
+interface MyTicket {
+  id: string;
+  event_id: string;
+  order_status: string;
+  payment_status: string;
+  quantity: number;
+  total?: number;
+  ticket_code?: string;
+  ticket_type_id?: string;
+  check_in_status?: string;
+  events: {
+    id: string;
+    title: string;
+    slug?: string;
+    start_date: string;
+    end_date: string;
+    venue_name?: string | null;
+    venue_city?: string | null;
+    cover_image_url?: string | null;
+    currency_code: string;
+    status: string;
+  };
+}
 
 export default function TicketsPage() {
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [tickets, setTickets] = useState<MyTicket[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/events/my-tickets?status=${activeTab}&limit=50`, {
+          signal: controller.signal,
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.error ?? 'Failed to load tickets');
+        setTickets(json.data ?? []);
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    return () => controller.abort();
+  }, [activeTab]);
+
+  const filtered = tickets.filter(
+    (t) =>
+      t.events?.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(t.total ?? '').includes(searchQuery),
+  );
+
+  const handleCancel = async (ticket: MyTicket) => {
+    if (!ticket.ticket_code && !ticket.id) return;
+    setCancelling(ticket.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/events/tickets/${ticket.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel' }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Failed to cancel ticket');
+      setTickets((prev) => prev.map((t) => (t.id === ticket.id ? { ...t, order_status: 'cancelled' } : t)));
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setCancelling(null);
+    }
+  };
+
+  const tabs = [
+    { id: 'upcoming' as const, label: 'Upcoming', count: tickets.filter((t) => t.order_status === 'confirmed').length },
+    { id: 'past' as const, label: 'Past', count: tickets.filter((t) => t.order_status === 'confirmed').length },
+  ];
 
   return (
     <div className="min-h-screen bg-surface-secondary">
@@ -113,10 +115,7 @@ export default function TicketsPage() {
       <div className="bg-surface border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-6">
           <div className="flex items-center gap-4 mb-6">
-            <Link
-              href="/events"
-              className="text-text-secondary hover:text-text-primary transition-colors"
-            >
+            <Link href="/events" className="text-text-secondary hover:text-text-primary transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
@@ -153,140 +152,173 @@ export default function TicketsPage() {
 
       <div className="max-w-3xl mx-auto px-4 py-6">
         {/* Search */}
-        {activeTab === 'upcoming' && (
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search tickets..."
-                className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-              />
-            </div>
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tickets..."
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-surface border border-border text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4 text-sm text-red-600 dark:text-red-400">
+            {error}
           </div>
         )}
 
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-          >
-            {/* Upcoming Tickets */}
-            {activeTab === 'upcoming' && (
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={staggerContainer}
-                className="space-y-4"
-              >
-                {upcomingTickets
-                  .filter(
-                    (t) =>
-                      t.eventTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                      t.tier.toLowerCase().includes(searchQuery.toLowerCase()),
-                  )
-                  .map((ticket) => (
-                    <motion.div
-                      key={ticket.id}
-                      variants={fadeIn}
-                      className="bg-surface rounded-2xl border border-border overflow-hidden hover:border-amber-500/40 transition-colors"
-                    >
-                      <div className="flex">
-                        <div className="w-24 sm:w-32 bg-gradient-to-br from-amber-500/10 to-orange-500/10 shrink-0">
+        {loading ? (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20 bg-surface rounded-2xl border border-border">
+            <Ticket className="w-12 h-12 text-text-tertiary mx-auto mb-4" />
+            <h3 className="font-heading font-bold text-text-primary text-lg mb-1">No tickets found</h3>
+            <p className="text-text-secondary text-sm mb-6">
+              {activeTab === 'upcoming'
+                ? 'You have no upcoming tickets. Browse events to grab one!'
+                : 'No past tickets yet.'}
+            </p>
+            <Link
+              href="/events"
+              className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            >
+              Browse Events
+            </Link>
+          </div>
+        ) : (
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-4"
+            >
+              {filtered.map((ticket) => {
+                const event = ticket.events;
+                const code = ticket.ticket_code ?? ticket.id;
+                const isUpcoming =
+                  event?.start_date && new Date(event.start_date).getTime() > Date.now();
+                const isConfirmed = ticket.order_status === 'confirmed';
+                const isCancelled = ticket.order_status === 'cancelled';
+
+                return (
+                  <motion.div
+                    key={ticket.id}
+                    variants={fadeIn}
+                    className="bg-surface rounded-2xl border border-border overflow-hidden hover:border-amber-500/40 transition-colors"
+                  >
+                    <div className="flex">
+                      <div className="w-24 sm:w-32 bg-gradient-to-br from-amber-500/10 to-orange-500/10 shrink-0">
+                        {event?.cover_image_url ? (
                           <img
-                            src={ticket.image}
-                            alt={ticket.eventTitle}
+                            src={event.cover_image_url}
+                            alt={event.title}
                             className="w-full h-full object-cover"
                             onError={(e) => {
                               (e.target as HTMLImageElement).style.display = 'none';
                             }}
                           />
-                        </div>
-                        <div className="flex-1 p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-heading font-bold text-text-primary text-sm sm:text-base line-clamp-1">
-                                {ticket.eventTitle}
-                              </h3>
-                              <span className="inline-block bg-amber-500/10 text-amber-600 text-xs font-medium px-2 py-0.5 rounded-full mt-1">
-                                {ticket.tier}
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Ticket className="w-8 h-8 text-amber-500/50" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <Link
+                              href={`/events/${event?.slug || event?.id || ticket.event_id}`}
+                              className="font-heading font-bold text-text-primary text-sm sm:text-base line-clamp-1 hover:text-amber-500 transition-colors"
+                            >
+                              {event?.title ?? 'Event'}
+                            </Link>
+                            {isCancelled ? (
+                              <span className="inline-block bg-red-500/10 text-red-500 text-xs font-medium px-2 py-0.5 rounded-full mt-1">
+                                Cancelled
                               </span>
-                            </div>
-                            <span className="bg-green-500/10 text-green-600 text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
-                              Active
+                            ) : isConfirmed ? (
+                              <span className="inline-block bg-green-500/10 text-green-600 text-xs font-medium px-2 py-0.5 rounded-full mt-1 flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+                                Active
+                              </span>
+                            ) : (
+                              <span className="inline-block bg-amber-500/10 text-amber-600 text-xs font-medium px-2 py-0.5 rounded-full mt-1">
+                                Pending
+                              </span>
+                            )}
+                          </div>
+                          {ticket.total != null && (
+                            <span className="font-heading font-bold text-amber-500 text-sm">
+                              {formatAmount(ticket.total, event?.currency_code ?? 'NGN')}
                             </span>
-                          </div>
-                          <div className="space-y-1 mt-2 text-xs text-text-secondary">
-                            <p className="flex items-center gap-1.5">
-                              <Calendar className="w-3 h-3 text-amber-500" />
-                              {ticket.date}
-                            </p>
-                            <p className="flex items-center gap-1.5">
-                              <MapPin className="w-3 h-3 text-amber-500" />
-                              {ticket.venue}
-                            </p>
-                            <p className="flex items-center gap-1.5">
-                              <Ticket className="w-3 h-3 text-amber-500" />
-                              {ticket.quantity} ticket{ticket.quantity > 1 ? 's' : ''}
-                            </p>
-                          </div>
+                          )}
+                        </div>
+                        <div className="space-y-1 mt-2 text-xs text-text-secondary">
+                          <p className="flex items-center gap-1.5">
+                            <Calendar className="w-3 h-3 text-amber-500" />
+                            {formatEventDate(event?.start_date)}
+                          </p>
+                          <p className="flex items-center gap-1.5">
+                            <MapPin className="w-3 h-3 text-amber-500" />
+                            {event?.venue_city ? [event?.venue_name, event?.venue_city].filter(Boolean).join(', ') : (event?.venue_name ?? 'Online / TBA')}
+                          </p>
+                          <p className="flex items-center gap-1.5">
+                            <Ticket className="w-3 h-3 text-amber-500" />
+                            {ticket.quantity} ticket{ticket.quantity > 1 ? 's' : ''}
+                          </p>
                         </div>
                       </div>
+                    </div>
 
-                      {/* Expanded QR Code */}
-                      <AnimatePresence>
-                        {expandedTicket === ticket.id && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
-                          >
-                            <div className="border-t border-border p-6 text-center">
-                              <div className="bg-white rounded-2xl p-4 inline-block mb-3 shadow-sm">
-                                <QRCodeSVG
-                                  value={ticket.ticketCode}
-                                  size={160}
-                                  level="H"
-                                  includeMargin={true}
-                                  fgColor="#111827"
-                                  bgColor="#ffffff"
-                                />
-                              </div>
-                              <p className="font-mono text-sm text-text-secondary">
-                                {ticket.ticketCode}
-                              </p>
-                              <div className="flex justify-center gap-2 mt-4">
-                                <button className="flex items-center gap-1.5 px-4 py-2 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 transition-colors">
-                                  <Download className="w-3.5 h-3.5" />
-                                  Download
-                                </button>
-                                <button className="flex items-center gap-1.5 px-4 py-2 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 transition-colors">
-                                  <Share2 className="w-3.5 h-3.5" />
-                                  Share
-                                </button>
-                                <button className="flex items-center gap-1.5 px-4 py-2 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 transition-colors">
-                                  <Smartphone className="w-3.5 h-3.5" />
-                                  Add to Wallet
-                                </button>
-                              </div>
+                    {/* Expanded QR Code */}
+                    <AnimatePresence>
+                      {expandedTicket === ticket.id && isConfirmed && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="border-t border-border p-6 text-center">
+                            <div className="bg-white rounded-2xl p-4 inline-block mb-3 shadow-sm">
+                              <QRCodeSVG
+                                value={code}
+                                size={160}
+                                level="H"
+                                includeMargin={true}
+                                fgColor="#111827"
+                                bgColor="#ffffff"
+                              />
                             </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                            <p className="font-mono text-sm text-text-secondary">{code}</p>
+                            <div className="flex justify-center gap-2 mt-4">
+                              <Link
+                                href={`/events/${event?.id}/confirmation?registration=${ticket.id}`}
+                                className="flex items-center gap-1.5 px-4 py-2 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 transition-colors"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                                View Ticket
+                              </Link>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
-                      {/* Actions */}
+                    {/* Actions */}
+                    {isConfirmed && isUpcoming && (
                       <div className="border-t border-border px-4 py-3 flex items-center justify-between">
                         <button
                           onClick={() =>
-                            setExpandedTicket(
-                              expandedTicket === ticket.id ? null : ticket.id,
-                            )
+                            setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)
                           }
                           className="flex items-center gap-1.5 text-amber-500 text-sm font-medium"
                         >
@@ -295,62 +327,30 @@ export default function TicketsPage() {
                         </button>
                         <div className="flex items-center gap-2">
                           <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-text-secondary hover:text-amber-500 bg-surface-secondary rounded-lg transition-colors">
-                            <RefreshCw className="w-3 h-3" />
-                            Transfer
+                            <Share2 className="w-3 h-3" />
+                            Share
                           </button>
-                          <button className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                            <XCircle className="w-3 h-3" />
+                          <button
+                            onClick={() => handleCancel(ticket)}
+                            disabled={cancelling === ticket.id}
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            {cancelling === ticket.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <XCircle className="w-3 h-3" />
+                            )}
                             Cancel
                           </button>
                         </div>
                       </div>
-                    </motion.div>
-                  ))}
-              </motion.div>
-            )}
-
-            {/* Past Tickets */}
-            {activeTab === 'past' && (
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={staggerContainer}
-                className="space-y-3"
-              >
-                {pastTickets.map((ticket) => (
-                  <motion.div
-                    key={ticket.id}
-                    variants={fadeIn}
-                    className="bg-surface rounded-xl border border-border p-4 flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-surface-secondary rounded-xl flex items-center justify-center">
-                        <Ticket className="w-5 h-5 text-text-tertiary" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium text-text-primary text-sm">
-                          {ticket.eventTitle}
-                        </h3>
-                        <p className="text-xs text-text-secondary">
-                          {ticket.date} · {ticket.tier}
-                        </p>
-                      </div>
-                    </div>
-                    <span
-                      className={`text-xs font-medium px-2.5 py-1 rounded-full ${
-                        ticket.status === 'used'
-                          ? 'bg-green-500/10 text-green-600'
-                          : 'bg-red-500/10 text-red-500'
-                      }`}
-                    >
-                      {ticket.status === 'used' ? 'Used' : 'Cancelled'}
-                    </span>
+                    )}
                   </motion.div>
-                ))}
-              </motion.div>
-            )}
-          </motion.div>
-        </AnimatePresence>
+                );
+              })}
+            </motion.div>
+          </AnimatePresence>
+        )}
       </div>
     </div>
   );

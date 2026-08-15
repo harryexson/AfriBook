@@ -1,20 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useParams, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   CheckCircle,
   Calendar,
   MapPin,
   Clock,
-  Download,
   Copy,
   Send,
-  ArrowRight,
   Mail,
   Users,
   Check,
+  Loader2,
+  Ticket as TicketIcon,
 } from 'lucide-react';
 import { Facebook, Twitter } from '@/components/icons/SocialIcons';
 import { QRCodeSVG } from 'qrcode.react';
@@ -24,6 +25,7 @@ import {
   generateOutlookCalendarUrl,
   type CalendarEvent,
 } from '@/lib/events/calendar';
+import { formatEventDate, formatEventDateRange, formatAmount } from '../../utils';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -35,23 +37,87 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.1 } },
 };
 
+interface Registration {
+  id: string;
+  status: string;
+  payment_status: string;
+  ticket_tier_name?: string;
+  ticket_tier_id?: string;
+  quantity: number;
+  total?: number;
+  currency_code?: string;
+  created_at: string;
+  event_ticket_tiers?: { name?: string } | null;
+  event_tickets?: { ticket_code?: string; status?: string; attendee_name?: string }[];
+}
+
 export default function ConfirmationPage() {
+  const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
+  const regId = searchParams.get('registration');
+  const queryCode = searchParams.get('code');
+  const paymentComplete = searchParams.get('payment') === 'complete';
+
   const [copied, setCopied] = useState(false);
   const [referralCopied, setReferralCopied] = useState(false);
-  const ticketCode = 'AFB-EVT001-VIP-0847';
+  const [event, setEvent] = useState<{ title: string; slug: string; description: string; start_date: string; end_date: string; venue_name?: string | null; venue_address?: string | null; venue_city?: string | null; venue_country?: string | null; currency_code: string; is_virtual: boolean } | null>(null);
+  const [registration, setRegistration] = useState<Registration | null>(null);
+  const [ticketCode, setTicketCode] = useState<string>(queryCode ?? '');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const calEvent: CalendarEvent = {
-    title: 'Afrobeats Night: The Ultimate Concert Experience',
-    description: 'Join us for an unforgettable night of Afrobeats featuring the biggest names in African music.',
-    startDate: 'Sat, Aug 15, 2026',
-    endDate: 'Sat, Aug 15, 2026',
-    startTime: '8:00 PM',
-    endTime: '2:00 AM',
-    venue: 'Eko Convention Centre',
-    address: 'Eko Hotels & Suites, Plot 14, Adetokunbo Ademola Crescent, Victoria Island',
-    city: 'Lagos',
-    country: 'Nigeria',
-  };
+  useEffect(() => {
+    const controller = new AbortController();
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const eventRes = await fetch(`/api/events/${params.id}`, { signal: controller.signal });
+        const eventJson = await eventRes.json();
+        if (!eventRes.ok) throw new Error(eventJson.error ?? 'Failed to load event');
+        setEvent(eventJson.data);
+
+        // Resolve the registration + ticket code. If the register flow passed
+        // a code we use it directly; otherwise fetch the user's registrations
+        // and match by registration id (paid events confirm via webhook).
+        if (!queryCode) {
+          const regRes = await fetch(`/api/events/${params.id}/register`, { signal: controller.signal });
+          const regJson = await regRes.json();
+          if (regRes.ok) {
+            const registrations: Registration[] = regJson.data ?? [];
+            const matched = registrations.find((r) => r.id === regId) ?? registrations[0] ?? null;
+            setRegistration(matched);
+            if (matched?.event_tickets?.[0]?.ticket_code) {
+              setTicketCode(matched.event_tickets[0].ticket_code);
+            } else if (matched?.id) {
+              setTicketCode(matched.id);
+            }
+          }
+        }
+      } catch (err) {
+        if ((err as Error).name !== 'AbortError') setError((err as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+    return () => controller.abort();
+  }, [params.id, regId, queryCode]);
+
+  const calEvent: CalendarEvent | null = event
+    ? {
+        title: event.title,
+        description: event.description,
+        startDate: event.start_date,
+        endDate: event.end_date,
+        startTime: '',
+        endTime: '',
+        venue: event.venue_name ?? '',
+        address: event.venue_address ?? '',
+        city: event.venue_city ?? '',
+        country: event.venue_country ?? '',
+      }
+    : null;
 
   const copyTicketCode = () => {
     navigator.clipboard.writeText(ticketCode);
@@ -60,10 +126,41 @@ export default function ConfirmationPage() {
   };
 
   const copyReferral = () => {
-    navigator.clipboard.writeText('https://afribook.com/events/evt-001?ref=AFRI-2026');
+    const shareUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    navigator.clipboard.writeText(`${shareUrl}/events/${event?.slug || params.id}`);
     setReferralCopied(true);
     setTimeout(() => setReferralCopied(false), 2000);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface-secondary flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 text-amber-500 animate-spin mx-auto mb-4" />
+          <p className="text-text-secondary">Loading your ticket...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-surface-secondary flex items-center justify-center px-4">
+        <div className="text-center">
+          <TicketIcon className="w-12 h-12 text-text-tertiary mx-auto mb-4" />
+          <h1 className="font-heading text-2xl font-bold text-text-primary mb-2">Something went wrong</h1>
+          <p className="text-text-secondary mb-6">{error ?? 'Your ticket could not be loaded.'}</p>
+          <Link href="/events/tickets" className="text-amber-500 font-medium hover:underline">
+            Go to My Tickets
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const tierName = registration?.event_ticket_tiers?.name ?? registration?.ticket_tier_name ?? 'Ticket';
+  const quantity = registration?.quantity ?? 1;
+  const currency = event.currency_code ?? 'NGN';
 
   return (
     <div className="min-h-screen bg-surface-secondary">
@@ -88,7 +185,7 @@ export default function ConfirmationPage() {
             transition={{ delay: 0.2 }}
             className="font-heading text-3xl md:text-4xl font-bold text-white mb-3"
           >
-            You&apos;re Registered!
+            {paymentComplete ? "Payment Confirmed!" : "You're Registered!"}
           </motion.h1>
           <motion.p
             initial={{ opacity: 0, y: 20 }}
@@ -111,8 +208,8 @@ export default function ConfirmationPage() {
         >
           {/* Ticket Header */}
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-center">
-            <h2 className="font-heading text-xl font-bold text-white">Afrobeats Night</h2>
-            <p className="text-white/80 text-sm">The Ultimate Concert Experience</p>
+            <h2 className="font-heading text-xl font-bold text-white">{event.title}</h2>
+            <p className="text-white/80 text-sm">{tierName}</p>
           </div>
 
           {/* Ticket Body */}
@@ -132,15 +229,8 @@ export default function ConfirmationPage() {
               <p className="font-mono font-bold text-lg text-text-primary tracking-wider">
                 {ticketCode}
               </p>
-              <button
-                onClick={copyTicketCode}
-                className="p-1.5 rounded-lg hover:bg-surface-secondary transition-colors"
-              >
-                {copied ? (
-                  <Check className="w-4 h-4 text-green-500" />
-                ) : (
-                  <Copy className="w-4 h-4 text-text-tertiary" />
-                )}
+              <button onClick={copyTicketCode} className="p-1.5 rounded-lg hover:bg-surface-secondary transition-colors">
+                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4 text-text-tertiary" />}
               </button>
             </div>
           </div>
@@ -157,20 +247,22 @@ export default function ConfirmationPage() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-text-tertiary text-xs mb-1">Date</p>
-                <p className="font-medium text-text-primary">Aug 15, 2026</p>
-              </div>
-              <div>
-                <p className="text-text-tertiary text-xs mb-1">Time</p>
-                <p className="font-medium text-text-primary">8:00 PM</p>
+                <p className="font-medium text-text-primary">{formatEventDate(event.start_date)}</p>
               </div>
               <div>
                 <p className="text-text-tertiary text-xs mb-1">Tier</p>
-                <p className="font-medium text-text-primary">VIP</p>
+                <p className="font-medium text-text-primary">{tierName}</p>
               </div>
               <div>
-                <p className="text-text-tertiary text-xs mb-1">Guests</p>
-                <p className="font-medium text-text-primary">1</p>
+                <p className="text-text-tertiary text-xs mb-1">Quantity</p>
+                <p className="font-medium text-text-primary">{quantity} ticket{quantity > 1 ? 's' : ''}</p>
               </div>
+              {registration?.total != null && (
+                <div>
+                  <p className="text-text-tertiary text-xs mb-1">Total</p>
+                  <p className="font-medium text-text-primary">{formatAmount(registration.total, registration.currency_code || currency)}</p>
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -186,70 +278,54 @@ export default function ConfirmationPage() {
           <div className="space-y-3">
             <div className="flex items-center gap-3 text-sm">
               <Calendar className="w-5 h-5 text-amber-500 shrink-0" />
-              <span className="text-text-primary">Saturday, August 15, 2026</span>
+              <span className="text-text-primary">{formatEventDateRange(event.start_date, event.end_date)}</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <Clock className="w-5 h-5 text-amber-500 shrink-0" />
-              <span className="text-text-primary">8:00 PM — 2:00 AM (WAT)</span>
+              <span className="text-text-primary">{event.is_virtual ? 'Online event' : 'Timezone: Africa/Lagos'}</span>
             </div>
             <div className="flex items-center gap-3 text-sm">
               <MapPin className="w-5 h-5 text-amber-500 shrink-0" />
               <span className="text-text-primary">
-                Eko Convention Centre, Victoria Island, Lagos
+                {event.is_virtual
+                  ? 'Online event'
+                  : [event.venue_name, event.venue_address, event.venue_city].filter(Boolean).join(', ') || 'TBA'}
               </span>
             </div>
           </div>
         </motion.div>
 
         {/* Actions */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={staggerContainer}
-          className="space-y-3 mb-6"
-        >
-          <motion.div variants={fadeIn}>
-            <button className="w-full flex items-center justify-between p-4 bg-surface rounded-xl border border-border hover:border-amber-500/40 transition-colors">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-500/10 rounded-xl flex items-center justify-center">
-                  <Download className="w-5 h-5 text-amber-500" />
-                </div>
-                <div className="text-left">
-                  <p className="font-medium text-text-primary text-sm">Download Ticket</p>
-                  <p className="text-xs text-text-tertiary">Save PDF ticket to your device</p>
-                </div>
-              </div>
-              <ArrowRight className="w-5 h-5 text-text-tertiary" />
-            </button>
-          </motion.div>
-
+        <motion.div initial="hidden" animate="visible" variants={staggerContainer} className="space-y-3 mb-6">
           <motion.div variants={fadeIn}>
             <div className="bg-surface rounded-xl border border-border p-4">
               <p className="font-medium text-text-primary text-sm mb-3">Add to Calendar</p>
-              <div className="grid grid-cols-3 gap-2">
-                <a
-                  href={generateGoogleCalendarUrl(calEvent)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
-                >
-                  Google
-                </a>
-                <a
-                  href={generateAppleCalendarUrl(calEvent)}
-                  className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
-                >
-                  Apple
-                </a>
-                <a
-                  href={generateOutlookCalendarUrl(calEvent)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
-                >
-                  Outlook
-                </a>
-              </div>
+              {calEvent ? (
+                <div className="grid grid-cols-3 gap-2">
+                  <a
+                    href={generateGoogleCalendarUrl(calEvent)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
+                  >
+                    Google
+                  </a>
+                  <a
+                    href={generateAppleCalendarUrl(calEvent)}
+                    className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
+                  >
+                    Apple
+                  </a>
+                  <a
+                    href={generateOutlookCalendarUrl(calEvent)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-2.5 bg-surface-secondary rounded-lg text-xs font-medium text-text-secondary hover:text-amber-500 hover:bg-amber-500/5 transition-colors text-center"
+                  >
+                    Outlook
+                  </a>
+                </div>
+              ) : null}
             </div>
           </motion.div>
 
@@ -277,22 +353,17 @@ export default function ConfirmationPage() {
         </motion.div>
 
         {/* Invite Friends */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="bg-surface rounded-2xl border border-border p-6 mb-6"
-        >
+        <motion.div initial="hidden" animate="visible" variants={fadeIn} className="bg-surface rounded-2xl border border-border p-6 mb-6">
           <h3 className="font-heading font-bold text-text-primary mb-2 flex items-center gap-2">
             <Users className="w-5 h-5 text-amber-500" />
             Invite Friends
           </h3>
           <p className="text-sm text-text-secondary mb-4">
-            Share your referral link and earn rewards for each friend who registers!
+            Share this event with friends who might want to come along.
           </p>
           <div className="flex gap-2">
             <div className="flex-1 bg-surface-secondary rounded-lg px-3 py-2.5 text-sm text-text-secondary truncate">
-              https://afribook.com/events/evt-001?ref=AFRI-2026
+              {typeof window !== 'undefined' ? `${window.location.origin}/events/${event.slug || params.id}` : ''}
             </div>
             <button
               onClick={copyReferral}
@@ -312,14 +383,9 @@ export default function ConfirmationPage() {
         </motion.div>
 
         {/* Navigation */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="flex gap-3"
-        >
+        <motion.div initial="hidden" animate="visible" variants={fadeIn} className="flex gap-3">
           <Link
-            href="/events/evt-001"
+            href={`/events/${event.slug || params.id}`}
             className="flex-1 py-3.5 border border-border rounded-xl text-center font-medium text-text-secondary hover:bg-surface-secondary transition-colors"
           >
             Back to Event

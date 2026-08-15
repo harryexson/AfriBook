@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createStripeAccountLink, getStripeAccountStatus, getVendorOnboardingStatus } from '@/lib/payments/merchant-onboarding';
 import { COUNTRY_PROVIDER_MAP } from '@/lib/payments/types';
+import { DEFAULT_COUNTRY } from '@/lib/localization/market-context';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json();
   const { provider } = body as { provider?: string };
 
-  const countryCode = profile.country_code ?? 'US';
+  const countryCode = profile.country_code ?? DEFAULT_COUNTRY;
   const availableProviders = COUNTRY_PROVIDER_MAP[countryCode] ?? ['stripe'];
   const selectedProvider = provider ?? availableProviders[0];
 

@@ -32,7 +32,7 @@ function detectCountry(hostname: string): string {
     'afribook.mw': 'mw',
   };
 
-  return knownDomains[hostname] ?? 'us';
+  return knownDomains[hostname] ?? 'ng';
 }
 
 function countryFromIpHeaders(headers: Headers): string | null {
@@ -92,7 +92,7 @@ export async function proxy(req: NextRequest) {
     ?? (isValid(detectedFromHost) ? detectedFromHost as CountryCode : undefined)
     ?? (ipCountry && isValid(ipCountry) ? ipCountry as CountryCode : undefined)
     ?? (languageCountry && isValid(languageCountry) ? languageCountry as CountryCode : undefined)
-    ?? 'us';
+    ?? 'ng';
 
   // Set country cookie if not present or different
   if (!countryCookie || countryCookie !== resolvedCountry) {

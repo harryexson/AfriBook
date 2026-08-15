@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { sendEmail } from '@/lib/email';
+import { sendSms } from '@/lib/sms';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -7,6 +9,15 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 async function getSupabase() {
   const { createAdminClient } = await import('@/lib/supabase/admin');
   return createAdminClient();
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
@@ -36,6 +47,110 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
       .from('orders')
       .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
       .eq('id', intent.metadata.afribook_order_id);
+  }
+
+  // Event registration payments: confirm the registration and mint tickets.
+  const eventId = intent.metadata.event_id;
+  const registrationId = intent.metadata.registration_id;
+  if (eventId && registrationId) {
+    const { data: registration } = await (supabase as any)
+      .from('event_registrations')
+      .select(
+        'id, event_id, user_id, user_name, user_email, user_phone, quantity, ticket_tier_name, total, currency_code'
+      )
+      .eq('id', registrationId)
+      .eq('event_id', eventId)
+      .single();
+
+    if (registration) {
+      const { data: event } = await (supabase as any)
+        .from('events')
+        .select('id, title, start_date, end_date, venue_name, is_virtual')
+        .eq('id', eventId)
+        .single();
+
+      await (supabase as any)
+        .from('event_registrations')
+        .update({
+          status: 'confirmed',
+          payment_status: 'completed',
+          updated_at: new Date().toISOString(),
+        } as never)
+        .eq('id', registrationId);
+
+      const ticketRows = Array.from({ length: registration.quantity }).map(() => ({
+        registration_id: registrationId,
+        event_id: eventId,
+        user_id: registration.user_id,
+        tier_name: registration.ticket_tier_name,
+        attendee_name: registration.user_name,
+        attendee_email: registration.user_email,
+        status: 'active',
+        qr_code_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${eventId}/ticket/${registrationId}`,
+        valid_from: event?.start_date ?? null,
+        valid_until: event?.end_date ?? null,
+      }));
+
+      const { data: createdTickets } = await (supabase as any)
+        .from('event_tickets')
+        .insert(ticketRows)
+        .select('id, ticket_code');
+
+      const ticketCode = createdTickets?.[0]?.ticket_code ?? '';
+
+      await supabase.from('notifications').insert({
+        user_id: registration.user_id,
+        type: 'system',
+        title: 'Registration Confirmed',
+        body: `Payment received. You're registered for "${event?.title ?? 'the event'}".`,
+        data: {
+          event_id: eventId,
+          registration_id: registrationId,
+          ticket_codes: createdTickets?.map((t: any) => t.ticket_code) ?? [],
+        },
+      } as never);
+
+      // Dispatch confirmation email + SMS.
+      if (registration.user_email) {
+        const origin = process.env.NEXT_PUBLIC_APP_URL ?? '';
+        const ticketUrl = `${origin}/events/${eventId}/confirmation?registration=${registrationId}&code=${ticketCode}`;
+        const emailHtml = [
+          `Hi ${escapeHtml(registration.user_name ?? 'there')},`,
+          '',
+          `Payment received — your registration for <strong>${escapeHtml(event?.title ?? '')}</strong> is confirmed!`,
+          '',
+          `Ticket code: <strong>${ticketCode}</strong>`,
+          `Tickets: ${registration.quantity}`,
+          `Total: ${(registration.total ?? 0).toFixed(2)} ${registration.currency_code ?? ''}`,
+          `Date: ${event?.start_date ? new Date(event.start_date).toLocaleDateString() : ''}`,
+          `Venue: ${event?.is_virtual ? 'Virtual event' : escapeHtml(event?.venue_name ?? 'TBA')}`,
+          '',
+          `<a href="${ticketUrl}">View your ticket</a>`,
+          '',
+          'Present your QR code at the entrance for check-in.',
+          '- AfriBook Team',
+        ].join('<br/>');
+
+        await sendEmail({
+          to: registration.user_email,
+          subject: `Registration Confirmed: ${event?.title ?? ''}`,
+          html: emailHtml,
+          template: 'event_registration_confirmation',
+          userId: registration.user_id,
+          metadata: { event_id: eventId, registration_id: registrationId },
+        }).catch(() => {});
+
+        if (registration.user_phone) {
+          await sendSms({
+            to: registration.user_phone,
+            body: `AfriBook: Payment received. You're registered for "${event?.title ?? ''}"! Code: ${ticketCode}. Show QR at entrance.`,
+            eventId,
+            recipientName: registration.user_name,
+            templateKey: 'event_registration_confirmation',
+          }).catch(() => {});
+        }
+      }
+    }
   }
 }
 

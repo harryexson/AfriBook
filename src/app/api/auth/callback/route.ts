@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { DEFAULT_COUNTRY } from '@/lib/localization/market-context';
 
 export async function GET(req: NextRequest) {
   const { createClient } = await import('@/lib/supabase/server');
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
   }
 
   const role = profile?.role ?? 'customer';
-  const countryCode = profile?.country_code ?? 'us';
+  const countryCode = profile?.country_code ?? DEFAULT_COUNTRY;
 
   const dashboardMap: Record<string, string> = {
     customer: `/${countryCode}`,

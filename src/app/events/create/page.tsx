@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EVENT_CATEGORIES, isProhibitedEventCategory } from '@/lib/localization/categories';
 import { moderateEvent } from '@/lib/moderation';
@@ -30,6 +31,7 @@ import {
   Tag,
   Video,
   FileImage,
+  Loader2,
 } from 'lucide-react';
 
 const fadeIn = {
@@ -68,8 +70,11 @@ interface TicketTier {
 }
 
 export default function CreateEventPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     title: '',
@@ -206,6 +211,63 @@ export default function CreateEventPage() {
 
   const addPromoCode = () => {
     updateForm('promoCodes', [...form.promoCodes, { code: '', discount: '', type: 'percent' }]);
+  };
+
+  const handlePublish = async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+    const start = new Date(`${form.startDate}T${form.startTime || '00:00'}`);
+    const end = new Date(`${form.endDate}T${form.endTime || '23:59'}`);
+    const tz = form.timezone.split(' (')[0];
+
+    const payload = {
+      title: form.title,
+      description: form.description,
+      category: form.category,
+      startDate: start.toISOString(),
+      endDate: end.toISOString(),
+      timezone: tz,
+      venue: form.isVirtual ? null : form.venue,
+      address: form.isVirtual ? null : form.address,
+      city: form.isVirtual ? null : form.city,
+      country: form.isVirtual ? null : form.country,
+      isVirtual: form.isVirtual,
+      virtualLink: form.isVirtual ? form.virtualLink : null,
+      currencyCode: 'NGN',
+      ticketType: form.ticketType,
+      ticketTiers: form.tiers.map((tier) => ({
+        name: tier.name,
+        tier: 'general',
+        type: form.ticketType === 'free' ? 'free' : 'paid',
+        price: Number(tier.price) || 0,
+        quantityAvailable: Number(tier.capacity) || 0,
+        includesPerks: tier.perks,
+      })),
+      totalCapacity: Number(form.totalCapacity) || 0,
+      allowGuestRegistration: true,
+      maxGuestsPerRegistration: 0,
+      enableReferrals: false,
+      enableWaitlist: false,
+      requireApproval: false,
+      tags: [],
+    };
+
+    try {
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? 'Failed to create event');
+      const eventId = json.data?.id;
+      const slug = json.data?.slug;
+      router.push(`/events/${slug || eventId}`);
+    } catch (err) {
+      setSubmitError((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -975,10 +1037,16 @@ export default function CreateEventPage() {
         </AnimatePresence>
 
         {/* Navigation */}
+        {submitError && (
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20 p-4 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {submitError}
+          </div>
+        )}
         <div className="flex items-center justify-between mt-8">
           <button
             onClick={prevStep}
-            disabled={currentStep === 1}
+            disabled={currentStep === 1 || submitting}
             className="flex items-center gap-2 px-6 py-3 rounded-xl border border-border text-text-secondary hover:bg-surface-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -988,19 +1056,25 @@ export default function CreateEventPage() {
           {currentStep < 6 ? (
             <button
               onClick={nextStep}
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
+              disabled={submitting}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-colors disabled:opacity-50"
             >
               Continue
               <ArrowRight className="w-4 h-4" />
             </button>
           ) : (
-            <Link
-              href="/events"
-              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-colors"
+            <button
+              onClick={handlePublish}
+              disabled={submitting}
+              className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold px-8 py-3 rounded-xl transition-colors disabled:opacity-50"
             >
-              <Sparkles className="w-4 h-4" />
-              Publish Event
-            </Link>
+              {submitting ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4" />
+              )}
+              {submitting ? 'Publishing...' : 'Publish Event'}
+            </button>
           )}
         </div>
       </div>
