@@ -45,3 +45,5 @@ next-env.d.ts
 
 # debug
 dev-server.log
+prod-server.log
+prod-server.err.log

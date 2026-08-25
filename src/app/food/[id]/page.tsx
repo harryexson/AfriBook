@@ -17,7 +17,7 @@ import {
   Leaf,
 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
-import { formatMoneySymbol } from "@/lib/money";
+import { formatMoneySymbol, getCurrencyForCountry } from "@/lib/money";
 import type { MenuItem } from "@/types";
 
 interface MenuCategory {
@@ -98,7 +98,7 @@ export default function RestaurantMenuPage() {
   const cartTotal = store.total();
   const cartCurrency = useMemo(() => {
     const first = store.items.find((i) => i.type === "menu");
-    return first?.type === "menu" ? first.item.currencyCode : restaurant?.currency ?? "USD";
+    return first?.type === "menu" ? first.item.currencyCode : restaurant?.currency ?? getCurrencyForCountry(restaurant?.countryCode ?? "");
   }, [store.items, restaurant]);
 
   const handleAdd = (item: MenuItem) => {

@@ -346,6 +346,18 @@ export function DestinationChip({ onOpen }: { onOpen: () => void }) {
   const country = COUNTRIES[destination.countryCode]
   const place = destination.neighborhood || destination.city || country?.name
 
+  if (!place) {
+    return (
+      <button
+        onClick={onOpen}
+        className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-500/20 dark:text-amber-400"
+      >
+        <MapPin className="h-4 w-4" />
+        Choose your location
+      </button>
+    )
+  }
+
   return (
     <button
       onClick={onOpen}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrencyForCountry } from '@/lib/money';
 import { getMockRestaurants, type MockRestaurant } from '@/lib/restaurants/data';
+import { resolveMarketContext } from '@/lib/localization/market-context';
 
 function parseLocation(location: unknown): { lat: number; lng: number } | null {
   if (!location) return null;
@@ -31,7 +32,11 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
     const cuisine = searchParams.get('cuisine')?.trim() ?? '';
-    const country = searchParams.get('country')?.trim().toUpperCase() ?? '';
+    // Market precedence: explicit query param → x-country-code/cookie/IP
+    // headers resolved by the central market-context service.
+    const country =
+      searchParams.get('country')?.trim().toUpperCase() ||
+      resolveMarketContext(req).countryCode;
     const city = searchParams.get('city')?.trim() ?? '';
 
     let query = supabase

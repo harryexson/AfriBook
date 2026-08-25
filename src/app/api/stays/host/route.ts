@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStaysDb } from '@/lib/stays/db'
 import { COUNTRIES } from '@/lib/localization/countries'
+import { getCurrencyForCountry } from '@/lib/money'
 import { randomId } from '@/lib/utils'
 import { requireAuthenticatedUser } from '@/lib/supabase/server'
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const country = COUNTRIES[countryCode]
-  const currencyCode = country?.currency?.code ?? 'USD'
+  const currencyCode = country?.currency?.code ?? getCurrencyForCountry(countryCode)
   const slug = slugify(`${name} ${city}`)
 
   const priceFrom = Math.max(0, Number(body.priceFrom) || 0)

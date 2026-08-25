@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { resolveMarketContext } from '@/lib/localization/market-context';
+import { getCurrencyForCountry } from '@/lib/money';
 
 export async function GET(req: NextRequest) {
   try {
@@ -7,7 +9,12 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
     const category = searchParams.get('category')?.trim() ?? '';
-    const country = searchParams.get('country')?.trim().toUpperCase() ?? '';
+    // Market precedence: explicit query param → x-country-code/cookie/IP
+    // headers resolved by the central market-context service.
+    const country =
+      searchParams.get('country')?.trim().toUpperCase() ||
+      resolveMarketContext(req).countryCode;
+    const marketCurrency = getCurrencyForCountry(country);
 
     let query = supabase
       .from('products')
@@ -58,7 +65,7 @@ export async function GET(req: NextRequest) {
         description: row.description ?? '',
         price: Number(row.price),
         comparePrice: row.compare_price != null ? Number(row.compare_price) : null,
-        currency: row.currency ?? 'USD',
+        currency: row.currency || marketCurrency,
         stock: Number(row.stock ?? 0),
         images: row.images ?? [],
         variants: row.variants ?? [],

@@ -14,8 +14,11 @@ export interface Destination {
   address: string
 }
 
+/** Empty string = no explicit destination chosen yet. Consumers must fall
+ *  back to their own selected market (useCountry) rather than assuming any
+ *  default country here — this store never invents a market. */
 const DEFAULT_DESTINATION: Destination = {
-  countryCode: 'NG',
+  countryCode: '',
   city: '',
   neighborhood: '',
   address: '',
@@ -41,6 +44,7 @@ export const useDestinationStore = create<DestinationState>()(
 
 /** Label for the destination chip, e.g. "Lilongwe, Malawi". */
 export function destinationLabel(d: Destination): string {
+  if (!d.countryCode) return 'Choose your location'
   const country = COUNTRIES[d.countryCode]
   const place = d.neighborhood || d.city
   if (place) return `${place}, ${country?.name ?? d.countryCode}`

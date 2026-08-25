@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { getCurrencyForCountry } from '@/lib/money';
 
 export async function GET(
   _req: NextRequest,
@@ -60,7 +61,9 @@ export async function GET(
           description: product.description ?? '',
           price: Number(product.price),
           comparePrice: product.compare_price != null ? Number(product.compare_price) : null,
-          currency: product.currency ?? 'USD',
+          // Product currency follows the merchant's market, not the
+          // viewer's — never silently assume USD.
+          currency: product.currency || getCurrencyForCountry(business.country_code),
           stock: Number(product.stock ?? 0),
           images: product.images ?? [],
           variants: product.variants ?? [],
