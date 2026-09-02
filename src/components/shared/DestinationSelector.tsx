@@ -37,14 +37,14 @@ const NEIGHBORHOODS: Record<string, string[]> = {
 const countryList = Object.values(COUNTRIES)
 
 export default function DestinationSelector({ open, onClose }: DestinationSelectorProps) {
-  const { destination, setDestination } = useDestinationStore()
-  const { setCountry } = useCountry()
+  const { destination, setDestination, clearDestination } = useDestinationStore()
+  const { countryCode, setCountry } = useCountry()
   const [step, setStep] = useState<Step>('country')
   const [search, setSearch] = useState('')
 
   const cities = useMemo(
-    () => getStayCities(destination.countryCode),
-    [destination.countryCode],
+    () => getStayCities(countryCode),
+    [countryCode],
   )
 
   const filteredCountries = useMemo(
@@ -65,7 +65,11 @@ export default function DestinationSelector({ open, onClose }: DestinationSelect
   }, [cities, search])
 
   const selectCountry = (code: string) => {
-    setDestination({ countryCode: code, city: '', neighborhood: '', address: '' })
+    // Route through the single country context — this is what makes the
+    // pick apply everywhere (header, footer, rides, checkout), not just
+    // inside this modal's own local state.
+    setCountry(code, { navigate: false })
+    clearDestination()
     setStep('city')
     setSearch('')
   }
@@ -83,9 +87,8 @@ export default function DestinationSelector({ open, onClose }: DestinationSelect
 
   const applyAddress = (address: string) => {
     setDestination({ address })
-    // Keep the country cookie/storage in sync without redirecting away
-    // from the current page — destination changes apply in-place.
-    setCountry(destination.countryCode, { navigate: false })
+    // Country was already applied in-place back in selectCountry(); no
+    // separate sync needed here now that this store doesn't hold one.
     onClose()
   }
 
@@ -123,7 +126,7 @@ export default function DestinationSelector({ open, onClose }: DestinationSelect
                   <h2 className="text-lg font-semibold text-text-primary">Set your destination</h2>
                   <p className="text-xs text-text-tertiary">
                     {step === 'country' && 'Choose a country'}
-                    {step === 'city' && `Choose a city in ${COUNTRIES[destination.countryCode]?.name}`}
+                    {step === 'city' && `Choose a city in ${COUNTRIES[countryCode]?.name}`}
                     {step === 'neighborhood' && `Choose a neighborhood in ${destination.city}`}
                     {step === 'address' && 'Confirm an address or skip'}
                   </p>
@@ -141,7 +144,7 @@ export default function DestinationSelector({ open, onClose }: DestinationSelect
             {step !== 'country' && (
               <div className="flex items-center gap-1.5 px-6 pt-4 text-xs text-text-secondary">
                 <button onClick={reset} className="hover:text-amber-600 transition-colors">
-                  {COUNTRIES[destination.countryCode]?.name}
+                  {COUNTRIES[countryCode]?.name}
                 </button>
                 {destination.city && (
                   <>
@@ -233,7 +236,7 @@ export default function DestinationSelector({ open, onClose }: DestinationSelect
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-text-primary truncate">{city}</p>
                           <p className="text-xs text-text-tertiary">
-                            {COUNTRIES[destination.countryCode]?.name}
+                            {COUNTRIES[countryCode]?.name}
                           </p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
@@ -294,11 +297,11 @@ export default function DestinationSelector({ open, onClose }: DestinationSelect
                   </label>
                   <div className="rounded-xl bg-surface-secondary p-4 text-sm">
                     <p className="font-semibold text-text-primary">
-                      📍 {destination.neighborhood || destination.city}, {COUNTRIES[destination.countryCode]?.name}
+                      📍 {destination.neighborhood || destination.city}, {COUNTRIES[countryCode]?.name}
                     </p>
                     <p className="mt-1 text-xs text-text-secondary">
                       Results will be filtered to this destination and priced in{' '}
-                      {COUNTRIES[destination.countryCode]?.currency.code}.
+                      {COUNTRIES[countryCode]?.currency.code}.
                     </p>
                   </div>
                   <div className="flex gap-2 pt-1">
@@ -343,7 +346,7 @@ function Empty({ label }: { label: string }) {
 /** Reusable trigger chip: "📍 Lilongwe, Malawi · Change location". */
 export function DestinationChip({ onOpen }: { onOpen: () => void }) {
   const destination = useDestinationStore((s) => s.destination)
-  const country = COUNTRIES[destination.countryCode]
+  const { country } = useCountry()
   const place = destination.neighborhood || destination.city || country?.name
 
   return (

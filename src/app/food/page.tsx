@@ -18,7 +18,6 @@ import PhoneMockup from "@/components/showcase/PhoneMockup";
 import { FoodAppScreen } from "@/components/showcase/AppScreens";
 import { formatMoneySymbol } from "@/lib/money";
 import { useCountry } from "@/components/shared/CountryProvider";
-import { COUNTRIES } from "@/lib/localization/countries";
 import DestinationSelector, { DestinationChip } from "@/components/shared/DestinationSelector";
 import { useDestinationStore } from "@/stores/destination-store";
 
@@ -52,12 +51,13 @@ const sortOptions = ["Recommended", "Rating", "Delivery Time", "Price"] as const
 type SortOption = (typeof sortOptions)[number];
 
 export default function FoodPage() {
-  const { countryCode } = useCountry();
+  const { countryCode, country } = useCountry();
   const destination = useDestinationStore((s) => s.destination);
 
-  // The destination store is the source of truth once a user picks one.
-  const effectiveCountryCode = destination.countryCode || countryCode;
-  const effectiveCountry = COUNTRIES[effectiveCountryCode];
+  // Country comes solely from CountryProvider — see stays/page.tsx for
+  // why the destination store no longer carries its own countryCode.
+  const effectiveCountryCode = countryCode;
+  const effectiveCountry = country;
 
   const [restaurants, setRestaurants] = useState<RestaurantSummary[]>([]);
   const [loading, setLoading] = useState(true);

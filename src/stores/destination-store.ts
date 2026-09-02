@@ -2,10 +2,18 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { COUNTRIES } from '@/lib/localization/countries'
 
+// Country is deliberately NOT stored here. It used to live on this
+// `Destination` object as its own `countryCode` field, persisted
+// separately from CountryProvider's cookie/localStorage — a second,
+// unsynced source of truth. Since this field defaults to a non-empty
+// string and callers did `destination.countryCode || countryCode`, the
+// `||` never fell through: once a country was ever picked here it silently
+// pinned every consumer (Hotels, Restaurants) to that country forever,
+// completely ignoring the header/footer country selector. Country now
+// belongs solely to CountryProvider (`useCountry()`); this store only
+// holds the in-country refinement (city/neighborhood/address).
 export interface Destination {
-  countryCode: string
   /** City name, e.g. "Lilongwe". Empty = entire country. */
   city: string
   /** Neighborhood, e.g. "Area 18". Optional. */
@@ -15,7 +23,6 @@ export interface Destination {
 }
 
 const DEFAULT_DESTINATION: Destination = {
-  countryCode: 'NG',
   city: '',
   neighborhood: '',
   address: '',
@@ -38,11 +45,3 @@ export const useDestinationStore = create<DestinationState>()(
     { name: 'afribook-destination' },
   ),
 )
-
-/** Label for the destination chip, e.g. "Lilongwe, Malawi". */
-export function destinationLabel(d: Destination): string {
-  const country = COUNTRIES[d.countryCode]
-  const place = d.neighborhood || d.city
-  if (place) return `${place}, ${country?.name ?? d.countryCode}`
-  return country?.name ?? d.countryCode
-}

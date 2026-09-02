@@ -20,7 +20,6 @@ import {
 } from "lucide-react";
 import { useCountry } from "@/components/shared/CountryProvider";
 import { formatMoneySymbol } from "@/lib/money";
-import { COUNTRIES } from "@/lib/localization/countries";
 import DestinationSelector, { DestinationChip } from "@/components/shared/DestinationSelector";
 import RecommendationBadge from "@/components/recommendations/RecommendationBadge";
 import {
@@ -105,11 +104,13 @@ export default function StaysPage() {
   const { countryCode, country } = useCountry();
   const destination = useDestinationStore((s) => s.destination);
 
-  // The destination store is the source of truth once a user picks one;
-  // CountryProvider won't re-render without a redirect, so derive the
-  // effective market here (zustand subscribers do re-render).
-  const effectiveCountryCode = destination.countryCode || countryCode;
-  const effectiveCountry = COUNTRIES[effectiveCountryCode] ?? country;
+  // Country comes solely from CountryProvider now — the destination store
+  // only holds city/neighborhood/address refinement within it. (It used to
+  // carry its own countryCode too, defaulting to a non-empty string, so
+  // `destination.countryCode || countryCode` never fell through to the
+  // header/footer's selection — Hotels silently ignored it forever.)
+  const effectiveCountryCode = countryCode;
+  const effectiveCountry = country;
 
   const [hotels, setHotels] = useState<StayHotelSummary[]>([]);
   const [loading, setLoading] = useState(true);

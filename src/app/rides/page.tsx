@@ -18,6 +18,10 @@ import {
 } from 'lucide-react';
 import PhoneMockup from '@/components/showcase/PhoneMockup';
 import { RidesAppScreen } from '@/components/showcase/AppScreens';
+import { useCountry } from '@/components/shared/CountryProvider';
+import { estimateRideFare } from '@/lib/ridely/ride-pricing';
+import { formatCurrency } from '@/lib/utils';
+import type { RideType } from '@/types/ridely';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -29,30 +33,34 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.08 } },
 };
 
-const rideTypes = [
+// Copy only — actual per-country fares are computed below from the same
+// estimateRideFare() the real booking flow (/rides/book) uses, instead of
+// being hardcoded here in USD (which is what every visitor saw before,
+// regardless of their selected country).
+const RIDE_TYPE_META: { id: RideType; name: string; description: string; capacity: string; eta: string; features: string[]; accent: boolean }[] = [
   {
+    id: 'economy',
     name: 'AfriBook Economy',
     description: 'Affordable rides for everyday travel',
     capacity: '1-4',
-    price: 'From $3',
     eta: '3-5 min',
     features: ['GPS tracking', 'Cash or card', 'AC equipped'],
     accent: false,
   },
   {
+    id: 'comfort',
     name: 'AfriBook Comfort',
     description: 'Newer cars with extra legroom',
     capacity: '1-4',
-    price: 'From $5',
     eta: '4-7 min',
     features: ['Premium vehicles', 'Top-rated drivers', 'Water bottles'],
     accent: true,
   },
   {
+    id: 'premium',
     name: 'AfriBook Premium',
     description: 'Luxury vehicles for special occasions',
     capacity: '1-4',
-    price: 'From $10',
     eta: '5-10 min',
     features: ['Luxury cars', 'Professional drivers', 'Wi-Fi included'],
     accent: false,
@@ -92,6 +100,24 @@ const driverBenefits = [
 ];
 
 export default function RidesPage() {
+  const { countryCode, country } = useCountry();
+
+  const rideTypes = RIDE_TYPE_META.map((meta) => {
+    const fare = estimateRideFare(meta.id, 0, 0, countryCode);
+    return { ...meta, price: `From ${formatCurrency(fare.baseFare, country.currency.code)}` };
+  });
+
+  const economyFare = estimateRideFare('economy', 0, 0, countryCode);
+  const pricingRows = [
+    { label: 'Base fare', value: formatCurrency(economyFare.baseFare, country.currency.code) },
+    { label: 'Per km', value: formatCurrency(economyFare.perKmRate, country.currency.code) },
+    { label: 'Per min', value: formatCurrency(economyFare.perMinRate, country.currency.code) },
+  ];
+
+  // A representative ~5km/12min economy trip, for the illustrative fare
+  // callout on the phone mockup.
+  const sampleFare = estimateRideFare('economy', 5, 12, countryCode);
+
   return (
     <div className="min-h-screen bg-surface">
       {/* Hero */}
@@ -141,14 +167,10 @@ export default function RidesPage() {
                 variants={fadeIn}
                 className="mt-10 grid max-w-md grid-cols-3 divide-x divide-white/10 rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-md"
               >
-                {[
-                  { label: 'Base fare', value: '$1.50' },
-                  { label: 'Per km', value: '$0.50' },
-                  { label: 'Per min', value: '$0.10' },
-                ].map((item) => (
+                {pricingRows.map((item) => (
                   <div key={item.label} className="px-4 py-3">
                     <p className="text-xs text-white/45">{item.label}</p>
-                    <p className="font-heading text-lg font-bold text-white">{item.value}</p>
+                    <p className="font-heading text-lg font-bold font-mono tabular-nums text-white">{item.value}</p>
                   </div>
                 ))}
               </motion.div>
@@ -188,8 +210,10 @@ export default function RidesPage() {
                     <DollarSign className="h-5 w-5 text-blue-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">$3.20</p>
-                    <p className="text-xs text-white/50">Economy · Lagos</p>
+                    <p className="text-sm font-bold font-mono tabular-nums text-white">
+                      {formatCurrency(sampleFare.estimatedFare, country.currency.code)}
+                    </p>
+                    <p className="text-xs text-white/50">Economy · {country.name}</p>
                   </div>
                 </div>
               </motion.div>
@@ -254,7 +278,7 @@ export default function RidesPage() {
                 </ul>
                 <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
                   <div>
-                    <span className="font-heading text-2xl font-bold text-text-primary">
+                    <span className="font-heading text-2xl font-bold font-mono tabular-nums text-text-primary">
                       {ride.price}
                     </span>
                     <span className="ml-2 text-sm text-text-tertiary">· {ride.eta}</span>
@@ -422,9 +446,9 @@ export default function RidesPage() {
             className="grid gap-6 md:grid-cols-3"
           >
             {[
-              { label: 'Base Fare', value: '$1.50', icon: Car },
-              { label: 'Per Kilometer', value: '$0.50', icon: Navigation },
-              { label: 'Per Minute', value: '$0.10', icon: Clock },
+              { label: 'Base Fare', value: pricingRows[0].value, icon: Car },
+              { label: 'Per Kilometer', value: pricingRows[1].value, icon: Navigation },
+              { label: 'Per Minute', value: pricingRows[2].value, icon: Clock },
             ].map((item) => (
               <motion.div
                 key={item.label}
@@ -436,7 +460,7 @@ export default function RidesPage() {
                 </div>
                 <div>
                   <p className="text-white/60">{item.label}</p>
-                  <p className="font-heading text-2xl font-bold text-white">{item.value}</p>
+                  <p className="font-heading text-2xl font-bold font-mono tabular-nums text-white">{item.value}</p>
                 </div>
               </motion.div>
             ))}

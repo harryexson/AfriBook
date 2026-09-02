@@ -51,8 +51,22 @@ function resolveServerCountry(pathname: string): string {
   return countryFromPathname(pathname) || 'NG'
 }
 
-function noopSubscribe(): () => void {
-  return () => {}
+// Real pub/sub so every mounted useCountry() consumer re-renders the
+// instant setCountry() is called — not just when the URL pathname
+// changes. Before this, switching country from the footer/header (or the
+// destination selector's `navigate: false` path) silently updated the
+// cookie/localStorage but never told React to re-read them, so any page
+// not already re-rendering for an unrelated reason kept showing the old
+// country/currency until the user happened to navigate somewhere else.
+const countryChangeListeners = new Set<() => void>()
+
+function subscribeToCountryChange(listener: () => void): () => void {
+  countryChangeListeners.add(listener)
+  return () => countryChangeListeners.delete(listener)
+}
+
+function notifyCountryChange() {
+  for (const listener of countryChangeListeners) listener()
 }
 
 export function CountryProvider({ children }: { children: ReactNode }) {
@@ -64,7 +78,7 @@ export function CountryProvider({ children }: { children: ReactNode }) {
     [pathname],
   )
   const countryCode = useSyncExternalStore(
-    noopSubscribe,
+    subscribeToCountryChange,
     getSnapshot,
     getServerSnapshot,
   )
@@ -78,8 +92,23 @@ export function CountryProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore storage errors
     }
+    // Update every useCountry() consumer immediately, regardless of
+    // whether we navigate below — this is what makes the change apply
+    // across the whole site (header, footer, rides, hotels, checkout...)
+    // in one shot instead of only wherever a route happens to re-render.
+    notifyCountryChange()
+
     const navigate = options?.navigate ?? true
-    if (navigate && window.location.pathname !== `/${normalized}`) {
+    if (!navigate) return
+    // Only hard-navigate when we're already on a bare country-home route
+    // (e.g. `/US`, matched by the `[country]` dynamic segment) — that
+    // page is server-rendered per path segment, so it genuinely needs a
+    // new URL to show the new country's content. Every other route
+    // (rides, stays, checkout, vendor, ...) reads country from this
+    // context reactively via the notify above, so forcing a redirect
+    // there would just discard whatever the user was doing.
+    const isCountryHomeRoute = /^\/[A-Za-z]{2}$/.test(window.location.pathname)
+    if (isCountryHomeRoute && window.location.pathname !== `/${normalized}`) {
       window.location.assign(`/${normalized}`)
     }
   }, [])
