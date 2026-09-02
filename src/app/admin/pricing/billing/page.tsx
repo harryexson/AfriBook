@@ -172,10 +172,10 @@ export default function AdminBillingPage() {
 
       {/* Stat cards */}
       <motion.div variants={ITEM} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <AdminStatCard label="Revenue This Month" value={formatCurrency(revenueThisMonth, 'XAF')} icon={DollarSign} change={14.2} changeLabel="vs last month" accent="bg-emerald-500" loading={loading} />
-        <AdminStatCard label="Pending Settlements" value={formatCurrency(pendingSettlements, 'XAF')} icon={Clock} change={-8.5} changeLabel="vs last month" accent="bg-amber-500" loading={loading} />
+        <AdminStatCard label="Revenue This Month" value={formatCurrency(Math.round((revenueThisMonth) / 620), 'USD')} icon={DollarSign} change={14.2} changeLabel="vs last month" accent="bg-emerald-500" loading={loading} />
+        <AdminStatCard label="Pending Settlements" value={formatCurrency(Math.round((pendingSettlements) / 620), 'USD')} icon={Clock} change={-8.5} changeLabel="vs last month" accent="bg-amber-500" loading={loading} />
         <AdminStatCard label="Refund Requests" value={refundRequests.toString()} icon={RotateCcw} change={-12.3} changeLabel="vs last month" accent="bg-red-500" loading={loading} />
-        <AdminStatCard label="Avg Transaction" value={formatCurrency(avgTransaction, 'XAF')} icon={CreditCard} change={6.8} changeLabel="vs last month" accent="bg-purple-500" loading={loading} />
+        <AdminStatCard label="Avg Transaction" value={formatCurrency(Math.round((avgTransaction) / 620), 'USD')} icon={CreditCard} change={6.8} changeLabel="vs last month" accent="bg-purple-500" loading={loading} />
       </motion.div>
 
       {/* Transactions */}

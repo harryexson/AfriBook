@@ -2,8 +2,10 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Search, MapPin, Star, Users, ShoppingBag, ArrowRight,
-  TrendingUp, Sparkles, Clock, ChevronRight, Store, Heart, Calendar, Zap,
+  Search, Star, Users, ShoppingBag, ArrowRight,
+  Sparkles, Clock, ChevronRight, Store, Heart, Calendar, Zap,
+  Wrench, GraduationCap, Laptop, UtensilsCrossed, Car, Scale, Building2,
+  Ticket, Shirt, Sprout, Bus, Compass, Truck, BookOpen, PartyPopper, Dumbbell,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getCountryConfig, formatPrice } from '@/lib/localization'
@@ -63,13 +65,16 @@ export async function generateMetadata({
 const HERO_GRADIENT = 'from-amber-600 via-amber-700 to-dark-800'
 
 // ─── Category icons ───────────────────────────────────────────
+// One distinct icon per category — previously five icons (Store, Sparkles,
+// MapPin, Star, TrendingUp) were each reused across 2-3 unrelated
+// categories, which made the category grid hard to scan at a glance.
 function CategoryIcon({ name, className }: { name: string; className?: string }) {
   const icons: Record<string, React.ComponentType<{ className?: string }>> = {
-    'Home Services': Store, 'Healthcare': Heart, 'Education': TrendingUp, 'Technology': Zap,
-    'Food & Dining': Clock, 'Beauty & Wellness': Sparkles, 'Automotive': Search, 'Legal & Financial': Store,
-    'Real Estate': MapPin, 'Entertainment': Star, 'Fashion & Tailoring': Sparkles, 'Agriculture': TrendingUp,
-    'Transportation': ArrowRight, 'Tourism': MapPin, 'Logistics': ShoppingBag, 'Tutoring': Users,
-    'Event Planning': Star, 'Fitness': TrendingUp,
+    'Home Services': Wrench, 'Healthcare': Heart, 'Education': GraduationCap, 'Technology': Laptop,
+    'Food & Dining': UtensilsCrossed, 'Beauty & Wellness': Sparkles, 'Automotive': Car, 'Legal & Financial': Scale,
+    'Real Estate': Building2, 'Entertainment': Ticket, 'Fashion & Tailoring': Shirt, 'Agriculture': Sprout,
+    'Transportation': Bus, 'Tourism': Compass, 'Logistics': Truck, 'Tutoring': BookOpen,
+    'Event Planning': PartyPopper, 'Fitness': Dumbbell,
   }
   const Icon = icons[name] ?? Store
   return <Icon className={cn('w-6 h-6', className)} />
@@ -78,11 +83,13 @@ function CategoryIcon({ name, className }: { name: string; className?: string })
 // ─── Promos (currency aware, deterministic) ──────────────────
 function getCountryPromos(country: CountryConfig): PromoConfig[] {
   const symbol = country.currency.symbol
+  // One accent, four depths — not four unrelated hues. Consistent with the
+  // single-accent rule in design-system/afribook/MASTER.md.
   return [
-    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-500 to-orange-500' },
-    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-emerald-500 to-teal-500' },
-    { title: 'Refer a friend', desc: `Earn ${symbol}500 for each friend who signs up and books`, code: 'REFER', gradient: 'from-purple-500 to-violet-500' },
-    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-pink-500 to-rose-500' },
+    { title: '20% off first booking', desc: 'Use code on your first service booking', code: 'WELCOME20', gradient: 'from-amber-400 to-amber-600' },
+    { title: 'Free delivery', desc: 'On all orders above the minimum order value', code: 'FREEDEL', gradient: 'from-amber-500 to-amber-700' },
+    { title: 'Refer a friend', desc: `Earn ${symbol}500 for each friend who signs up and books`, code: 'REFER', gradient: 'from-amber-600 to-dark-300' },
+    { title: 'Weekend special', desc: 'Flat 15% off on all beauty & wellness bookings on weekends', code: 'WEEKEND15', gradient: 'from-amber-300 to-amber-500' },
   ]
 }
 
@@ -115,19 +122,43 @@ export default async function CountryHomePage({
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="flex flex-col">
       {/* Hero Section */}
-      <section className={cn('relative min-h-[80vh] flex items-center bg-gradient-to-br', heroGradient)}>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9InJnYmEoMjU1LDI1NSwyNTUsMC4wNSkiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30" />
+      <section className={cn('relative min-h-[80vh] flex items-center bg-gradient-to-br overflow-hidden', heroGradient)}>
+        {/* Signature motif: a routed path connecting stops, not a stock grid.
+            Stands in for the rides/delivery/booking "something is en route"
+            idea that recurs across the product (see MASTER.md signature
+            element). Static by default; animates only if motion is allowed. */}
+        <svg
+          className="absolute inset-0 w-full h-full opacity-[0.18] motion-reduce:opacity-[0.12]"
+          viewBox="0 0 1200 600"
+          preserveAspectRatio="xMidYMid slice"
+          aria-hidden="true"
+        >
+          <path
+            d="M -50 480 C 180 480, 220 220, 420 220 S 640 60, 860 140 S 1120 120, 1260 260"
+            fill="none"
+            stroke="white"
+            strokeWidth="2"
+            strokeDasharray="2 14"
+            strokeLinecap="round"
+          />
+          {[
+            { cx: 420, cy: 220 },
+            { cx: 860, cy: 140 },
+          ].map((p) => (
+            <circle key={`${p.cx}-${p.cy}`} cx={p.cx} cy={p.cy} r="5" fill="white" />
+          ))}
+        </svg>
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 w-full">
           <div className="max-w-3xl">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-5xl">{countryConfig.flag}</span>
               <div>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-heading text-white leading-tight">
-                  Welcome to {countryConfig.name}
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-heading text-white leading-[1.05] tracking-tight text-balance">
+                  Services, rides, and deliveries in {countryConfig.name} — one app, local prices
                 </h1>
-                <p className="text-xl text-white/80 mt-2 max-w-xl">
-                  Find and book trusted local services in {countryConfig.name}.
+                <p className="text-xl text-white/80 mt-3 max-w-xl">
+                  Book a trusted business, request a ride, or get something delivered, all priced in {countryConfig.currency.code}.
                 </p>
               </div>
             </div>
@@ -135,18 +166,18 @@ export default async function CountryHomePage({
             <div className="flex flex-wrap gap-3 mt-6">
               <Link
                 href={`/${code}/search`}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white text-text-primary font-semibold hover:bg-white/90 transition-all shadow-lg group"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white text-text-primary font-semibold hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg group"
               >
                 <Search className="w-5 h-5" />
                 Browse services in {countryConfig.name}
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </Link>
               <Link
-                href={`/${code}/search?category=${encodeURIComponent('Beauty & Wellness')}`}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 backdrop-blur-sm text-white font-semibold border border-white/25 hover:bg-white/20 transition-all"
+                href="/rides/book"
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 backdrop-blur-sm text-white font-semibold border border-white/25 hover:bg-white/20 active:scale-[0.98] transition-all"
               >
                 <Calendar className="w-5 h-5" />
-                Book ahead
+                Request a ride
               </Link>
             </div>
 
@@ -168,7 +199,7 @@ export default async function CountryHomePage({
                 <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/10 backdrop-blur-sm mx-auto mb-2">
                   <s.icon className="w-6 h-6 text-white" />
                 </div>
-                <p className="text-2xl font-bold text-white">{s.value}</p>
+                <p className="text-2xl font-bold font-mono tabular-nums text-white">{s.value}</p>
                 <p className="text-xs text-white/70">{s.label}</p>
               </div>
             ))}
@@ -201,7 +232,7 @@ export default async function CountryHomePage({
               <Link
                 key={cat}
                 href={`/${code}/search?category=${encodeURIComponent(cat)}`}
-                className="group flex flex-col items-center gap-3 p-5 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300"
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 active:scale-[0.98] transition-all duration-300"
               >
                 <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1">
                   <CategoryIcon name={cat} />
@@ -263,7 +294,7 @@ export default async function CountryHomePage({
                 <Link
                   key={service.id}
                   href={`/${code}/book/${service.businessId}/${service.id}`}
-                  className="group flex items-start gap-4 p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300"
+                  className="group flex items-start gap-4 p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 active:scale-[0.98] transition-all duration-300"
                 >
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0">
                     <Zap className="w-5 h-5" />
@@ -288,7 +319,7 @@ export default async function CountryHomePage({
                       )}
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-text-primary shrink-0">
+                  <span className="text-sm font-bold font-mono tabular-nums text-text-primary shrink-0">
                     {formatPrice(service.price, service.currencyCode)}
                   </span>
                 </Link>

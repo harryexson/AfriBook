@@ -218,7 +218,7 @@ export default function AdminAdCampaignsPage() {
         <AdminStatCard label="Total Impressions" value={totalImpressions.toLocaleString()} icon={Eye} change={22.8} accent="bg-blue-500" />
         <AdminStatCard label="Total Clicks" value={totalClicks.toLocaleString()} icon={MousePointerClick} change={19.4} accent="bg-emerald-500" />
         <AdminStatCard label="Average CTR" value={`${avgCTR.toFixed(1)}%`} icon={TrendingUp} change={3.2} accent="bg-purple-500" />
-        <AdminStatCard label="Total Ad Spend" value={formatCurrency(totalCost, 'XAF')} icon={DollarSign} change={28.6} accent="bg-rose-500" />
+        <AdminStatCard label="Total Ad Spend" value={formatCurrency(Math.round((totalCost) / 620), 'USD')} icon={DollarSign} change={28.6} accent="bg-rose-500" />
       </motion.div>
 
       {/* Create form */}
@@ -477,7 +477,7 @@ export default function AdminAdCampaignsPage() {
                     <p className="text-xs text-text-tertiary">CTR</p>
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-text-primary">{formatCurrency(campaign.cost, 'XAF')}</p>
+                    <p className="text-lg font-bold text-text-primary">{formatCurrency(Math.round((campaign.cost) / 620), 'USD')}</p>
                     <p className="text-xs text-text-tertiary">Cost</p>
                   </div>
                 </div>
@@ -583,13 +583,13 @@ export default function AdminAdCampaignsPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right hidden md:table-cell">
-                      <span className="text-xs text-text-primary">{formatCurrency(c.dailyBudget, 'XAF')}</span>
+                      <span className="text-xs text-text-primary">{formatCurrency(Math.round((c.dailyBudget) / 620), 'USD')}</span>
                     </td>
                     <td className="px-4 py-3 text-right hidden lg:table-cell">
-                      <span className="text-xs text-text-primary">{formatCurrency(c.totalBudget, 'XAF')}</span>
+                      <span className="text-xs text-text-primary">{formatCurrency(Math.round((c.totalBudget) / 620), 'USD')}</span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="text-xs font-medium text-text-primary">{formatCurrency(c.cost, 'XAF')}</span>
+                      <span className="text-xs font-medium text-text-primary">{formatCurrency(Math.round((c.cost) / 620), 'USD')}</span>
                     </td>
                     <td className="px-4 py-3 hidden xl:table-cell">
                       <div className="flex items-center gap-1">

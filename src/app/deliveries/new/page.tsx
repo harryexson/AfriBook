@@ -23,6 +23,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
+import { useCountry } from '@/components/shared/CountryProvider'
+import { requestGeolocation, reverseGeocode } from '@/lib/geo'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -191,6 +193,8 @@ function generateTrackingNumber(): string {
 // ── Page ───────────────────────────────────────────────────────
 
 export default function NewDeliveryPage() {
+  const { country } = useCountry()
+  const currencyCode = country.currency.code
   const [currentStep, setCurrentStep] = useState<BookingStep>('package')
   const [direction, setDirection] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -260,31 +264,38 @@ export default function NewDeliveryPage() {
 
   // ── Geolocation ────────────────────────────────────────────
 
-  const useCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      setError('Geolocation is not supported by your browser')
-      return
-    }
-
+  const useCurrentLocation = useCallback(async () => {
     setGeoLoading(true)
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords
-        updateForm('pickupLat', latitude)
-        updateForm('pickupLng', longitude)
-        updateForm('pickupAddress', `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
-        setGeoLoading(false)
-      },
-      () => {
-        setGeoLoading(false)
-        setError('Unable to retrieve your location. Please enter it manually.')
-      },
-      { enableHighAccuracy: true, timeout: 10000 },
-    )
+    setError(null)
+    try {
+      const position = await requestGeolocation()
+      const { latitude, longitude } = position.coords
+      updateForm('pickupLat', latitude)
+      updateForm('pickupLng', longitude)
+      // Reverse-geocode instead of showing raw coordinates as the
+      // "address" — "6.5244, 3.3792" isn't something a courier can read.
+      const place = await reverseGeocode(latitude, longitude)
+      updateForm('pickupAddress', place?.displayName || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
+    } catch {
+      setError('Unable to retrieve your location. Please enter it manually.')
+    } finally {
+      setGeoLoading(false)
+    }
   }, [updateForm])
 
   // ── Submit ─────────────────────────────────────────────────
 
+  // NOT WIRED TO A REAL API — flagging rather than guessing at a fix here.
+  // Two real issues found while auditing this flow:
+  //  1. This still only simulates a delay and fakes a tracking number; it
+  //     never calls the real `/api/ridely/deliveries` endpoint, so no
+  //     delivery record is ever actually created.
+  //  2. That real endpoint prices by distance + time (haversine between
+  //     geocoded pickup/dropoff), while this form's `calcPrice()` above
+  //     prices by package weight + a flat delivery-speed zone rate — two
+  //     different, currently-incompatible pricing models. Wiring this to
+  //     the real endpoint means deciding which model is authoritative
+  //     first, which is a product call, not something to guess silently.
   const handleConfirm = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -654,7 +665,7 @@ export default function NewDeliveryPage() {
                     >
                       <p className="text-xs font-medium text-text-primary">{zone.label}</p>
                       <p className="text-[10px] text-text-tertiary mt-0.5">
-                        {zone.surcharge === 0 ? 'Included' : `+${formatCurrency(zone.surcharge, 'USD')}`}
+                        {zone.surcharge === 0 ? 'Included' : `+${formatCurrency(zone.surcharge, currencyCode)}`}
                       </p>
                     </div>
                   ))}
@@ -822,12 +833,12 @@ export default function NewDeliveryPage() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-text-secondary">Base fare</span>
-                    <span className="text-sm text-text-primary">{formatCurrency(price.base, 'USD')}</span>
+                    <span className="text-sm text-text-primary">{formatCurrency(price.base, currencyCode)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-text-secondary">Weight surcharge ({form.weight} kg)</span>
                     <span className="text-sm text-text-primary">
-                      {price.weightSurcharge > 0 ? `+${formatCurrency(price.weightSurcharge, 'USD')}` : '—'}
+                      {price.weightSurcharge > 0 ? `+${formatCurrency(price.weightSurcharge, currencyCode)}` : '—'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -835,7 +846,7 @@ export default function NewDeliveryPage() {
                       Distance fee ({ZONE_RATES[form.speed ? DELIVERY_SPEEDS.find((s) => s.id === form.speed)!.zone : 'same-city'].label})
                     </span>
                     <span className="text-sm text-text-primary">
-                      {price.distanceFee > 0 ? `+${formatCurrency(price.distanceFee, 'USD')}` : 'Included'}
+                      {price.distanceFee > 0 ? `+${formatCurrency(price.distanceFee, currencyCode)}` : 'Included'}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -849,7 +860,7 @@ export default function NewDeliveryPage() {
                   <div className="border-t border-border pt-3 flex justify-between items-center">
                     <span className="text-sm font-bold text-text-primary">Total Estimate</span>
                     <span className="font-heading text-xl font-bold text-amber-500">
-                      {formatCurrency(price.total, 'USD')}
+                      {formatCurrency(price.total, currencyCode)}
                     </span>
                   </div>
                 </div>
@@ -951,7 +962,7 @@ export default function NewDeliveryPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-text-secondary">Total to pay</span>
                     <span className="font-heading text-lg font-bold text-text-primary">
-                      {formatCurrency(price.total, 'USD')}
+                      {formatCurrency(price.total, currencyCode)}
                     </span>
                   </div>
                 </div>
@@ -1092,7 +1103,7 @@ export default function NewDeliveryPage() {
                       </div>
                       {price && (
                         <span className="font-heading text-lg font-bold text-amber-500">
-                          {formatCurrency(price.total, 'USD')}
+                          {formatCurrency(price.total, currencyCode)}
                         </span>
                       )}
                     </div>
@@ -1187,7 +1198,7 @@ export default function NewDeliveryPage() {
                         <div className="flex justify-between pt-2 border-t border-border">
                           <span className="text-sm font-bold text-text-primary">Total Paid</span>
                           <span className="text-sm font-bold text-amber-500">
-                            {formatCurrency(price.total, 'USD')}
+                            {formatCurrency(price.total, currencyCode)}
                           </span>
                         </div>
                       )}

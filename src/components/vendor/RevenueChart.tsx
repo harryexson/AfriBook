@@ -6,18 +6,20 @@ import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, BarChart, Bar,
+  CartesianGrid, Tooltip, BarChart, Bar, Legend,
 } from 'recharts'
 import type { TooltipValueType as ValueType } from 'recharts'
 
 type Period = '7d' | '30d' | '90d'
 type ChartType = 'area' | 'bar'
 
+// Bookings (services) and orders (products/food) revenue are kept as two
+// separate series throughout — a business selling both needs to see which
+// side is actually driving revenue, not one blended number.
 interface RevenueData {
   date: string
-  revenue: number
-  bookings?: number
-  orders?: number
+  bookingsRevenue: number
+  ordersRevenue: number
 }
 
 interface RevenueChartProps {
@@ -28,29 +30,27 @@ interface RevenueChartProps {
 
 const MOCK_DATA: Record<Period, RevenueData[]> = {
   '7d': [
-    { date: 'Mon', revenue: 45000, bookings: 12, orders: 8 },
-    { date: 'Tue', revenue: 62000, bookings: 18, orders: 11 },
-    { date: 'Wed', revenue: 38000, bookings: 9, orders: 7 },
-    { date: 'Thu', revenue: 71000, bookings: 22, orders: 14 },
-    { date: 'Fri', revenue: 89000, bookings: 28, orders: 19 },
-    { date: 'Sat', revenue: 95000, bookings: 32, orders: 24 },
-    { date: 'Sun', revenue: 54000, bookings: 15, orders: 10 },
+    { date: 'Mon', bookingsRevenue: 32000, ordersRevenue: 13000 },
+    { date: 'Tue', bookingsRevenue: 44000, ordersRevenue: 18000 },
+    { date: 'Wed', bookingsRevenue: 27000, ordersRevenue: 11000 },
+    { date: 'Thu', bookingsRevenue: 51000, ordersRevenue: 20000 },
+    { date: 'Fri', bookingsRevenue: 63000, ordersRevenue: 26000 },
+    { date: 'Sat', bookingsRevenue: 68000, ordersRevenue: 27000 },
+    { date: 'Sun', bookingsRevenue: 39000, ordersRevenue: 15000 },
   ],
   '30d': Array.from({ length: 30 }, (_, i) => ({
     date: `${i + 1}`,
-    revenue: Math.floor(Math.random() * 80000 + 30000),
-    bookings: Math.floor(Math.random() * 25 + 5),
-    orders: Math.floor(Math.random() * 18 + 3),
+    bookingsRevenue: Math.floor(Math.random() * 55000 + 20000),
+    ordersRevenue: Math.floor(Math.random() * 25000 + 10000),
   })),
   '90d': Array.from({ length: 12 }, (_, i) => ({
     date: `W${i + 1}`,
-    revenue: Math.floor(Math.random() * 500000 + 200000),
-    bookings: Math.floor(Math.random() * 150 + 40),
-    orders: Math.floor(Math.random() * 100 + 20),
+    bookingsRevenue: Math.floor(Math.random() * 350000 + 140000),
+    ordersRevenue: Math.floor(Math.random() * 150000 + 60000),
   })),
 }
 
-export default function RevenueChart({ data, currencyCode = 'XAF', loading }: RevenueChartProps) {
+export default function RevenueChart({ data, currencyCode = 'USD', loading }: RevenueChartProps) {
   const [period, setPeriod] = useState<Period>('7d')
   const [chartType, setChartType] = useState<ChartType>('area')
 
@@ -124,9 +124,13 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading }: Re
           {chartType === 'area' ? (
             <AreaChart data={chartData}>
               <defs>
-                <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
+                <linearGradient id="bookingsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
                   <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="ordersGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#64748B" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#64748B" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -150,14 +154,30 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading }: Re
                   padding: '12px',
                   fontSize: '13px',
                 }}
-                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), currencyCode), 'Revenue'] as [string, string]}
+                formatter={(value?: ValueType, name?: string | number) => [
+                  formatCurrency(Number(value ?? 0), currencyCode),
+                  String(name) === 'ordersRevenue' ? 'Orders' : 'Bookings',
+                ] as [string, string]}
+              />
+              <Legend
+                formatter={(value: string) => (value === 'ordersRevenue' ? 'Orders' : 'Bookings')}
+                wrapperStyle={{ fontSize: '12px' }}
               />
               <Area
                 type="monotone"
-                dataKey="revenue"
+                dataKey="bookingsRevenue"
                 stroke="#F59E0B"
                 strokeWidth={2.5}
-                fill="url(#revenueGrad)"
+                fill="url(#bookingsGrad)"
+                stackId="revenue"
+              />
+              <Area
+                type="monotone"
+                dataKey="ordersRevenue"
+                stroke="#64748B"
+                strokeWidth={2}
+                fill="url(#ordersGrad)"
+                stackId="revenue"
               />
             </AreaChart>
           ) : (
@@ -183,9 +203,17 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading }: Re
                   padding: '12px',
                   fontSize: '13px',
                 }}
-                formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), currencyCode), 'Revenue'] as [string, string]}
+                formatter={(value?: ValueType, name?: string | number) => [
+                  formatCurrency(Number(value ?? 0), currencyCode),
+                  String(name) === 'ordersRevenue' ? 'Orders' : 'Bookings',
+                ] as [string, string]}
               />
-              <Bar dataKey="revenue" fill="#F59E0B" radius={[6, 6, 0, 0]} />
+              <Legend
+                formatter={(value: string) => (value === 'ordersRevenue' ? 'Orders' : 'Bookings')}
+                wrapperStyle={{ fontSize: '12px' }}
+              />
+              <Bar dataKey="bookingsRevenue" fill="#F59E0B" radius={[6, 6, 0, 0]} stackId="revenue" />
+              <Bar dataKey="ordersRevenue" fill="#64748B" radius={[6, 6, 0, 0]} stackId="revenue" />
             </BarChart>
           )}
         </ResponsiveContainer>

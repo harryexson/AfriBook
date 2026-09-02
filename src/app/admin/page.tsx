@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -14,6 +15,10 @@ import RevenueChart from '@/components/admin/RevenueChart'
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const ITEM = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } } }
 
+// Still mock — these need their own backends (KYC review queue, disputes
+// table, a signups-over-time query) that weren't in scope for this pass,
+// which focused on the platform totals + country breakdown below. Kept
+// separate from the real KPI cards rather than blended together.
 const RECENT_SIGNUPS = [
   { name: 'Alice M.', email: 'alice@example.com', country: 'CM', time: '2m ago' },
   { name: 'Bob K.', email: 'bob@example.com', country: 'NG', time: '15m ago' },
@@ -28,16 +33,10 @@ const RECENT_DISPUTES = [
   { id: '#DSP-003', reason: 'Incorrect charge', user: 'Carol D.', status: 'escalated', priority: 'high' },
 ]
 
-const COUNTRY_BREAKDOWN = [
-  { code: 'CM', name: 'Cameroon', users: 28450, businesses: 1240, volume: 125000000 },
-  { code: 'NG', name: 'Nigeria', users: 52100, businesses: 2890, volume: 342000000 },
-  { code: 'KE', name: 'Kenya', users: 18900, businesses: 980, volume: 87600000 },
-  { code: 'ZA', name: 'South Africa', users: 15300, businesses: 760, volume: 65400000 },
-  { code: 'GH', name: 'Ghana', users: 9200, businesses: 430, volume: 43200000 },
-  { code: 'TZ', name: 'Tanzania', users: 6700, businesses: 310, volume: 28700000 },
-  { code: 'RW', name: 'Rwanda', users: 4800, businesses: 220, volume: 19500000 },
-  { code: 'UG', name: 'Uganda', users: 5100, businesses: 240, volume: 21300000 },
-]
+const COUNTRY_FLAGS: Record<string, string> = {
+  NG: '🇳🇬', KE: '🇰🇪', GH: '🇬🇭', ZA: '🇿🇦', CM: '🇨🇲', TZ: '🇹🇿', RW: '🇷🇼', UG: '🇺🇬',
+  US: '🇺🇸', GB: '🇬🇧', IN: '🇮🇳', EG: '🇪🇬', MW: '🇲🇼',
+}
 
 const QUICK_ACTIONS = [
   { label: 'Review KYC Pending', icon: Shield, href: '/admin/kyc', color: 'from-amber-400 to-amber-600', count: '12 pending' },
@@ -46,21 +45,53 @@ const QUICK_ACTIONS = [
   { label: 'Platform Settings', icon: Activity, href: '/admin/settings', color: 'from-purple-400 to-purple-600', count: '' },
 ]
 
+interface Overview {
+  totalUsers: number
+  totalBusinesses: number
+  totalVolumeUSD: number
+  byCountry: { code: string; name: string; users: number; businesses: number; volumeLocal: number; currencyCode: string; volumeUSD: number }[]
+}
+
 export default function AdminDashboardPage() {
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/admin/analytics/overview')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return
+        if (!data.success) { setError(data.error || 'Failed to load overview'); return }
+        setOverview(data)
+      })
+      .catch(() => { if (!cancelled) setError('Failed to load overview') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [])
+
   return (
     <motion.div variants={CONTAINER} initial="hidden" animate="visible" className="space-y-6">
       {/* Header */}
       <motion.div variants={ITEM}>
         <h1 className="text-2xl font-bold text-text-primary font-heading">Admin Dashboard</h1>
         <p className="text-sm text-text-secondary mt-1">Global platform overview and key metrics.</p>
+        {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
       </motion.div>
 
-      {/* Global KPIs */}
+      {/* Global KPIs — real now: total users, total businesses, and total
+          volume properly converted to USD per-country before summing
+          (previously this table summed raw local-currency numbers across
+          countries as if they were the same currency — a real correctness
+          bug, not just a labeling one). "Total Transactions" is still
+          mock — it needs a combined bookings+orders+rides count query not
+          built in this pass. */}
       <motion.div variants={ITEM} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <AdminStatCard label="Total Users" value="140,550" icon={Users} change={12.5} changeLabel="vs last month" accent="bg-blue-500" />
-        <AdminStatCard label="Total Businesses" value="7,070" icon={Building2} change={8.3} changeLabel="vs last month" accent="bg-purple-500" />
+        <AdminStatCard label="Total Users" value={loading ? '—' : String(overview?.totalUsers ?? 0)} icon={Users} accent="bg-blue-500" />
+        <AdminStatCard label="Total Businesses" value={loading ? '—' : String(overview?.totalBusinesses ?? 0)} icon={Building2} accent="bg-purple-500" />
         <AdminStatCard label="Total Transactions" value="89,234" icon={CreditCard} change={15.7} changeLabel="vs last month" accent="bg-emerald-500" />
-        <AdminStatCard label="Volume (30d)" value={formatCurrency(732450000, 'XAF')} icon={DollarSign} change={22.4} changeLabel="vs last month" accent="bg-amber-500" />
+        <AdminStatCard label="Volume (all-time, USD)" value={loading ? '—' : formatCurrency(overview?.totalVolumeUSD ?? 0, 'USD')} icon={DollarSign} accent="bg-amber-500" />
       </motion.div>
 
       {/* Quick actions */}
@@ -129,18 +160,25 @@ export default function AdminDashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {COUNTRY_BREAKDOWN.map((c) => (
+                {loading ? (
+                  <tr><td colSpan={4} className="px-3 py-6 text-center text-text-tertiary">Loading…</td></tr>
+                ) : (overview?.byCountry ?? []).map((c) => (
                   <tr key={c.code} className="border-b border-border-light hover:bg-surface-secondary transition-colors">
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-base">{['🇨🇲','🇳🇬','🇰🇪','🇿🇦','🇬🇭','🇹🇿','🇷🇼','🇺🇬'][COUNTRY_BREAKDOWN.indexOf(c)]}</span>
+                        <span className="text-base">{COUNTRY_FLAGS[c.code] ?? '🌍'}</span>
                         <span className="font-medium text-text-primary">{c.name}</span>
                         <span className="text-xs text-text-tertiary">{c.code}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2.5 text-right text-text-secondary">{c.users.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right text-text-secondary">{c.businesses.toLocaleString()}</td>
-                    <td className="px-3 py-2.5 text-right font-medium text-text-primary">{formatCurrency(c.volume, 'XAF')}</td>
+                    <td className="px-3 py-2.5 text-right text-text-secondary font-mono tabular-nums">{c.users.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right text-text-secondary font-mono tabular-nums">{c.businesses.toLocaleString()}</td>
+                    <td className="px-3 py-2.5 text-right font-mono tabular-nums">
+                      <div className="font-medium text-text-primary">{formatCurrency(c.volumeLocal, c.currencyCode)}</div>
+                      {c.currencyCode !== 'USD' && (
+                        <div className="text-xs text-text-tertiary">≈ {formatCurrency(c.volumeUSD, 'USD')}</div>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

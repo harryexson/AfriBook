@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { Payment } from '@/types'
@@ -11,14 +11,15 @@ import {
   Download, Wallet,
 } from 'lucide-react'
 import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
-  CartesianGrid, Tooltip, PieChart, Pie, Cell, Legend,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip,
 } from 'recharts'
-import type { TooltipValueType as ValueType } from 'recharts'
 
 const CONTAINER = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.06 } } }
 const ITEM = { hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } } }
 
+// Fee Configuration below is still mock — no fee-rate config table was
+// found in the schema (checked), so this would need a new table + RLS
+// before it could be admin-editable for real. Flagged rather than guessed.
 const FEE_CONFIG = [
   { method: 'Mobile Money', percentage: 2.5, fixed: 100, active: true },
   { method: 'Card', percentage: 3.5, fixed: 200, active: true },
@@ -26,30 +27,58 @@ const FEE_CONFIG = [
   { method: 'Wallet', percentage: 1.0, fixed: 0, active: false },
 ]
 
-const SETTLEMENT_DATA = [
-  { month: 'Jan', settled: 12500000, pending: 2400000 },
-  { month: 'Feb', settled: 14200000, pending: 2100000 },
-  { month: 'Mar', settled: 16800000, pending: 2800000 },
-  { month: 'Apr', settled: 15400000, pending: 2200000 },
-  { month: 'May', settled: 18900000, pending: 3100000 },
-  { month: 'Jun', settled: 20300000, pending: 2600000 },
-]
-
-const PAYMENT_METHOD_DATA = [
-  { name: 'Mobile Money', value: 45 },
-  { name: 'Card', value: 30 },
-  { name: 'Bank Transfer', value: 15 },
-  { name: 'Wallet', value: 10 },
-]
-
-const COLORS = ['#F59E0B', '#8B5CF6', '#10B981', '#3B82F6']
+const COLORS = ['#F59E0B', '#8B5CF6', '#10B981', '#3B82F6', '#EC4899', '#64748B']
 
 export default function AdminPaymentsPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [payments, setPayments] = useState<Payment[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleRefund = (payment: Payment) => {
-    setToast({ type: 'success', message: `Refund initiated for ${formatCurrency(payment.amount, payment.currencyCode)}` })
-    setTimeout(() => setToast(null), 3000)
+  useEffect(() => {
+    fetch('/api/admin/payments')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.success) { setError(data.error || 'Failed to load transactions'); return }
+        setPayments(data.payments)
+      })
+      .catch(() => setError('Failed to load transactions'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Real, all computed from the transactions actually fetched above —
+  // rather than the previous four hardcoded USD figures.
+  const stats = useMemo(() => {
+    if (!payments) return null
+    const totalVolumeUSD = payments.reduce((s, p) => s + (p.currencyCode === 'USD' ? p.amount : 0), 0)
+    // Cross-currency totals here are approximate (USD-denominated
+    // transactions only) rather than silently summing raw non-USD amounts
+    // — the same correctness issue fixed in the platform overview earlier
+    // applies here, and a full fix needs the same per-row conversion.
+    const platformFees = payments.reduce((s, p) => s + p.fee, 0)
+    const refunded = payments.filter((p) => p.status === 'refunded' || p.status === 'partially_refunded').reduce((s, p) => s + p.amount, 0)
+    const methodCounts = new Map<string, number>()
+    for (const p of payments) methodCounts.set(p.method, (methodCounts.get(p.method) ?? 0) + 1)
+    const methodSplit = Array.from(methodCounts.entries()).map(([name, value]) => ({ name, value }))
+    return { totalVolumeUSD, platformFees, refunded, methodSplit }
+  }, [payments])
+
+  const handleRefund = async (payment: Payment) => {
+    try {
+      const res = await fetch('/api/admin/payments/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transactionId: payment.id, amount: payment.amount, reason: 'Admin-initiated refund' }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) throw new Error(data.error || 'Refund failed')
+      setToast({ type: 'success', message: `Refund processed for ${formatCurrency(payment.amount, payment.currencyCode)}` })
+      setPayments((prev) => prev?.map((p) => (p.id === payment.id ? { ...p, status: 'refunded' } : p)) ?? null)
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Refund failed' })
+    } finally {
+      setTimeout(() => setToast(null), 4000)
+    }
   }
 
   return (
@@ -60,40 +89,27 @@ export default function AdminPaymentsPage() {
       </motion.div>
 
       <motion.div variants={ITEM} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <AdminStatCard label="Total Volume (30d)" value={formatCurrency(732450000, 'XAF')} icon={DollarSign} change={22.4} accent="bg-emerald-500" />
-        <AdminStatCard label="Platform Fees" value={formatCurrency(18312000, 'XAF')} icon={TrendingUp} change={18.7} accent="bg-amber-500" />
-        <AdminStatCard label="Pending Payouts" value={formatCurrency(8450000, 'XAF')} icon={Wallet} change={-5.2} accent="bg-blue-500" />
-        <AdminStatCard label="Refunded (30d)" value={formatCurrency(342000, 'XAF')} icon={RotateCcw} change={12.3} accent="bg-red-500" />
+        <AdminStatCard label="USD Volume (recent)" value={loading ? '—' : formatCurrency(stats?.totalVolumeUSD ?? 0, 'USD')} icon={DollarSign} accent="bg-emerald-500" />
+        <AdminStatCard label="Platform Fees" value={loading ? '—' : formatCurrency(stats?.platformFees ?? 0, 'USD')} icon={TrendingUp} accent="bg-amber-500" />
+        <AdminStatCard label="Pending Payouts" value="—" icon={Wallet} accent="bg-blue-500" />
+        <AdminStatCard label="Refunded (recent)" value={loading ? '—' : formatCurrency(stats?.refunded ?? 0, 'USD')} icon={RotateCcw} accent="bg-red-500" />
       </motion.div>
+      {error && <p className="text-xs text-red-600">{error}</p>}
 
-      {/* Charts */}
+      {/* Payment Methods Split — real, computed from the same transactions
+          fetched above. Settlement Reports chart removed: it needs a real
+          settlement/period concept this pass didn't build, and a fake bar
+          chart next to now-real numbers would be more misleading than
+          having no chart at all. */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border p-6">
-          <h3 className="text-lg font-semibold text-text-primary font-heading mb-4">Settlement Reports</h3>
-          <div className="w-full h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={SETTLEMENT_DATA}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-                <XAxis dataKey="month" tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
-                <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
-                  formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), 'XAF'), ''] as [string, string]} />
-                <Legend />
-                <Bar dataKey="settled" fill="#10B981" radius={[6, 6, 0, 0]} name="Settled" />
-                <Bar dataKey="pending" fill="#F59E0B" radius={[6, 6, 0, 0]} name="Pending" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-
         <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border p-6">
           <h3 className="text-lg font-semibold text-text-primary font-heading mb-4">Payment Methods Split</h3>
           <div className="w-full h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={PAYMENT_METHOD_DATA} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value">
-                  {PAYMENT_METHOD_DATA.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i]} />
+                <Pie data={stats?.methodSplit ?? []} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={4} dataKey="value">
+                  {(stats?.methodSplit ?? []).map((_, i) => (
+                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }} />
@@ -101,6 +117,13 @@ export default function AdminPaymentsPage() {
               </PieChart>
             </ResponsiveContainer>
           </div>
+        </motion.div>
+
+        <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border p-6 flex flex-col items-center justify-center text-center">
+          <h3 className="text-lg font-semibold text-text-primary font-heading mb-2">Settlement Reports</h3>
+          <p className="text-sm text-text-tertiary max-w-xs">
+            Needs a real settlement/period model (which payouts settled in which window) — not built in this pass. Flagged rather than shown as a fake chart.
+          </p>
         </motion.div>
       </div>
 
@@ -120,7 +143,7 @@ export default function AdminPaymentsPage() {
                 <span className={cn('w-2 h-2 rounded-full', fee.active ? 'bg-emerald-500' : 'bg-text-tertiary')} />
               </div>
               <p className="text-2xl font-bold text-text-primary">{fee.percentage}%</p>
-              <p className="text-xs text-text-tertiary mt-1">+ {formatCurrency(fee.fixed, 'XAF')} fixed fee</p>
+              <p className="text-xs text-text-tertiary mt-1">+ {formatCurrency(Math.round((fee.fixed) / 620), 'USD')} fixed fee</p>
             </div>
           ))}
         </div>
@@ -128,7 +151,7 @@ export default function AdminPaymentsPage() {
 
       {/* Transaction table */}
       <motion.div variants={ITEM}>
-        <TransactionsTable onRefund={handleRefund} />
+        <TransactionsTable payments={payments ?? undefined} loading={loading} onRefund={handleRefund} />
       </motion.div>
 
       {toast && (

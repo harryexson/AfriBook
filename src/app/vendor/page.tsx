@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/utils'
 import {
-  Calendar, DollarSign, Star, Scissors, Plus, CalendarDays,
+  Calendar, DollarSign, ShoppingBag, Star, Scissors, Plus, CalendarDays,
   QrCode, ArrowRight,
 } from 'lucide-react'
 import StatCard from '@/components/vendor/StatCard'
@@ -23,14 +23,64 @@ const ITEM = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
 }
 
+// One accent throughout, per design-system/afribook/MASTER.md — three
+// unrelated gradient hues previously competed with the amber brand color.
 const QUICK_ACTIONS = [
-  { label: 'Add Service', icon: Plus, href: '/vendor/services', color: 'from-amber-400 to-amber-600' },
-  { label: 'View Calendar', icon: CalendarDays, href: '/vendor/bookings', color: 'from-blue-400 to-blue-600' },
-  { label: 'Create QR Code', icon: QrCode, href: '/vendor/qr', color: 'from-purple-400 to-purple-600' },
+  { label: 'Add Service', icon: Plus, href: '/vendor/services' },
+  { label: 'View Calendar', icon: CalendarDays, href: '/vendor/bookings' },
+  { label: 'Create QR Code', icon: QrCode, href: '/vendor/qr' },
 ]
+
+interface AnalyticsState {
+  currencyCode: string
+  bookings: { count: number; revenue: number; changePercent: number }
+  orders: { count: number; revenue: number; changePercent: number }
+  avgRating: number
+  activeServices: number
+  revenueByDay: { date: string; bookingsRevenue: number; ordersRevenue: number }[]
+  recentBookings: import('@/types').Booking[]
+}
 
 export default function VendorDashboardPage() {
   const [period, setPeriod] = useState<'7d' | '30d'>('7d')
+  const [analytics, setAnalytics] = useState<AnalyticsState | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // Real data now — bookings (services) and orders (products/food) revenue
+  // are fetched and kept SEPARATE throughout, per product decision, rather
+  // than blended into one "Revenue" number. Currency comes from the
+  // business's own registered country (via the API), not the viewer's
+  // browser cookie — a vendor's dashboard should show their own business's
+  // currency regardless of what country segment the page happens to be
+  // rendered under.
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    fetch(`/api/vendor/analytics?period=${period}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return
+        if (!data.success) {
+          setError(data.error || 'Failed to load analytics')
+          return
+        }
+        setAnalytics(data)
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load analytics')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [period])
+
+  const currencyCode = analytics?.currencyCode ?? 'USD'
+  const changeLabel = period === '7d' ? 'vs last week' : 'vs last period'
 
   return (
     <motion.div variants={CONTAINER} initial="hidden" animate="visible" className="space-y-6">
@@ -61,36 +111,48 @@ export default function VendorDashboardPage() {
             </div>
           </div>
         </div>
+        {error && (
+          <p className="text-xs text-red-600 mt-3">{error}</p>
+        )}
       </motion.div>
 
-      {/* Stats grid */}
-      <motion.div variants={ITEM} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Stats grid — bookings and orders revenue shown separately */}
+      <motion.div variants={ITEM} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard
-          label="Total Bookings"
-          value="128"
+          label="Bookings"
+          value={analytics ? String(analytics.bookings.count) : '—'}
           icon={Calendar}
-          change={12}
-          changeLabel="vs last week"
+          change={analytics?.bookings.changePercent}
+          changeLabel={changeLabel}
+          loading={loading}
         />
         <StatCard
-          label="Revenue"
-          value={formatCurrency(456000, 'XAF')}
+          label="Bookings Revenue"
+          value={analytics ? formatCurrency(analytics.bookings.revenue, currencyCode) : '—'}
           icon={DollarSign}
-          change={8.5}
-          changeLabel="vs last week"
+          change={analytics?.bookings.changePercent}
+          changeLabel={changeLabel}
+          loading={loading}
+        />
+        <StatCard
+          label="Orders Revenue"
+          value={analytics ? formatCurrency(analytics.orders.revenue, currencyCode) : '—'}
+          icon={ShoppingBag}
+          change={analytics?.orders.changePercent}
+          changeLabel={changeLabel}
+          loading={loading}
         />
         <StatCard
           label="Avg Rating"
-          value="4.8"
+          value={analytics ? analytics.avgRating.toFixed(1) : '—'}
           icon={Star}
-          change={2}
-          changeLabel="vs last month"
+          loading={loading}
         />
         <StatCard
           label="Active Services"
-          value="12"
+          value={analytics ? String(analytics.activeServices) : '—'}
           icon={Scissors}
-          change={0}
+          loading={loading}
         />
       </motion.div>
 
@@ -102,7 +164,7 @@ export default function VendorDashboardPage() {
             href={action.href}
             className="group flex items-center gap-4 p-4 rounded-2xl bg-surface border border-border hover:shadow-lg hover:shadow-amber-500/5 hover:border-amber-500/20 transition-all duration-300"
           >
-            <div className={cn('w-12 h-12 rounded-xl bg-gradient-to-br flex items-center justify-center text-white shadow-lg', action.color)}>
+            <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center text-white shadow-lg bg-gradient-to-br from-amber-500 to-amber-600')}>
               <action.icon className="w-5 h-5" />
             </div>
             <div className="flex-1">
@@ -117,36 +179,12 @@ export default function VendorDashboardPage() {
       {/* Revenue chart + Recent bookings */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <motion.div variants={ITEM} className="lg:col-span-2">
-          <RevenueChart />
+          <RevenueChart data={analytics?.revenueByDay} currencyCode={currencyCode} loading={loading} />
         </motion.div>
         <motion.div variants={ITEM}>
-          <RecentBookings />
+          <RecentBookings bookings={analytics?.recentBookings} loading={loading} />
         </motion.div>
       </div>
-
-      {/* Performance metrics */}
-      <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border p-6">
-        <h3 className="text-lg font-semibold text-text-primary font-heading mb-4">Performance vs Last Period</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[
-            { label: 'Conversion Rate', value: '34%', change: '+5%' },
-            { label: 'Repeat Customers', value: '42%', change: '+8%' },
-            { label: 'Avg Booking Value', value: '3,560 XAF', change: '+12%' },
-            { label: 'Cancellation Rate', value: '6%', change: '-2%' },
-          ].map((metric) => (
-            <div key={metric.label} className="p-4 rounded-xl bg-surface-secondary">
-              <p className="text-xs text-text-tertiary mb-1">{metric.label}</p>
-              <p className="text-xl font-bold text-text-primary">{metric.value}</p>
-              <p className={cn(
-                'text-xs font-semibold mt-1',
-                metric.change.startsWith('+') ? 'text-emerald-600' : 'text-red-600'
-              )}>
-                {metric.change}
-              </p>
-            </div>
-          ))}
-        </div>
-      </motion.div>
     </motion.div>
   )
 }

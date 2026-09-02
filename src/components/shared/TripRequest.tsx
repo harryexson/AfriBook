@@ -1,20 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { formatCurrency } from '@/lib/utils'
 import { MapPin, Clock, DollarSign, Navigation, X } from 'lucide-react'
 
 interface TripRequestData {
   id: string
-  customerName: string
-  customerRating: number
+  // Rider name/rating aren't populated by the live dispatch subscription
+  // yet — that needs a verified read path into rider profiles, which
+  // wasn't confirmed against RLS policies, so it's left optional rather
+  // than guessed at. Falls back to a generic label below.
+  customerName?: string
+  customerRating?: number
   pickupAddress: string
   dropoffAddress: string
   distanceKm: number
   estimatedEarnings: number
   estimatedDuration: number
   type: 'delivery' | 'pickup'
+  /** ISO timestamp from driver_offers.expires_at. Falls back to a 30s
+   *  window from mount if absent, e.g. in older mock-data call sites. */
+  expiresAt?: string
+  currencyCode?: string
 }
 
 interface TripRequestProps {
@@ -24,19 +32,57 @@ interface TripRequestProps {
   loading?: boolean
 }
 
+const DEFAULT_WINDOW_SECONDS = 30
+
 export default function TripRequest({ request, onAccept, onDecline, loading }: TripRequestProps) {
-  const [countdown, _setCountdown] = useState(30)
+  const [secondsLeft, setSecondsLeft] = useState(DEFAULT_WINDOW_SECONDS)
   const [declining, setDeclining] = useState(false)
+  const totalWindowRef = useRef(DEFAULT_WINDOW_SECONDS)
+  const declinedRef = useRef(false)
 
-  if (!request) return null
-
-  const handleDecline = () => {
+  const handleDecline = useCallback(() => {
+    if (!request || declinedRef.current) return
+    declinedRef.current = true
     setDeclining(true)
     setTimeout(() => {
       onDecline(request.id)
       setDeclining(false)
     }, 300)
-  }
+  }, [request, onDecline])
+
+  // Real countdown driven by the offer's actual expiry, not a hardcoded
+  // number — previously this always displayed "30s" and never changed,
+  // regardless of how much time had actually passed.
+  useEffect(() => {
+    if (!request) return
+    declinedRef.current = false
+
+    const expiresAtMs = request.expiresAt ? new Date(request.expiresAt).getTime() : null
+    const totalSeconds = expiresAtMs
+      ? Math.max(1, Math.round((expiresAtMs - Date.now()) / 1000))
+      : DEFAULT_WINDOW_SECONDS
+    totalWindowRef.current = totalSeconds
+    setSecondsLeft(totalSeconds)
+
+    const interval = setInterval(() => {
+      const remaining = expiresAtMs
+        ? Math.max(0, Math.round((expiresAtMs - Date.now()) / 1000))
+        : 0
+      setSecondsLeft((prev) => (expiresAtMs ? remaining : Math.max(0, prev - 1)))
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [request])
+
+  // Auto-decline once the window actually runs out, so a driver can't act
+  // on an offer the dispatch engine has already reassigned.
+  useEffect(() => {
+    if (secondsLeft === 0 && request) handleDecline()
+  }, [secondsLeft, request, handleDecline])
+
+  if (!request) return null
+
+  const customerLabel = request.customerName ?? 'New rider'
 
   return (
     <AnimatePresence>
@@ -52,9 +98,10 @@ export default function TripRequest({ request, onAccept, onDecline, loading }: T
           {/* Timer bar */}
           <div className="h-1 bg-surface-secondary overflow-hidden">
             <motion.div
+              key={request.id}
               initial={{ width: '100%' }}
               animate={{ width: '0%' }}
-              transition={{ duration: 30, ease: 'linear' }}
+              transition={{ duration: totalWindowRef.current, ease: 'linear' }}
               className="h-full bg-gradient-to-r from-amber-500 to-amber-600"
             />
           </div>
@@ -69,8 +116,8 @@ export default function TripRequest({ request, onAccept, onDecline, loading }: T
               <span className="text-sm font-semibold text-text-primary">New Trip Request</span>
             </div>
             <div className="flex items-center gap-1">
-              <span className="text-xs text-text-tertiary font-medium">
-                {countdown}s
+              <span className="text-xs text-text-tertiary font-medium font-mono tabular-nums">
+                {secondsLeft}s
               </span>
               <button
                 onClick={handleDecline}
@@ -85,14 +132,18 @@ export default function TripRequest({ request, onAccept, onDecline, loading }: T
           {/* Customer info */}
           <div className="px-5 py-3 flex items-center gap-3 bg-amber-50/50 dark:bg-amber-500/5 border-y border-border">
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-bold text-sm">
-              {request.customerName.charAt(0).toUpperCase()}
+              {customerLabel.charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="text-sm font-semibold text-text-primary">{request.customerName}</p>
+              <p className="text-sm font-semibold text-text-primary">{customerLabel}</p>
               <div className="flex items-center gap-1 text-xs text-text-secondary">
-                <span>⭐</span>
-                <span>{request.customerRating.toFixed(1)}</span>
-                <span className="text-text-tertiary">&middot;</span>
+                {request.customerRating != null && (
+                  <>
+                    <span>⭐</span>
+                    <span className="font-mono tabular-nums">{request.customerRating.toFixed(1)}</span>
+                    <span className="text-text-tertiary">&middot;</span>
+                  </>
+                )}
                 <span className="capitalize">{request.type}</span>
               </div>
             </div>
@@ -128,17 +179,17 @@ export default function TripRequest({ request, onAccept, onDecline, loading }: T
             <div className="grid grid-cols-3 gap-2 pt-2">
               <div className="p-2.5 rounded-xl bg-surface-secondary text-center">
                 <DollarSign className="w-4 h-4 text-emerald-500 mx-auto mb-0.5" />
-                <p className="text-sm font-bold text-text-primary">{formatCurrency(request.estimatedEarnings)}</p>
+                <p className="text-sm font-bold font-mono tabular-nums text-text-primary">{formatCurrency(request.estimatedEarnings, request.currencyCode)}</p>
                 <p className="text-[10px] text-text-tertiary">Est. earnings</p>
               </div>
               <div className="p-2.5 rounded-xl bg-surface-secondary text-center">
                 <Navigation className="w-4 h-4 text-amber-500 mx-auto mb-0.5" />
-                <p className="text-sm font-bold text-text-primary">{request.distanceKm.toFixed(1)} km</p>
+                <p className="text-sm font-bold font-mono tabular-nums text-text-primary">{request.distanceKm.toFixed(1)} km</p>
                 <p className="text-[10px] text-text-tertiary">Distance</p>
               </div>
               <div className="p-2.5 rounded-xl bg-surface-secondary text-center">
                 <Clock className="w-4 h-4 text-blue-500 mx-auto mb-0.5" />
-                <p className="text-sm font-bold text-text-primary">{request.estimatedDuration} min</p>
+                <p className="text-sm font-bold font-mono tabular-nums text-text-primary">{request.estimatedDuration} min</p>
                 <p className="text-[10px] text-text-tertiary">Duration</p>
               </div>
             </div>

@@ -1,8 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { COUNTRIES } from '@/lib/localization/countries';
+import { checkRateLimit, getRateLimitBucket } from '@/lib/rate-limit';
 
-const COUNTRY_CODES = ['us', 'ca', 'gb', 'fr', 'de', 'ae', 'in', 'ng', 'gh', 'ke', 'tz', 'ug', 'mw', 'za', 'eg', 'ar', 'am'] as const;
-type CountryCode = typeof COUNTRY_CODES[number];
+// Every ISO code we actually have pricing/currency/tax data for, lowercased
+// for use in URLs and cookies. Previously this was a hand-maintained list of
+// 18 codes, which meant every visitor from any of the other ~180 supported
+// countries silently fell back to Nigeria pricing/currency below.
+const COUNTRY_CODES = Object.keys(COUNTRIES).map((c) => c.toLowerCase());
+type CountryCode = string;
 const PUBLIC_PATHS = ['/login', '/register', '/forgot-password', '/api', '/_next', '/favicon.ico', '/images'];
 const AUTH_PROTECTED_ROUTES = ['/vendor', '/admin', '/driver', '/checkout', '/bookings', '/orders', '/profile', '/payments'];
 const VENDOR_ROUTES = ['/vendor'];
@@ -71,6 +77,35 @@ export async function proxy(req: NextRequest) {
   const isPublicPath = PUBLIC_PATHS.some((p) => pathname.startsWith(p));
   const isApiPath = pathname.startsWith('/api');
   const isStaticPath = pathname.startsWith('/_next') || pathname.startsWith('/images');
+
+  // ─── Rate Limiting (API routes only) ────────────────────────
+  // See src/lib/rate-limit.ts for the honest limitation on serverless —
+  // this is a real starting point, not a complete global limiter.
+  if (isApiPath) {
+    const bucket = getRateLimitBucket(pathname);
+    if (bucket) {
+      // x-forwarded-for is set by Vercel/Cloudflare at the edge and isn't
+      // client-spoofable through them; if this ever runs behind a
+      // different proxy that doesn't set it, this falls back to a shared
+      // bucket rather than silently disabling the limit.
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+      const key = `${ip}:${bucket.prefix}`;
+      const result = checkRateLimit(key, bucket.limit, bucket.windowMs);
+      if (!result.allowed) {
+        return NextResponse.json(
+          { success: false, error: 'Too many requests, please try again shortly.' },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': String(result.retryAfterSeconds),
+              'X-RateLimit-Limit': String(result.limit),
+              'X-RateLimit-Remaining': '0',
+            },
+          },
+        );
+      }
+    }
+  }
 
   const response = NextResponse.next();
 
@@ -145,8 +180,16 @@ export async function proxy(req: NextRequest) {
     }
 
     if (user) {
+      // BUG FOUND DURING THIS AUDIT: this queried a `users` table, which
+      // does not exist anywhere in the schema — every migration defines
+      // the profile/role table as `profiles`. Since `.from('users')` would
+      // error, `profile` was always null, `role` always fell back to
+      // 'customer', and every vendor/admin/driver was being redirected
+      // away from their own dashboards by this exact check. This is the
+      // most severe bug found in this whole audit — it would have made
+      // every dashboard built this session inaccessible in production.
       const { data: profile } = await supabase
-        .from('users')
+        .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single() as unknown as { data: { role: string } | null };

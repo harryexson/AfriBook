@@ -31,6 +31,14 @@ export default function CheckoutPage() {
   const [orderResult, setOrderResult] = useState<any>(null)
   const [paymentCompleted, setPaymentCompleted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // There's no saved-addresses system in the app yet (checked: no
+  // `addresses` table, no address API, cart-store's `deliveryAddressId`
+  // was never wired to anything) — building that is a bigger, separate
+  // feature. This is the bounded fix: a real text field, replacing the
+  // hardcoded literal string "Customer address" that was being sent for
+  // every single delivery order regardless of where the customer actually
+  // was.
+  const [deliveryAddress, setDeliveryAddress] = useState('')
 
   const handlePlaceOrder = async () => {
     setSubmitting(true)
@@ -39,6 +47,9 @@ export default function CheckoutPage() {
     try {
       if (store.items.length === 0) {
         throw new Error('Your cart is empty')
+      }
+      if (store.fulfillmentMethod === 'delivery' && !deliveryAddress.trim()) {
+        throw new Error('Please enter a delivery address')
       }
 
       const orderItems = store.items.map((item) => {
@@ -64,7 +75,7 @@ export default function CheckoutPage() {
         body: JSON.stringify({
           businessId: store.businessId,
           items: orderItems,
-          deliveryAddress: store.fulfillmentMethod === 'delivery' ? 'Customer address' : undefined,
+          deliveryAddress: store.fulfillmentMethod === 'delivery' ? deliveryAddress.trim() : undefined,
           notes: store.notes,
         }),
       })
@@ -137,7 +148,7 @@ export default function CheckoutPage() {
           </p>
           <div className="mb-4 p-4 rounded-xl bg-surface-secondary flex items-center justify-between">
             <span className="text-sm text-text-secondary">Order Total</span>
-            <span className="text-lg font-bold text-text-primary">{fmt(total)}</span>
+            <span className="text-lg font-bold font-mono tabular-nums text-text-primary">{fmt(total)}</span>
           </div>
           <StripePaymentSection
             amount={total}
@@ -252,6 +263,24 @@ export default function CheckoutPage() {
             </div>
           </motion.div>
 
+          {/* Delivery address */}
+          {store.fulfillmentMethod === 'delivery' && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="rounded-2xl bg-surface border border-border p-4"
+            >
+              <h2 className="text-sm font-semibold text-text-primary mb-2">Delivery Address</h2>
+              <textarea
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
+                placeholder="Street address, apartment, landmark..."
+                className="w-full p-3 rounded-xl bg-surface-secondary border border-border text-sm text-text-primary placeholder:text-text-tertiary outline-none focus:border-amber-500 resize-none"
+                rows={2}
+              />
+            </motion.div>
+          )}
+
           {/* Pickup notes */}
           {store.fulfillmentMethod === 'pickup' && (
             <motion.div
@@ -295,7 +324,7 @@ export default function CheckoutPage() {
                       </span>
                       <span className="text-sm text-text-primary truncate">{name}</span>
                     </div>
-                    <span className="text-sm font-medium text-text-primary">
+                    <span className="text-sm font-medium font-mono tabular-nums text-text-primary">
                       {fmt(unitPrice * item.quantity)}
                     </span>
                   </div>
@@ -305,17 +334,17 @@ export default function CheckoutPage() {
             <div className="mt-3 pt-3 border-t border-border space-y-1">
               <div className="flex justify-between text-sm text-text-secondary">
                 <span>Subtotal</span>
-                <span>{fmt(subtotal)}</span>
+                <span className="font-mono tabular-nums">{fmt(subtotal)}</span>
               </div>
               {store.discount > 0 && (
                 <div className="flex justify-between text-sm text-emerald-600">
                   <span>Discount</span>
-                  <span>-{fmt(store.discount)}</span>
+                  <span className="font-mono tabular-nums">-{fmt(store.discount)}</span>
                 </div>
               )}
               <div className="flex justify-between font-bold text-text-primary pt-1">
                 <span>Total</span>
-                <span>{fmt(total)}</span>
+                <span className="font-mono tabular-nums">{fmt(total)}</span>
               </div>
             </div>
           </motion.div>
@@ -343,7 +372,7 @@ export default function CheckoutPage() {
           <motion.div variants={ITEM}>
             <button
               onClick={handlePlaceOrder}
-              disabled={submitting || store.items.length === 0}
+              disabled={submitting || store.items.length === 0 || (store.fulfillmentMethod === 'delivery' && !deliveryAddress.trim())}
               className={cn(
                 'w-full py-3.5 rounded-xl font-bold text-sm transition-all',
                 'bg-gradient-to-r from-amber-500 to-amber-600 text-white',

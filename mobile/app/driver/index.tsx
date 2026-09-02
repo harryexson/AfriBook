@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
@@ -6,6 +6,7 @@ import MapView from '../../src/components/MapView';
 import Button from '../../src/components/ui/Button';
 import { useMarketStore } from '../../src/stores/market-store';
 import { formatMoney } from '../../src/lib/money';
+import { useLocation } from '../../src/hooks/useLocation';
 
 const CURRENT_TRIP = {
   id: 't1',
@@ -21,6 +22,20 @@ export default function DriverHomeScreen() {
   const [isOnline, setIsOnline] = useState(true);
   const [hasActiveTrip, setHasActiveTrip] = useState(false);
   const currencyCode = useMarketStore((s) => s.currencyCode());
+  // "Go Online" here is still local-only state, same as the web driver
+  // dashboard was before it got wired to real driver_offers/start_driver_session
+  // — that's a separate, larger dispatch-wiring task, not done in this pass.
+  // This fix is scoped to the map center below, which was hardcoded to
+  // Lagos regardless of where the driver actually is.
+  const { location, startTracking } = useLocation();
+
+  useEffect(() => {
+    startTracking();
+  }, [startTracking]);
+
+  const mapCenter = location
+    ? { latitude: location.latitude, longitude: location.longitude }
+    : { latitude: 6.5244, longitude: 3.3792 }; // fallback only until GPS resolves
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -44,12 +59,12 @@ export default function DriverHomeScreen() {
         {/* Map */}
         <View style={styles.mapContainer}>
           <MapView
-            region={{ latitude: 6.5244, longitude: 3.3792, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
+            region={{ latitude: mapCenter.latitude, longitude: mapCenter.longitude, latitudeDelta: 0.1, longitudeDelta: 0.1 }}
             markers={
               hasActiveTrip
                 ? [
-                    { id: 'pickup', coordinate: { latitude: 6.5244, longitude: 3.3792 }, title: 'Pickup' },
-                    { id: 'dropoff', coordinate: { latitude: 6.5444, longitude: 3.4092 }, title: 'Dropoff' },
+                    { id: 'pickup', coordinate: mapCenter, title: 'Pickup' },
+                    { id: 'dropoff', coordinate: { latitude: mapCenter.latitude + 0.02, longitude: mapCenter.longitude + 0.02 }, title: 'Dropoff' },
                   ]
                 : []
             }

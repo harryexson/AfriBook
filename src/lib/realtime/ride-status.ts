@@ -159,3 +159,69 @@ export function subscribeToOfferResponse(
     supabase.removeChannel(channel);
   };
 }
+
+// ─── Client: Subscribe to New Incoming Offers (driver side) ──
+// The counterpart to subscribeToOfferResponse above: this is what a
+// driver's own dashboard listens on to learn a new trip has been offered
+// to them. Fires on INSERT rather than UPDATE — driver_offers rows are
+// created once per candidate driver by the dispatch engine and never
+// re-inserted, so INSERT is the correct event to watch here. Relies on
+// the existing `driver_offers_select` RLS policy, which already scopes
+// visibility to `driver_id IN (SELECT id FROM drivers WHERE profile_id =
+// auth.uid())` — the same policy realtime enforces for postgres_changes.
+export interface DriverOfferEvent {
+  offerId: string;
+  rideId: string;
+  pickupAddress: string | null;
+  destinationAddress: string | null;
+  distanceKm: number | null;
+  estimatedDurationMin: number | null;
+  estimatedEarnings: number | null;
+  rideType: string;
+  expiresAt: string;
+}
+
+export function subscribeToDriverOffers(
+  driverId: string,
+  onNewOffer: (offer: DriverOfferEvent) => void,
+): () => void {
+  const supabase = createBrowserClient();
+
+  const channel = supabase
+    .channel(`driver-offers:${driverId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'driver_offers',
+        filter: `driver_id=eq.${driverId}`,
+      },
+      (payload: { new: Record<string, any> }) => {
+        const row = payload.new as any;
+
+        // Only surface offers that are still pending and not already
+        // expired by the time the realtime event arrives (clock skew,
+        // reconnect after a dropped connection, etc.).
+        if (row.status !== 'pending') return;
+        if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) return;
+
+        onNewOffer({
+          offerId: row.id,
+          rideId: row.ride_id,
+          pickupAddress: row.pickup_address ?? null,
+          destinationAddress: row.destination_address ?? null,
+          distanceKm: row.distance_km != null ? Number(row.distance_km) : null,
+          estimatedDurationMin: row.estimated_duration_min != null ? Number(row.estimated_duration_min) : null,
+          estimatedEarnings: row.estimated_earnings != null ? Number(row.estimated_earnings) : null,
+          rideType: row.ride_type,
+          expiresAt: row.expires_at,
+        });
+      },
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

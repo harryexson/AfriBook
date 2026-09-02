@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import AdminStatCard from '@/components/admin/StatCard'
@@ -126,6 +126,21 @@ export default function AdminPromotionsPage() {
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
+  // Real data now for the top-line stats — the detailed table below still
+  // uses the CAMPAIGNS mock, flagged separately (see comment on the table).
+  const [promos, setPromos] = useState<import('@/lib/admin/analytics').PromoAnalytics[] | null>(null)
+  const [ads, setAds] = useState<import('@/lib/admin/analytics').AdCampaignAnalytics[] | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/admin/analytics/promotions').then((r) => r.json()),
+      fetch('/api/admin/analytics/ads').then((r) => r.json()),
+    ]).then(([promoData, adData]) => {
+      if (promoData.success) setPromos(promoData.promos)
+      if (adData.success) setAds(adData.campaigns)
+    })
+  }, [])
+
   const filtered = useMemo(() => {
     return CAMPAIGNS.filter((c) => {
       if (typeFilter !== 'all' && c.type !== typeFilter) return false
@@ -135,12 +150,20 @@ export default function AdminPromotionsPage() {
     })
   }, [typeFilter, statusFilter, search])
 
-  const activeCampaigns = CAMPAIGNS.filter((c) => c.status === 'active').length
-  const totalPromoCodes = CAMPAIGNS.filter((c) => c.type === 'promo_code').length
-  const redemptionsThisMonth = CAMPAIGNS.reduce((sum, c) => sum + c.conversions, 0)
-  const promoRevenue = CAMPAIGNS.reduce((sum, c) => sum + c.revenue, 0)
-  const avgDiscount = 18.5
-  const topCampaign = CAMPAIGNS.reduce((best, c) => (c.revenue > best.revenue ? c : best), CAMPAIGNS[0])
+  // Real, computed from the two endpoints above. "Promo Revenue" from the
+  // original mock had no faithful real analog — a redemption's discount is
+  // a cost to the platform, not revenue — so it's relabeled "Discount
+  // Given" rather than forcing a number into the wrong semantics.
+  const activeAdCampaigns = ads?.filter((a) => a.status === 'active').length ?? 0
+  const activePromoCodes = promos?.filter((p) => p.isActive).length ?? 0
+  const totalPromoCodes = promos?.length ?? 0
+  const redemptionsThisMonth = promos?.reduce((sum, p) => sum + p.redemptions, 0) ?? 0
+  const totalDiscountGivenUSD = promos?.reduce((sum, p) => sum + p.totalDiscountUSD, 0) ?? 0
+  const percentagePromos = promos?.filter((p) => p.discountType === 'percentage') ?? []
+  const avgDiscount = percentagePromos.length
+    ? Math.round((percentagePromos.reduce((s, p) => s + p.discountValue, 0) / percentagePromos.length) * 10) / 10
+    : 0
+  const topAdCampaign = ads?.length ? [...ads].sort((a, b) => b.conversions - a.conversions)[0] : null
 
   return (
     <motion.div variants={CONTAINER} initial="hidden" animate="visible" className="space-y-6">
@@ -164,14 +187,18 @@ export default function AdminPromotionsPage() {
         </div>
       </motion.div>
 
-      {/* Stats */}
+      {/* Stats — real, from /api/admin/analytics/promotions and /ads.
+          "Discount Given" replaces the old "Promo Revenue" label — a
+          redemption's discount is a cost to the platform, not revenue, so
+          the original mock number was measuring the wrong thing entirely,
+          not just using fake data. */}
       <motion.div variants={ITEM} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <AdminStatCard label="Active Campaigns" value={String(activeCampaigns)} icon={Megaphone} change={12.3} accent="bg-amber-500" />
-        <AdminStatCard label="Total Promo Codes" value={String(totalPromoCodes)} icon={Tag} change={8.1} accent="bg-blue-500" />
-        <AdminStatCard label="Redemptions" value={redemptionsThisMonth.toLocaleString()} icon={ShoppingCart} change={24.6} accent="bg-emerald-500" />
-        <AdminStatCard label="Promo Revenue" value={formatCurrency(promoRevenue, 'XAF')} icon={DollarSign} change={31.2} accent="bg-purple-500" />
-        <AdminStatCard label="Avg Discount" value={`${avgDiscount}%`} icon={Percent} change={-2.1} accent="bg-pink-500" />
-        <AdminStatCard label="Top Campaign" value={topCampaign.name} icon={Trophy} change={45.8} accent="bg-orange-500" />
+        <AdminStatCard label="Active Campaigns" value={String(activeAdCampaigns + activePromoCodes)} icon={Megaphone} accent="bg-amber-500" />
+        <AdminStatCard label="Total Promo Codes" value={String(totalPromoCodes)} icon={Tag} accent="bg-blue-500" />
+        <AdminStatCard label="Redemptions" value={redemptionsThisMonth.toLocaleString()} icon={ShoppingCart} accent="bg-emerald-500" />
+        <AdminStatCard label="Discount Given (USD)" value={formatCurrency(totalDiscountGivenUSD, 'USD')} icon={DollarSign} accent="bg-purple-500" />
+        <AdminStatCard label="Avg % Discount" value={percentagePromos.length ? `${avgDiscount}%` : '—'} icon={Percent} accent="bg-pink-500" />
+        <AdminStatCard label="Top Ad Campaign" value={topAdCampaign?.name ?? '—'} icon={Trophy} accent="bg-orange-500" />
       </motion.div>
 
       {/* Performance chart */}
@@ -239,7 +266,16 @@ export default function AdminPromotionsPage() {
         </div>
       </motion.div>
 
-      {/* Campaign table */}
+      {/* Campaign table — still the CAMPAIGNS mock below. Not wired for a
+          real reason: this page's type filter (banner/email/push/social)
+          doesn't match the real ad_campaigns.platform enum
+          (google/meta/tiktok/linkedin/offline), and blends promo codes and
+          ad campaigns into one fictional "Campaign" shape that neither
+          real table actually has. Reconciling that needs a product call —
+          should ad campaigns adopt banner/email/push/social categories, or
+          should this table split into two real sections (promo codes,
+          ad campaigns) like the underlying data actually is? Wiring this
+          blind in either direction risks locking in the wrong model. */}
       <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -284,13 +320,13 @@ export default function AdminPromotionsPage() {
                       <p className="text-xs text-text-tertiary">to {campaign.endDate}</p>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <p className="text-xs font-medium text-text-primary">{formatCurrency(campaign.budget, 'XAF')}</p>
+                      <p className="text-xs font-medium text-text-primary">{formatCurrency(Math.round((campaign.budget) / 620), 'USD')}</p>
                       <div className="w-16 h-1.5 rounded-full bg-surface-secondary mt-1 ml-auto">
                         <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${Math.min(spendPct, 100)}%` }} />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-right hidden md:table-cell">
-                      <p className="text-xs font-medium text-text-primary">{formatCurrency(campaign.spent, 'XAF')}</p>
+                      <p className="text-xs font-medium text-text-primary">{formatCurrency(Math.round((campaign.spent) / 620), 'USD')}</p>
                       <p className="text-xs text-text-tertiary">{spendPct.toFixed(0)}%</p>
                     </td>
                     <td className="px-4 py-3 text-right hidden lg:table-cell">
@@ -335,7 +371,7 @@ export default function AdminPromotionsPage() {
                 <div key={c.id}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-text-primary font-medium">{c.name}</span>
-                    <span className="text-xs text-text-secondary">{formatCurrency(c.spent, 'XAF')} / {formatCurrency(c.budget, 'XAF')}</span>
+                    <span className="text-xs text-text-secondary">{formatCurrency(Math.round((c.spent) / 620), 'USD')} / {formatCurrency(Math.round((c.budget) / 620), 'USD')}</span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-surface-secondary">
                     <div
@@ -364,7 +400,7 @@ export default function AdminPromotionsPage() {
                   </div>
                   <div className="text-right">
                     <p className="text-sm font-bold text-emerald-500">+{c.roi.toFixed(0)}%</p>
-                    <p className="text-xs text-text-tertiary">{formatCurrency(c.revenue, 'XAF')}</p>
+                    <p className="text-xs text-text-tertiary">{formatCurrency(Math.round((c.revenue) / 620), 'USD')}</p>
                   </div>
                 </div>
               ))}

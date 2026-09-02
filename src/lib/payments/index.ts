@@ -3,6 +3,7 @@ import type {
   PaymentResult,
   PayoutRequest,
   PayoutResult,
+  RefundResult,
   FeeBreakdown,
   PaymentProvider,
 } from './types';
@@ -209,6 +210,20 @@ export async function processVendorPayout(
 ): Promise<PayoutResult> {
   const orchestrator = paymentOrchestrator.current;
   return orchestrator.processPayout(params);
+}
+
+/**
+ * Process a refund against an existing transaction. Was implemented on
+ * the orchestrator already but never exposed here — this is a thin
+ * pass-through, not new refund logic.
+ */
+export async function processRefund(
+  transactionId: string,
+  amount: number,
+  reason: string,
+): Promise<RefundResult> {
+  const orchestrator = paymentOrchestrator.current;
+  return orchestrator.processRefund(transactionId, amount, reason);
 }
 
 /**

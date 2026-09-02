@@ -53,11 +53,11 @@ export default function StatCard({ label, value, icon: Icon, change, changeLabel
               : 'text-red-700 bg-red-100 dark:text-red-400 dark:bg-red-900/30'
           )}>
             {positive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-            {Math.abs(change)}%
+            <span className="font-mono tabular-nums">{Math.abs(change)}%</span>
           </div>
         )}
       </div>
-      <p className="text-2xl font-bold text-text-primary">{value}</p>
+      <p className="text-2xl font-bold font-mono tabular-nums text-text-primary">{value}</p>
       <p className="text-sm text-text-secondary mt-0.5">
         {label}
         {changeLabel && <span className="text-text-tertiary ml-1">{changeLabel}</span>}

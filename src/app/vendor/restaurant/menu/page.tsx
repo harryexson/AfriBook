@@ -1,45 +1,26 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { cn, formatCurrency, randomId } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import {
   Plus, Search, Edit3, Trash2, Eye, EyeOff, GripVertical,
   Utensils, DollarSign, X, Upload, Download, Grid3X3, List,
-  CheckSquare, Square, Tag,
+  CheckSquare, Square, Tag, Loader2,
 } from 'lucide-react'
 import MenuItemForm from '@/components/vendor/MenuItemForm'
 import ImportWizard, { type ImportItem } from '@/components/vendor/ImportWizard'
 import type { MenuItem } from '@/types'
 
-const MOCK_MENU_ITEMS: MenuItem[] = [
-  { id: 'mi1', businessId: 'b1', categoryId: 'cat1', name: 'Suya Skewers', description: 'Spiced grilled beef skewers with yaji spice', price: 2500, currencyCode: 'XAF', image: '', ingredients: ['beef', 'yaji spice', 'onions'], allergens: [], dietaryTags: ['Halal'], available: true, preparationTime: 15, sortOrder: 0 },
-  { id: 'mi2', businessId: 'b1', categoryId: 'cat1', name: 'Plantain Chips', description: 'Crispy thinly sliced plantain', price: 1000, currencyCode: 'XAF', image: '', ingredients: ['plantain', 'palm oil', 'salt'], allergens: [], dietaryTags: ['Vegan', 'Gluten-Free'], available: true, preparationTime: 5, sortOrder: 1 },
-  { id: 'mi3', businessId: 'b1', categoryId: 'cat1', name: 'Moi Moi', description: 'Steamed bean pudding with eggs', price: 1800, currencyCode: 'XAF', image: '', ingredients: ['black-eyed beans', 'palm oil', 'scotch bonnet'], allergens: ['Eggs'], dietaryTags: ['Vegetarian'], available: true, preparationTime: 20, sortOrder: 2 },
-  { id: 'mi4', businessId: 'b1', categoryId: 'cat2', name: 'Jollof Rice & Chicken', description: 'Classic West African jollof rice with grilled chicken', price: 4500, currencyCode: 'XAF', image: '', ingredients: ['rice', 'tomato', 'chicken', 'peppers'], allergens: [], dietaryTags: ['Halal'], available: true, preparationTime: 25, sortOrder: 0 },
-  { id: 'mi5', businessId: 'b1', categoryId: 'cat2', name: 'Egusi Soup & Pounded Yam', description: 'Melon seed soup with assorted meats and pounded yam', price: 5500, currencyCode: 'XAF', image: '', ingredients: ['yam', 'egusi', 'spinach', 'palm oil'], allergens: [], dietaryTags: ['Halal'], available: true, preparationTime: 35, sortOrder: 1 },
-  { id: 'mi6', businessId: 'b1', categoryId: 'cat3', name: 'Chapman', description: 'Refreshing cocktail mocktail', price: 1500, currencyCode: 'XAF', image: '', ingredients: ['fanta', 'sprite', 'grenadine', 'cucumber'], allergens: [], dietaryTags: ['Vegan'], available: true, preparationTime: 3, sortOrder: 0 },
-  { id: 'mi7', businessId: 'b1', categoryId: 'cat3', name: 'Zobo Drink', description: 'Chilled hibiscus flower drink', price: 1000, currencyCode: 'XAF', image: '', ingredients: ['dried hibiscus', 'pineapple', 'ginger'], allergens: [], dietaryTags: ['Vegan'], available: true, preparationTime: 3, sortOrder: 1 },
-  { id: 'mi8', businessId: 'b1', categoryId: 'cat4', name: 'Chin Chin', description: 'Crunchy fried dough snack', price: 800, currencyCode: 'XAF', image: '', ingredients: ['flour', 'sugar', 'butter', 'nutmeg'], allergens: ['Gluten', 'Dairy'], dietaryTags: ['Vegetarian'], available: true, preparationTime: 5, sortOrder: 0 },
-]
+// Real menu data now. Categories are fetched from `menu_categories` rather
+// than a hardcoded cat1..cat4 map — a real restaurant's categories are its
+// own DB rows, not a fixed global enum. `dietaryTags` has no dedicated
+// column in the schema, so it round-trips through `metadata.dietaryTags`
+// (a JSONB field that already exists on the table for exactly this kind of
+// extension) rather than inventing a new migration for this pass.
 
-const CATEGORY_TABS = ['All', 'Appetizers', 'Mains', 'Desserts', 'Drinks', 'Sides'] as const
-
-const CATEGORY_MAP: Record<string, string> = {
-  cat1: 'Appetizers',
-  cat2: 'Mains',
-  cat3: 'Drinks',
-  cat4: 'Desserts',
-}
-
-const CATEGORY_REVERSE: Record<string, string> = {
-  Appetizers: 'cat1',
-  Mains: 'cat2',
-  Drinks: 'cat3',
-  Desserts: 'cat4',
-  Sides: 'cat5',
-  Other: 'cat6',
-}
+const FALLBACK_CATEGORY_COLORS = ['from-orange-400 to-amber-500', 'from-red-400 to-rose-500', 'from-pink-400 to-fuchsia-500', 'from-blue-400 to-cyan-500', 'from-emerald-400 to-teal-500', 'from-gray-400 to-slate-500']
 
 const CATEGORY_COLORS: Record<string, string> = {
   Appetizers: 'from-orange-400 to-amber-500',
@@ -59,8 +40,37 @@ const ITEM = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
 }
 
+interface CategoryRow {
+  id: string
+  name: string
+}
+
+function rowToMenuItem(row: any): MenuItem {
+  return {
+    id: row.id,
+    businessId: row.restaurant_id,
+    categoryId: row.category_id,
+    name: row.name,
+    description: row.description ?? '',
+    price: Number(row.price),
+    currencyCode: row.currency,
+    image: row.image ?? '',
+    ingredients: row.ingredients ?? [],
+    allergens: row.allergens ?? [],
+    dietaryTags: row.metadata?.dietaryTags ?? [],
+    available: row.is_available,
+    preparationTime: row.preparation_time ?? 15,
+    sortOrder: row.sort_order ?? 0,
+  }
+}
+
 export default function MenuPage() {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(MOCK_MENU_ITEMS)
+  const supabase = useMemo(() => createClient(), [])
+  const [restaurantId, setRestaurantId] = useState<string | null>(null)
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
+  const [categories, setCategories] = useState<CategoryRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<string>('All')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -70,6 +80,68 @@ export default function MenuPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showBulkPrice, setShowBulkPrice] = useState(false)
   const [showBulkCategory, setShowBulkCategory] = useState(false)
+  const [formSubmitting, setFormSubmitting] = useState(false)
+
+  // Categories are real DB rows now, fetched per-restaurant — derived maps
+  // below keep the rest of this file (written against a fixed cat1..cat4
+  // map originally) working the same way, just backed by real data.
+  const CATEGORY_MAP = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c.name])), [categories])
+  const CATEGORY_REVERSE = useMemo(() => Object.fromEntries(categories.map((c) => [c.name, c.id])), [categories])
+  const CATEGORY_TABS = useMemo(() => ['All', ...categories.map((c) => c.name)], [categories])
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      setLoading(true)
+      setLoadError(null)
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) throw new Error('Not signed in')
+        const { data: business } = await (supabase.from('businesses') as any)
+          .select('id')
+          .eq('owner_id', user.id)
+          .limit(1)
+          .maybeSingle()
+        if (!business) throw new Error('No business found for this account')
+        const { data: restaurant } = await (supabase.from('restaurants') as any)
+          .select('id')
+          .eq('business_id', business.id)
+          .maybeSingle()
+        if (!restaurant) throw new Error('No restaurant found for this business')
+        if (cancelled) return
+        setRestaurantId(restaurant.id)
+
+        const [{ data: catRows }, { data: itemRows }] = await Promise.all([
+          (supabase.from('menu_categories') as any).select('id, name').eq('restaurant_id', restaurant.id).order('sort_order'),
+          (supabase.from('menu_items') as any).select('*').eq('restaurant_id', restaurant.id),
+        ])
+        if (cancelled) return
+        setCategories((catRows ?? []).map((r: any) => ({ id: r.id, name: r.name })))
+        setMenuItems((itemRows ?? []).map(rowToMenuItem))
+      } catch (err) {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Failed to load menu')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [supabase])
+
+  /** Find a category by name, or create it — used when adding/importing an
+   *  item whose category doesn't exist yet for this restaurant. */
+  const ensureCategory = useCallback(async (name: string): Promise<string> => {
+    const existing = categories.find((c) => c.name === name)
+    if (existing) return existing.id
+    if (!restaurantId) throw new Error('No restaurant loaded')
+    const { data, error } = await (supabase.from('menu_categories') as any)
+      .insert({ restaurant_id: restaurantId, name, sort_order: categories.length })
+      .select('id, name')
+      .single()
+    if (error || !data) throw new Error('Failed to create category')
+    setCategories((prev) => [...prev, { id: data.id, name: data.name }])
+    return data.id
+  }, [categories, restaurantId, supabase])
 
   const filtered = useMemo(() => {
     let items = menuItems
@@ -87,11 +159,11 @@ export default function MenuPage() {
 
   const stats = useMemo(() => {
     const total = menuItems.length
-    const categories = new Set(menuItems.map((item) => CATEGORY_MAP[item.categoryId])).size
+    const categoryCount = new Set(menuItems.map((item) => CATEGORY_MAP[item.categoryId])).size
     const avgPrice = total > 0 ? menuItems.reduce((s, i) => s + i.price, 0) / total : 0
     const onSale = menuItems.filter((i) => i.available).length
-    return { total, categories, avgPrice, onSale }
-  }, [menuItems])
+    return { total, categories: categoryCount, avgPrice, onSale }
+  }, [menuItems, CATEGORY_MAP])
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -110,57 +182,87 @@ export default function MenuPage() {
     }
   }, [selectedIds.size, filtered])
 
+  // Every handler below writes to Supabase directly from the browser
+  // client — menu_items/menu_categories RLS already scopes writes to the
+  // authenticated vendor's own restaurant (`menu_items_write` /
+  // `menu_categories_write` policies), so there's no need for a dedicated
+  // API route for this standard CRUD, same pattern already used for the
+  // driver decline action earlier in this session. Local state updates
+  // optimistically-ish (after the write succeeds) rather than before, so a
+  // failed write doesn't silently diverge from the database.
+
   const toggleAvailability = useCallback(
-    (id: string) => {
+    async (id: string) => {
+      const item = menuItems.find((i) => i.id === id)
+      if (!item) return
+      const { error } = await (supabase.from('menu_items') as any)
+        .update({ is_available: !item.available })
+        .eq('id', id)
+      if (error) return
       setMenuItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, available: !item.available } : item))
+        prev.map((i) => (i.id === id ? { ...i, available: !i.available } : i))
       )
     },
-    []
+    [menuItems, supabase]
   )
 
-  const deleteItem = useCallback((id: string) => {
+  const deleteItem = useCallback(async (id: string) => {
+    const { error } = await (supabase.from('menu_items') as any).delete().eq('id', id)
+    if (error) return
     setMenuItems((prev) => prev.filter((item) => item.id !== id))
     setSelectedIds((prev) => {
       const next = new Set(prev)
       next.delete(id)
       return next
     })
-  }, [])
+  }, [supabase])
 
-  const bulkToggleAvailability = useCallback(() => {
-    setMenuItems((prev) =>
-      prev.map((item) =>
-        selectedIds.has(item.id) ? { ...item, available: !item.available } : item
-      )
-    )
+  const bulkToggleAvailability = useCallback(async () => {
+    const ids = Array.from(selectedIds)
+    // Mixed current-availability selections would need per-item toggling;
+    // this sets all selected items to "available" — the common bulk case
+    // ("turn these back on after a stockout") — rather than guessing at a
+    // per-item toggle semantics for a bulk action.
+    const { error } = await (supabase.from('menu_items') as any)
+      .update({ is_available: true })
+      .in('id', ids)
+    if (error) return
+    setMenuItems((prev) => prev.map((item) => (selectedIds.has(item.id) ? { ...item, available: true } : item)))
     setSelectedIds(new Set())
-  }, [selectedIds])
+  }, [selectedIds, supabase])
 
-  const bulkDelete = useCallback(() => {
+  const bulkDelete = useCallback(async () => {
+    const ids = Array.from(selectedIds)
+    const { error } = await (supabase.from('menu_items') as any).delete().in('id', ids)
+    if (error) return
     setMenuItems((prev) => prev.filter((item) => !selectedIds.has(item.id)))
     setSelectedIds(new Set())
-  }, [selectedIds])
+  }, [selectedIds, supabase])
 
   const handleImport = useCallback(async (importItems: ImportItem[]) => {
-    const newItems: MenuItem[] = importItems.map((imp, i) => ({
-      id: randomId(),
-      businessId: 'b1',
-      categoryId: CATEGORY_REVERSE[imp.category ?? 'Other'] ?? 'cat6',
-      name: imp.name,
-      description: imp.description,
-      price: imp.price,
-      currencyCode: 'XAF',
-      image: imp.image ?? '',
-      ingredients: imp.ingredients ?? [],
-      allergens: imp.allergens ?? [],
-      dietaryTags: imp.dietaryTags ?? [],
-      available: true,
-      preparationTime: imp.preparationTime ?? 15,
-      sortOrder: menuItems.length + i,
+    if (!restaurantId) return
+    const rows = await Promise.all(importItems.map(async (imp, i) => {
+      const categoryId = await ensureCategory(imp.category ?? 'Other')
+      return {
+        restaurant_id: restaurantId,
+        category_id: categoryId,
+        name: imp.name,
+        description: imp.description,
+        price: imp.price,
+        currency: 'USD',
+        image: imp.image ?? '',
+        ingredients: imp.ingredients ?? [],
+        allergens: imp.allergens ?? [],
+        metadata: { dietaryTags: imp.dietaryTags ?? [] },
+        is_available: true,
+        preparation_time: imp.preparationTime ?? 15,
+        sort_order: menuItems.length + i,
+      }
     }))
-    setMenuItems((prev) => [...prev, ...newItems])
-  }, [menuItems.length])
+    const { data, error } = await (supabase.from('menu_items') as any).insert(rows).select('*')
+    if (error || !data) return
+    setMenuItems((prev) => [...prev, ...data.map(rowToMenuItem)])
+  }, [menuItems.length, restaurantId, ensureCategory, supabase])
 
   const exportCSV = useCallback(() => {
     const header = 'Name,Description,Price,Category,Prep Time,Available'
@@ -176,10 +278,21 @@ export default function MenuPage() {
     a.download = 'menu.csv'
     a.click()
     URL.revokeObjectURL(url)
-  }, [menuItems])
+  }, [menuItems, CATEGORY_MAP])
 
   return (
     <motion.div variants={CONTAINER} initial="hidden" animate="visible" className="space-y-6">
+      {loadError && (
+        <div className="rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 px-4 py-3 text-sm text-red-600">
+          {loadError}
+        </div>
+      )}
+      {loading ? (
+        <div className="flex items-center justify-center py-24 text-text-tertiary gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading menu…
+        </div>
+      ) : (
+      <>
       {/* Header */}
       <motion.div variants={ITEM} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -213,7 +326,7 @@ export default function MenuPage() {
         {[
           { label: 'Total Items', value: stats.total, icon: Utensils },
           { label: 'Categories', value: stats.categories, icon: Tag },
-          { label: 'Avg Price', value: formatCurrency(stats.avgPrice, 'XAF'), icon: DollarSign },
+          { label: 'Avg Price', value: formatCurrency(stats.avgPrice, menuItems[0]?.currencyCode ?? 'USD'), icon: DollarSign },
           { label: 'Available', value: stats.onSale, icon: Eye },
         ].map((stat) => (
           <div key={stat.label} className="rounded-xl bg-surface border border-border p-4 flex items-center gap-3">
@@ -495,32 +608,64 @@ export default function MenuPage() {
         {showForm && (
           <MenuItemForm
             item={editItem ?? undefined}
-            onSubmit={(data) => {
-              if (data.id) {
-                setMenuItems((prev) =>
-                  prev.map((item) => (item.id === data.id ? { ...item, ...data } as MenuItem : item))
-                )
-              } else {
-                const newItem: MenuItem = {
-                  id: randomId(),
-                  businessId: 'b1',
-                  categoryId: CATEGORY_REVERSE['Mains'] ?? 'cat2',
-                  name: data.name ?? '',
-                  description: data.description ?? '',
-                  price: data.price ?? 0,
-                  currencyCode: 'XAF',
-                  image: data.image ?? '',
-                  ingredients: data.ingredients ?? [],
-                  allergens: data.allergens ?? [],
-                  dietaryTags: data.dietaryTags ?? [],
-                  available: data.available ?? true,
-                  preparationTime: data.preparationTime ?? 15,
-                  sortOrder: menuItems.length,
+            categories={categories}
+            loading={formSubmitting}
+            onSubmit={async (data) => {
+              setFormSubmitting(true)
+              try {
+                const categoryId = data.categoryName
+                  ? await ensureCategory(data.categoryName)
+                  : data.categoryId!
+
+                if (data.id) {
+                  const { error } = await (supabase.from('menu_items') as any)
+                    .update({
+                      category_id: categoryId,
+                      name: data.name,
+                      description: data.description,
+                      price: data.price,
+                      image: data.image,
+                      ingredients: data.ingredients,
+                      allergens: data.allergens,
+                      metadata: { dietaryTags: data.dietaryTags ?? [] },
+                      is_available: data.available,
+                      preparation_time: data.preparationTime,
+                    })
+                    .eq('id', data.id)
+                  if (error) throw error
+                  setMenuItems((prev) =>
+                    prev.map((item) => (item.id === data.id ? { ...item, ...data, categoryId } as MenuItem : item))
+                  )
+                } else {
+                  if (!restaurantId) throw new Error('No restaurant loaded')
+                  const { data: row, error } = await (supabase.from('menu_items') as any)
+                    .insert({
+                      restaurant_id: restaurantId,
+                      category_id: categoryId,
+                      name: data.name ?? '',
+                      description: data.description ?? '',
+                      price: data.price ?? 0,
+                      currency: 'USD',
+                      image: data.image ?? '',
+                      ingredients: data.ingredients ?? [],
+                      allergens: data.allergens ?? [],
+                      metadata: { dietaryTags: data.dietaryTags ?? [] },
+                      is_available: data.available ?? true,
+                      preparation_time: data.preparationTime ?? 15,
+                      sort_order: menuItems.length,
+                    })
+                    .select('*')
+                    .single()
+                  if (error || !row) throw error ?? new Error('Insert failed')
+                  setMenuItems((prev) => [...prev, rowToMenuItem(row)])
                 }
-                setMenuItems((prev) => [...prev, newItem])
+                setShowForm(false)
+                setEditItem(null)
+              } catch {
+                setLoadError('Failed to save menu item — please try again.')
+              } finally {
+                setFormSubmitting(false)
               }
-              setShowForm(false)
-              setEditItem(null)
             }}
             onClose={() => { setShowForm(false); setEditItem(null) }}
           />
@@ -624,6 +769,8 @@ export default function MenuPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      </>
+      )}
     </motion.div>
   )
 }

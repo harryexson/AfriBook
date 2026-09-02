@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FOOD_DELIVERY_STATUS_TRANSITIONS } from '@/types/ridely';
+import { getCurrencyForCountry, convertCurrency } from '@/lib/money';
 
 async function getDb() {
   const { createClient } = await import('@/lib/supabase/server');
@@ -33,22 +34,31 @@ function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: num
   return R * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
 }
 
-function estimatePricing(distanceKm: number, durationMin: number) {
+function estimatePricing(distanceKm: number, durationMin: number, countryCode?: string) {
+  // These base numbers (800/180/55/1200) are XAF-scale figures — converting
+  // them into the restaurant's actual currency, not just relabeling the
+  // amount, for the same reason as the general deliveries endpoint.
   const baseFare = 800;
   const perKmRate = 180;
   const perMinRate = 55;
   const minimumFare = 1200;
   const raw = baseFare + distanceKm * perKmRate + durationMin * perMinRate;
-  const estimatedFare = Math.max(minimumFare, Math.round(raw));
+  let estimatedFare = Math.max(minimumFare, Math.round(raw));
+
+  const currencyCode = countryCode ? getCurrencyForCountry(countryCode) : 'XAF';
+  const convert = (n: number) => (currencyCode === 'XAF' ? n : Math.round(convertCurrency(n, 'XAF', currencyCode)));
+  if (currencyCode !== 'XAF') {
+    estimatedFare = convert(estimatedFare);
+  }
 
   return {
-    baseFare,
-    perKmRate,
-    perMinRate,
-    minimumFare,
+    baseFare: convert(baseFare),
+    perKmRate: convert(perKmRate),
+    perMinRate: convert(perMinRate),
+    minimumFare: convert(minimumFare),
     surgeMultiplier: 1,
     estimatedFare,
-    currencyCode: 'XAF',
+    currencyCode,
   };
 }
 
@@ -96,7 +106,7 @@ export async function POST(req: NextRequest) {
 
     const { data: restaurant, error: restError } = await adminDb
       .from('restaurants')
-      .select('id, business_id, businesses!inner(id, name, owner_id, address, location)')
+      .select('id, business_id, businesses!inner(id, name, owner_id, address, location, country_code)')
       .eq('id', restaurantId)
       .single();
 
@@ -125,7 +135,7 @@ export async function POST(req: NextRequest) {
     const distanceKm = haversineKm(pickup, destination);
     const estimatedPrepTime = Math.max(10, Math.round(items.length * 5));
     const durationMin = Math.max(1, Math.round(distanceKm * 3)) + estimatedPrepTime;
-    const pricing = estimatePricing(distanceKm, durationMin);
+    const pricing = estimatePricing(distanceKm, durationMin, business.country_code as string | undefined);
 
     const totalItemPrice = items.reduce(
       (sum: number, item: { price: number; quantity: number }) => sum + item.price * item.quantity,

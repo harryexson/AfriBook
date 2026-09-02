@@ -229,7 +229,7 @@ export default function AdminPromoCodesPage() {
       <motion.div variants={ITEM} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <AdminStatCard label="Active Codes" value={String(activeCodes)} icon={Tag} change={10.2} accent="bg-amber-500" />
         <AdminStatCard label="Total Redemptions" value={totalRedemptions.toLocaleString()} icon={TrendingUp} change={18.4} accent="bg-emerald-500" />
-        <AdminStatCard label="Revenue Impact" value={formatCurrency(totalRevenueImpact, 'XAF')} icon={DollarSign} change={26.7} accent="bg-purple-500" />
+        <AdminStatCard label="Revenue Impact" value={formatCurrency(Math.round((totalRevenueImpact) / 620), 'USD')} icon={DollarSign} change={26.7} accent="bg-purple-500" />
         <AdminStatCard label="Avg Redemption Rate" value={`${avgRedemptionRate.toFixed(1)}%`} icon={BarChart3} change={5.3} accent="bg-blue-500" />
       </motion.div>
 
@@ -515,13 +515,13 @@ export default function AdminPromoCodesPage() {
                             <DollarSign className="w-3 h-3 text-amber-500" />
                           )}
                           <span className="text-sm font-medium text-text-primary">
-                            {code.discountType === 'percentage' ? `${code.discountValue}%` : formatCurrency(code.discountValue, 'XAF')}
+                            {code.discountType === 'percentage' ? `${code.discountValue}%` : formatCurrency(Math.round((code.discountValue) / 620), 'USD')}
                           </span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right hidden lg:table-cell">
                         <span className="text-xs text-text-secondary">
-                          {code.minOrder > 0 ? formatCurrency(code.minOrder, 'XAF') : 'None'}
+                          {code.minOrder > 0 ? formatCurrency(Math.round((code.minOrder) / 620), 'USD') : 'None'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -599,7 +599,7 @@ export default function AdminPromoCodesPage() {
                               <h4 className="text-sm font-semibold text-text-primary mb-2">Revenue Impact</h4>
                               <div className="p-4 rounded-xl bg-surface border border-border/50 text-center">
                                 <DollarSign className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                                <p className="text-2xl font-bold text-text-primary">{formatCurrency(code.revenueImpact, 'XAF')}</p>
+                                <p className="text-2xl font-bold text-text-primary">{formatCurrency(Math.round((code.revenueImpact) / 620), 'USD')}</p>
                                 <p className="text-xs text-text-secondary mt-1">Total revenue influenced</p>
                               </div>
                               <div className="mt-3 p-3 rounded-xl bg-surface border border-border/50">

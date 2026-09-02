@@ -15,6 +15,7 @@ import { StripePaymentSection } from '@/components/checkout/StripePaymentSection
 import { useCountry } from '@/components/shared/CountryProvider'
 import { estimateRideFare } from '@/lib/ridely/ride-pricing'
 import { cn, formatCurrency } from '@/lib/utils'
+import { geocodeAddress, requestGeolocation, reverseGeocode, haversineDistance } from '@/lib/geo'
 
 /** Estimate a driver's ETA to pickup in minutes from their last GPS report. */
 function estimateEta(
@@ -43,6 +44,9 @@ function estimateEta(
 }
 
 // --- Ride Type Definitions -----------------------------------
+// Icons are neutral (text-text-secondary) until selected, when they pick up
+// the single brand accent. Four unrelated colors here previously suggested
+// a meaning (eco/calm/luxury/speed) none of them actually carried.
 
 const RIDE_TYPES: {
   id: RideType
@@ -51,7 +55,6 @@ const RIDE_TYPES: {
   icon: typeof Car
   capacity: string
   eta: string
-  color: string
 }[] = [
   {
     id: 'economy',
@@ -60,7 +63,6 @@ const RIDE_TYPES: {
     icon: Car,
     capacity: '1-4',
     eta: '3-5 min',
-    color: 'text-emerald-500',
   },
   {
     id: 'comfort',
@@ -69,7 +71,6 @@ const RIDE_TYPES: {
     icon: Car,
     capacity: '1-4',
     eta: '4-7 min',
-    color: 'text-blue-500',
   },
   {
     id: 'premium',
@@ -78,7 +79,6 @@ const RIDE_TYPES: {
     icon: Car,
     capacity: '1-4',
     eta: '5-10 min',
-    color: 'text-amber-500',
   },
   {
     id: 'motorcycle',
@@ -87,7 +87,6 @@ const RIDE_TYPES: {
     icon: Bike,
     capacity: '1',
     eta: '2-3 min',
-    color: 'text-orange-500',
   },
 ]
 
@@ -131,11 +130,27 @@ export default function BookRidePage() {
   const [serverDistance, setServerDistance] = useState<number | null>(null)
   const [serverDuration, setServerDuration] = useState<number | null>(null)
 
+  // Geocoded coordinates for the addresses the rider actually typed (or their
+  // real device location). Previously this page always sent a hardcoded
+  // Lagos coordinate and a fixed 5.2km distance to the pricing/dispatch APIs
+  // regardless of country, address, or where the rider actually was — every
+  // ride, in every country, was priced and dispatched as if it started in
+  // Lagos. Distance now comes from real geocoding.
+  const [pickupCoords, setPickupCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [destinationCoords, setDestinationCoords] = useState<{ lat: number; lng: number } | null>(null)
+  const [geocoding, setGeocoding] = useState(false)
+  const [locating, setLocating] = useState(false)
+
   // Ride-status polling handle (replaces the old fake driver matching)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Price estimate (computed from distance) — per-country local currency
-  const estimatedDistance = 5.2 // Placeholder — in production, use geocoding + route API
+  // Price estimate — real distance once both addresses are geocoded, a
+  // reasonable placeholder before that (e.g. while still on the details
+  // step) so the UI never shows a blank fare.
+  const estimatedDistance =
+    pickupCoords && destinationCoords
+      ? Math.max(0.5, haversineDistance(pickupCoords.lat, pickupCoords.lng, destinationCoords.lat, destinationCoords.lng))
+      : 5.2
   const estimatedDuration = Math.round(estimatedDistance * 2.5)
   const estimated = estimateRideFare(selectedRideType, estimatedDistance, estimatedDuration, countryCode)
   const estimatedFare = estimated.estimatedFare
@@ -238,9 +253,8 @@ export default function BookRidePage() {
     setLoading(true)
 
     try {
-      // Simulated coordinates — in production, use geocoding
-      const pickup = { lat: 6.5244, lng: 3.3792 } // Lagos default
-      const destination = { lat: 6.5244 + 0.03, lng: 3.3792 + 0.02 }
+      const pickup = pickupCoords ?? { lat: 6.5244, lng: 3.3792 } // Lagos fallback only if geocoding failed
+      const destination = destinationCoords ?? { lat: pickup.lat + 0.03, lng: pickup.lng + 0.02 }
 
       const res = await fetch('/api/ridely/rides', {
         method: 'POST',
@@ -288,7 +302,7 @@ export default function BookRidePage() {
       setStep('details')
       setLoading(false)
     }
-  }, [user, pickupAddress, destinationAddress, selectedRideType, paymentType, countryCode, estimated.currencyCode, beginMatching, router])
+  }, [user, pickupAddress, destinationAddress, pickupCoords, destinationCoords, selectedRideType, paymentType, countryCode, estimated.currencyCode, beginMatching, router])
 
   const handlePaymentSuccess = useCallback(() => {
     if (rideId) beginMatching(rideId)
@@ -405,28 +419,58 @@ export default function BookRidePage() {
               {/* Quick actions */}
               <div className="flex gap-3 mb-8">
                 <button
-                  onClick={() => {
-                    setPickupAddress('Current Location')
+                  onClick={async () => {
+                    setLocating(true)
+                    setError(null)
+                    try {
+                      const position = await requestGeolocation()
+                      const { latitude, longitude } = position.coords
+                      setPickupCoords({ lat: latitude, lng: longitude })
+                      const place = await reverseGeocode(latitude, longitude)
+                      setPickupAddress(place?.displayName || 'Current location')
+                    } catch {
+                      setError('Could not get your location. Please type your pickup address.')
+                    } finally {
+                      setLocating(false)
+                    }
                   }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-secondary border border-border text-sm text-text-secondary hover:text-text-primary hover:border-amber-500/50 transition-colors"
+                  disabled={locating}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full bg-surface-secondary border border-border text-sm text-text-secondary hover:text-text-primary hover:border-amber-500/50 transition-colors disabled:opacity-50"
                 >
-                  <Navigation className="w-4 h-4" />
+                  {locating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Navigation className="w-4 h-4" />}
                   Current Location
                 </button>
               </div>
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   if (!pickupAddress.trim() || !destinationAddress.trim()) {
                     setError('Please enter both pickup and destination')
                     return
                   }
                   setError(null)
-                  setStep('select')
+                  setGeocoding(true)
+                  try {
+                    // Only geocode an address by text if we don't already have
+                    // coordinates for it (e.g. from "Current Location").
+                    const [pickupResult, destinationResult] = await Promise.all([
+                      pickupCoords ? null : geocodeAddress(pickupAddress, countryCode),
+                      geocodeAddress(destinationAddress, countryCode),
+                    ])
+                    if (pickupResult) setPickupCoords({ lat: pickupResult.latitude, lng: pickupResult.longitude })
+                    if (destinationResult) setDestinationCoords({ lat: destinationResult.latitude, lng: destinationResult.longitude })
+                  } catch {
+                    // Geocoding failed — estimated fare falls back to the
+                    // default distance; the server still recomputes on request.
+                  } finally {
+                    setGeocoding(false)
+                    setStep('select')
+                  }
                 }}
-                disabled={!pickupAddress.trim() || !destinationAddress.trim()}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!pickupAddress.trim() || !destinationAddress.trim() || geocoding}
+                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
+                {geocoding && <Loader2 className="w-4 h-4 animate-spin" />}
                 Choose Ride
               </button>
             </motion.div>
@@ -470,7 +514,7 @@ export default function BookRidePage() {
                         'w-12 h-12 rounded-xl flex items-center justify-center',
                         isSelected ? 'bg-amber-500/10' : 'bg-surface-secondary',
                       )}>
-                        <type.icon className={cn('w-6 h-6', isSelected ? 'text-amber-500' : type.color)} />
+                        <type.icon className={cn('w-6 h-6', isSelected ? 'text-amber-500' : 'text-text-secondary')} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -480,7 +524,7 @@ export default function BookRidePage() {
                         <p className="text-xs text-text-secondary">{type.description}</p>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="font-heading font-bold text-text-primary">
+                        <p className="font-heading font-bold font-mono tabular-nums text-text-primary">
                           {formatCurrency(fare, estimated.currencyCode)}
                         </p>
                         <p className="text-xs text-text-tertiary">{type.eta}</p>
@@ -516,12 +560,12 @@ export default function BookRidePage() {
               <div className="bg-surface-secondary rounded-xl p-4 border border-border mb-6">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">Estimated fare</span>
-                  <span className="font-heading text-xl font-bold text-text-primary">
+                  <span className="font-heading text-xl font-bold font-mono tabular-nums text-text-primary">
                     {formatCurrency(estimatedFare, estimated.currencyCode)}
                   </span>
                 </div>
-                <p className="text-xs text-text-tertiary mt-1">
-                  ~{estimatedDistance} km · ~{estimatedDuration} min
+                <p className="text-xs text-text-tertiary mt-1 font-mono tabular-nums">
+                  ~{estimatedDistance.toFixed(1)} km · ~{estimatedDuration} min
                 </p>
               </div>
 
@@ -560,14 +604,14 @@ export default function BookRidePage() {
               <div className="bg-surface-secondary rounded-xl p-4 border border-border mb-6">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-text-secondary">Estimated fare</span>
-                  <span className="font-heading text-xl font-bold text-text-primary">
+                  <span className="font-heading text-xl font-bold font-mono tabular-nums text-text-primary">
                     {formatCurrency(displayFare, displayCurrency)}
                   </span>
                 </div>
                 <p className="text-xs text-text-tertiary mt-1">
                   {pickupAddress} → {destinationAddress}
                 </p>
-                <p className="text-xs text-text-tertiary mt-1">
+                <p className="text-xs text-text-tertiary mt-1 font-mono tabular-nums">
                   ~{displayDistance.toFixed(1)} km · ~{displayDuration} min
                 </p>
               </div>
@@ -658,7 +702,7 @@ export default function BookRidePage() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-amber-500">{driverInfo.etaMinutes}</p>
+                      <p className="text-2xl font-bold font-mono tabular-nums text-amber-500">{driverInfo.etaMinutes}</p>
                       <p className="text-xs text-text-tertiary">min ETA</p>
                     </div>
                   </div>
@@ -733,7 +777,7 @@ export default function BookRidePage() {
                 Ride Complete!
               </h2>
               <p className="text-text-secondary mb-8">
-                You paid {formatCurrency(displayFare, displayCurrency)} via {paymentType}
+                You paid <span className="font-mono tabular-nums">{formatCurrency(displayFare, displayCurrency)}</span> via {paymentType}
               </p>
 
               {/* Rating */}

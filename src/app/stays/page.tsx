@@ -496,7 +496,7 @@ function HotelCard({ hotel, large = false, reason = null }: { hotel: StayHotelSu
           )}
           <div className="mt-4 flex items-end justify-between">
             <div>
-              <span className="text-xl font-bold text-text-primary">
+              <span className="text-xl font-bold font-mono tabular-nums text-text-primary">
                 {formatMoneySymbol(hotel.priceFrom, hotel.currencyCode)}
               </span>
               <span className="text-sm text-text-secondary"> /night</span>

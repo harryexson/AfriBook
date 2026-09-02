@@ -8,15 +8,21 @@ import type { MenuItem } from '@/types'
 
 interface MenuItemFormProps {
   item?: Partial<MenuItem>
-  onSubmit: (data: Partial<MenuItem>) => void
+  onSubmit: (data: Partial<MenuItem> & { categoryName?: string }) => void
   onClose: () => void
   loading?: boolean
+  /** Real categories for this restaurant, fetched by the page — this form
+   *  previously had no category field at all, so every new item silently
+   *  defaulted to a hardcoded "Mains" category regardless of what it
+   *  actually was. */
+  categories: { id: string; name: string }[]
 }
 
 const COMMON_ALLERGENS = ['Gluten', 'Dairy', 'Nuts', 'Soy', 'Eggs', 'Shellfish', 'Fish', 'Sesame', 'Sulfites']
 const COMMON_DIETARY = ['Vegetarian', 'Vegan', 'Halal', 'Gluten-Free', 'Keto', 'Organic']
+const NEW_CATEGORY_VALUE = '__new__'
 
-export default function MenuItemForm({ item, onSubmit, onClose, loading }: MenuItemFormProps) {
+export default function MenuItemForm({ item, onSubmit, onClose, loading, categories }: MenuItemFormProps) {
   const [form, setForm] = useState({
     name: item?.name ?? '',
     description: item?.description ?? '',
@@ -26,6 +32,11 @@ export default function MenuItemForm({ item, onSubmit, onClose, loading }: MenuI
     available: item?.available ?? true,
     sortOrder: item?.sortOrder ?? 0,
   })
+
+  const [categoryChoice, setCategoryChoice] = useState(
+    item?.categoryId ?? categories[0]?.id ?? NEW_CATEGORY_VALUE
+  )
+  const [newCategoryName, setNewCategoryName] = useState('')
 
   const [ingredients, setIngredients] = useState<string[]>(item?.ingredients ?? [])
   const [allergens, setAllergens] = useState<string[]>(item?.allergens ?? [])
@@ -44,6 +55,7 @@ export default function MenuItemForm({ item, onSubmit, onClose, loading }: MenuI
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const isNewCategory = categoryChoice === NEW_CATEGORY_VALUE
     onSubmit({
       ...item,
       ...form,
@@ -51,6 +63,8 @@ export default function MenuItemForm({ item, onSubmit, onClose, loading }: MenuI
       allergens,
       dietaryTags,
       id: item?.id,
+      categoryId: isNewCategory ? undefined : categoryChoice,
+      categoryName: isNewCategory ? (newCategoryName.trim() || 'Other') : undefined,
     })
   }
 
@@ -89,6 +103,30 @@ export default function MenuItemForm({ item, onSubmit, onClose, loading }: MenuI
               placeholder="e.g. Jollof Rice"
               className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-sm"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-text-primary mb-1.5">Category</label>
+            <select
+              value={categoryChoice}
+              onChange={(e) => setCategoryChoice(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-border bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-sm"
+            >
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+              <option value={NEW_CATEGORY_VALUE}>+ New category…</option>
+            </select>
+            {categoryChoice === NEW_CATEGORY_VALUE && (
+              <input
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="New category name"
+                required
+                className="w-full mt-2 px-4 py-2.5 rounded-xl border border-border bg-surface text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-sm"
+              />
+            )}
           </div>
 
           <div>

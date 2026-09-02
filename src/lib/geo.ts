@@ -94,6 +94,45 @@ export async function reverseGeocode(
   }
 }
 
+/**
+ * Forward-geocode a free-text address into coordinates. Used by ride/delivery
+ * booking so fare distance and driver dispatch are computed from where the
+ * rider actually typed, instead of a hardcoded city.
+ */
+export async function geocodeAddress(
+  query: string,
+  countryCode?: string,
+): Promise<{ latitude: number; longitude: number; displayName: string } | null> {
+  const trimmed = query.trim()
+  if (!trimmed) return null
+  try {
+    const params = new URLSearchParams({
+      format: 'json',
+      q: trimmed,
+      limit: '1',
+      addressdetails: '0',
+    })
+    if (countryCode) params.set('countrycodes', countryCode.toLowerCase())
+
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?${params.toString()}`,
+      { headers: { 'Accept-Language': 'en' } }
+    )
+    if (!res.ok) return null
+    const results = await res.json()
+    const first = Array.isArray(results) ? results[0] : null
+    if (!first) return null
+
+    return {
+      latitude: parseFloat(first.lat),
+      longitude: parseFloat(first.lon),
+      displayName: first.display_name ?? trimmed,
+    }
+  } catch {
+    return null
+  }
+}
+
 export function requestGeolocation(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {

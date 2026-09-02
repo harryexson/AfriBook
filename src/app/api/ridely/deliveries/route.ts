@@ -4,6 +4,7 @@ import {
   DELIVERY_STATUS_TRANSITIONS,
   type DeliveryType,
 } from '@/types/ridely';
+import { getCurrencyForCountry, convertCurrency } from '@/lib/money';
 
 async function getDb() {
   const { createClient } = await import('@/lib/supabase/server');
@@ -34,22 +35,34 @@ function estimatePricing(
   distanceKm: number,
   durationMin: number,
   surgeMultiplier: number = 1,
+  countryCode?: string,
 ) {
   const cfg = DELIVERY_TYPE_CONFIG[deliveryType];
   const baseFare = cfg.baseFare;
   const distanceFare = distanceKm * cfg.perKmRate;
   const timeFare = durationMin * cfg.perMinRate;
   const raw = baseFare + distanceFare + timeFare;
-  const estimatedFare = Math.max(cfg.minimumFare, Math.round(raw * surgeMultiplier));
+  let estimatedFare = Math.max(cfg.minimumFare, Math.round(raw * surgeMultiplier));
+
+  // DELIVERY_TYPE_CONFIG's numbers (500-2000 range) are XAF-scale figures —
+  // previously they were shown as-is under whatever currency label got
+  // attached, which is a second, worse bug than the mislabeling alone: a
+  // "1500 XAF" fee relabeled "$1500" is a real, absurd price change, not
+  // just a wrong symbol. Converting the amount, not just the label.
+  const currencyCode = countryCode ? getCurrencyForCountry(countryCode) : 'XAF';
+  const convert = (n: number) => (currencyCode === 'XAF' ? n : Math.round(convertCurrency(n, 'XAF', currencyCode)));
+  if (currencyCode !== 'XAF') {
+    estimatedFare = convert(estimatedFare);
+  }
 
   return {
-    baseFare,
-    perKmRate: cfg.perKmRate,
-    perMinRate: cfg.perMinRate,
-    minimumFare: cfg.minimumFare,
+    baseFare: convert(baseFare),
+    perKmRate: convert(cfg.perKmRate),
+    perMinRate: convert(cfg.perMinRate),
+    minimumFare: convert(cfg.minimumFare),
     surgeMultiplier,
     estimatedFare,
-    currencyCode: 'XAF',
+    currencyCode,
   };
 }
 
@@ -77,6 +90,7 @@ export async function POST(req: NextRequest) {
       destinationAddress,
       packageDetails = {},
       paymentType = 'cash',
+      countryCode,
     } = body;
 
     if (!pickup || !destination) {
@@ -107,7 +121,7 @@ export async function POST(req: NextRequest) {
 
     const distanceKm = haversineKm(pickup, destination);
     const durationMin = Math.max(1, Math.round(distanceKm * 3));
-    const pricing = estimatePricing(deliveryType as DeliveryType, distanceKm, durationMin);
+    const pricing = estimatePricing(deliveryType as DeliveryType, distanceKm, durationMin, 1, countryCode);
 
     const { data: delivery, error } = await supabase
       .from('ridely_deliveries')

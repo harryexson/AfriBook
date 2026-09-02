@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AfriBookMapView from "../../src/components/MapView";
 import { useLocation } from "../../src/hooks/useLocation";
 import { useRide } from "../../src/hooks/useRide";
+import { geocodeAddress } from "../../src/lib/geo";
 import { useMarketStore } from "../../src/stores/market-store";
 import { formatMoney } from "../../src/lib/money";
 import {
@@ -48,6 +49,7 @@ export default function RideRequestScreen() {
   const { location, isTracking, startTracking } = useLocation();
   const { ride, isLoading, error, requestRide, cancelRide } = useRide();
   const currencyCode = useMarketStore((s) => s.currencyCode());
+  const countryCode = useMarketStore((s) => s.countryCode);
 
   const [pickupAddress, setPickupAddress] = useState("");
   const [destinationAddress, setDestinationAddress] = useState("");
@@ -55,6 +57,7 @@ export default function RideRequestScreen() {
   const [step, setStep] = useState<"search" | "select" | "matching" | "riding">(
     "search",
   );
+  const [geocoding, setGeocoding] = useState(false);
 
   const handleRequestRide = useCallback(async () => {
     if (!location) {
@@ -74,12 +77,23 @@ export default function RideRequestScreen() {
     }
 
     setStep("matching");
+    setGeocoding(true);
 
-    // Simulated destination for demo — in production use geocoding
-    const destination = {
-      lat: location.latitude + 0.01,
-      lng: location.longitude + 0.01,
-    };
+    // Real geocoding now — this used to send `pickup + a fixed 0.01deg
+    // offset` as the "destination" to the real /api/ridely/rides endpoint,
+    // regardless of what the rider actually typed.
+    const geocoded = await geocodeAddress(destinationAddress, countryCode);
+    setGeocoding(false);
+    const destination = geocoded
+      ? { lat: geocoded.latitude, lng: geocoded.longitude }
+      : { lat: location.latitude + 0.01, lng: location.longitude + 0.01 };
+
+    if (!geocoded) {
+      Alert.alert(
+        "Couldn't find that address",
+        "We couldn't precisely locate the destination — continuing with an estimate. You can adjust the drop-off with your driver.",
+      );
+    }
 
     const rideId = await requestRide({
       pickup: { lat: location.latitude, lng: location.longitude },
@@ -102,6 +116,7 @@ export default function RideRequestScreen() {
     destinationAddress,
     selectedRideType,
     requestRide,
+    countryCode,
   ]);
 
   return (
@@ -226,10 +241,12 @@ export default function RideRequestScreen() {
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={handleRequestRide}
+              disabled={geocoding || isLoading}
             >
               <Text style={styles.primaryButtonText}>
-                Request{" "}
-                {RIDE_TYPES.find((t) => t.id === selectedRideType)?.name}
+                {geocoding
+                  ? "Finding destination…"
+                  : `Request ${RIDE_TYPES.find((t) => t.id === selectedRideType)?.name}`}
               </Text>
             </TouchableOpacity>
 
