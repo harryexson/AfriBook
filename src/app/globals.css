@@ -464,7 +464,9 @@ h6 {
 }
 
 .premium-card:hover {
-  transform: translateY(-6px);
+  /* No translateY/scale — design-system anti-pattern (see MASTER.md):
+     this app is browsed in long scrolling lists, and cards animating on
+     scroll reads as noisy, not premium. Border/shadow shift only. */
   box-shadow: 0 32px 110px rgba(15, 23, 42, 0.16);
   border-color: rgba(245, 158, 11, 0.28);
 }

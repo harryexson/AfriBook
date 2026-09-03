@@ -14,10 +14,12 @@ import { getCountryConfig } from '@/lib/localization'
 import { getCurrencyForCountry } from '@/lib/money'
 import type { CountryConfig } from '@/lib/localization/countries'
 import ServiceCard from '@/components/marketplace/ServiceCard'
+import ProviderCard from '@/components/marketplace/ProviderCard'
 import ReviewForm from '@/components/marketplace/ReviewForm'
 import MapEmbed from '@/components/shared/MapEmbed'
-import type { Business, Service, Review, Staff } from '@/types'
-import { getCountryBusinesses, getCountryServices } from '@/lib/countries-data'
+import Button from '@/components/ui/Button'
+import type { Business, Service, Review } from '@/types'
+import { getCountryBusinesses, getCountryServices, getStaffForBusiness } from '@/lib/countries-data'
 import { getWeekdayKey, formatInTimezone } from '@/lib/time'
 
 const CATEGORY_IMAGES: Record<string, string[]> = {
@@ -76,15 +78,6 @@ const DAY_LABELS: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed',
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 const NOW = Date.now()
 
-function defaultSchedule(): Staff['schedule'] {
-  return DAY_ORDER.map((day, d) => ({
-    day: day as Staff['schedule'][number]['day'],
-    start: d === 6 ? '10:00' : '08:00',
-    end: d === 6 ? '16:00' : '19:00',
-    isAvailable: d !== 6,
-  }))
-}
-
 export default function BusinessDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -127,22 +120,7 @@ export default function BusinessDetailPage() {
     )
   }
 
-  const staff: Staff[] = [
-    {
-      id: 'st1', businessId: business.id, userId: '', name: `${business.name.split(' ')[0]} Team Lead`,
-      role: 'Lead Provider', email: '', phone: business.contact.phone, avatarUrl: '',
-      schedule: defaultSchedule(), serviceIds: services.slice(0, 2).map((s) => s.id),
-      isActive: true, bio: `Lead at ${business.name}, ensuring top quality service in ${business.address.city}.`,
-      rating: Math.min(5, business.rating + 0.1), createdAt: '', updatedAt: '',
-    },
-    {
-      id: 'st2', businessId: business.id, userId: '', name: `${business.address.city} Specialist`,
-      role: 'Service Specialist', email: '', phone: business.contact.phone, avatarUrl: '',
-      schedule: defaultSchedule(), serviceIds: services.slice(2).map((s) => s.id),
-      isActive: true, bio: `Focused on delivering ${business.category} excellence to every customer.`,
-      rating: business.rating, createdAt: '', updatedAt: '',
-    },
-  ]
+  const staff = getStaffForBusiness(business, services)
 
   const reviews: Review[] = [
     {
@@ -387,25 +365,26 @@ export default function BusinessDetailPage() {
                 {/* Staff Tab */}
                 {activeTab === 'staff' && (
                   <div className="space-y-4">
-                    {staff.map((s) => (
-                      <div key={s.id} className="flex items-start gap-4 p-4 rounded-xl bg-surface-secondary border border-border">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white font-bold shrink-0">
-                          {s.name.charAt(0)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-text-primary">{s.name}</h4>
-                          <p className="text-sm text-text-secondary">{s.role}</p>
-                          {s.bio && <p className="text-sm text-text-secondary mt-1">{s.bio}</p>}
-                          <div className="flex items-center gap-3 mt-2 text-xs text-text-secondary">
-                            <span className="flex items-center gap-1"><Star className="w-3 h-3 text-amber-500 fill-amber-500" />{s.rating.toFixed(1)}</span>
-                            <span>{s.serviceIds.length} services</span>
-                          </div>
-                        </div>
-                        <button className="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors shrink-0">
-                          Book
-                        </button>
+                    {staff.length > 0 ? (
+                      staff.map((s) => (
+                        <ProviderCard
+                          key={s.id}
+                          staff={s}
+                          selectLabel="Book"
+                          onSelect={(selected) => {
+                            // Book the first service this provider offers —
+                            // matches the Services tab's own booking link.
+                            // Previously this button had no handler at all.
+                            const firstServiceId = selected.serviceIds[0] ?? services[0]?.id
+                            if (firstServiceId) router.push(`/${params?.country}/book/${business.id}/${firstServiceId}`)
+                          }}
+                        />
+                      ))
+                    ) : (
+                      <div className="text-center py-12 text-text-secondary">
+                        <p className="font-medium">No staff listed yet</p>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
 
@@ -579,14 +558,14 @@ export default function BusinessDetailPage() {
           <div className="flex items-center justify-between gap-4 max-w-lg mx-auto">
             <div>
               <p className="text-xs text-text-secondary">Starting from</p>
-              <p className="font-bold text-text-primary">{formatCurrency(startingPrice, currencyCode)}</p>
+              <p className="font-bold font-mono tabular-nums text-text-primary">{formatCurrency(startingPrice, currencyCode)}</p>
             </div>
-            <button
+            <Button
+              className="flex-1"
               onClick={() => router.push(`/${params?.country}/book/${business.id}/${services[0].id}`)}
-              className="flex-1 py-3 rounded-xl bg-amber-500 text-white font-semibold text-sm hover:bg-amber-600 transition-colors shadow-sm"
             >
               Book Now
-            </button>
+            </Button>
           </div>
         </div>
       )}

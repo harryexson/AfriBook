@@ -2,48 +2,54 @@
 
 import { useState, useMemo } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   ChevronLeft, Shield, Check, Clock, MapPin, User,
-  Sparkles,
+  Sparkles, SearchX,
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { getCountryConfig } from '@/lib/localization'
 import { getCurrencyForCountry } from '@/lib/money'
 import type { CountryConfig } from '@/lib/localization/countries'
+import { getCountryBusinesses, getCountryServices, getStaffForBusiness } from '@/lib/countries-data'
 import BookingCalendar from '@/components/marketplace/BookingCalendar'
 import PriceBreakdown from '@/components/marketplace/PriceBreakdown'
 import type { PriceLineItem } from '@/components/marketplace/PriceBreakdown'
-import type { Service, Staff } from '@/types'
-
-const MOCK_SERVICE: Service = {
-  id: 's1', businessId: 'b1', name: 'Fresh Produce Box', description: 'Assorted seasonal fruits and vegetables - enough for a family of 4 for a week. Includes tomatoes, onions, peppers, leafy greens, and seasonal fruits.', duration: 30, price: 3500, currencyCode: 'NGN', category: 'Food & Dining', available: true, maxCapacityPerSlot: 10, paddingMinutes: 0, createdAt: '', updatedAt: '',
-}
-
-const MOCK_ADDONS = [
-  { id: 'a1', name: 'Premium Fruit Upgrade', price: 2000 },
-  { id: 'a2', name: 'Express Delivery', price: 1500 },
-  { id: 'a3', name: 'Gift Wrapping', price: 500 },
-]
-
-const MOCK_STAFF: Staff[] = [
-  { id: 'st1', businessId: 'b1', userId: '', name: 'Adebayo Ola', role: 'Senior Farmer', email: 'ade@lagosfreshmarket.ng', phone: '+234 800 111 2222', avatarUrl: '', schedule: [{ day: 'mon', start: '07:00', end: '15:00', isAvailable: true }, { day: 'tue', start: '07:00', end: '15:00', isAvailable: true }, { day: 'wed', start: '07:00', end: '15:00', isAvailable: true }, { day: 'thu', start: '07:00', end: '15:00', isAvailable: true }, { day: 'fri', start: '07:00', end: '14:00', isAvailable: true }, { day: 'sat', start: '08:00', end: '13:00', isAvailable: true }, { day: 'sun', start: '00:00', end: '00:00', isAvailable: false }], serviceIds: ['s1', 's2'], isActive: true, bio: '', rating: 4.9, createdAt: '', updatedAt: '' },
-  { id: 'st2', businessId: 'b1', userId: '', name: 'Chioma Eze', role: 'Produce Specialist', email: 'chioma@lagosfreshmarket.ng', phone: '+234 800 333 4444', avatarUrl: '', schedule: [{ day: 'mon', start: '09:00', close: '17:00', isAvailable: true }, { day: 'tue', start: '09:00', close: '17:00', isAvailable: true }, { day: 'wed', start: '09:00', close: '17:00', isAvailable: true }, { day: 'thu', start: '09:00', close: '17:00', isAvailable: true }, { day: 'fri', start: '09:00', close: '16:00', isAvailable: true }, { day: 'sat', start: '10:00', close: '15:00', isAvailable: true }, { day: 'sun', start: '00:00', close: '00:00', isAvailable: false }], serviceIds: ['s3', 's4'], isActive: true, bio: '', rating: 4.8, createdAt: '', updatedAt: '' },
-]
 
 export default function BookingPage() {
   const params = useParams()
   const router = useRouter()
   const countryCode = (params?.country as string)?.toUpperCase() ?? 'NG'
+  const businessId = (params?.businessId as string) ?? ''
+  const serviceId = (params?.serviceId as string) ?? ''
   const country = getCountryConfig(countryCode) as CountryConfig | undefined
   const currencyCode = country?.currency.code ?? getCurrencyForCountry(countryCode)
 
-  const service = MOCK_SERVICE
+  // Real lookup — this page used to render a hardcoded "Fresh Produce Box"
+  // regardless of which business/service was actually clicked. Same data
+  // source as the business detail page (getCountryBusinesses/Services), so
+  // a barbershop's haircut now actually shows up here as a haircut.
+  const business = useMemo(
+    () => getCountryBusinesses(countryCode).find((b) => b.id === businessId),
+    [countryCode, businessId],
+  )
+  const businessServices = useMemo(
+    () => (business ? getCountryServices(countryCode).filter((s) => s.businessId === business.id) : []),
+    [countryCode, business],
+  )
+  const service = useMemo(
+    () => businessServices.find((s) => s.id === serviceId),
+    [businessServices, serviceId],
+  )
+  const staff = useMemo(
+    () => (business ? getStaffForBusiness(business, businessServices) : []),
+    [business, businessServices],
+  )
 
   const [selectedDate, setSelectedDate] = useState<Date>()
   const [selectedTime, setSelectedTime] = useState<string>()
   const [selectedStaff, setSelectedStaff] = useState<string>()
-  const [addons, setAddons] = useState<string[]>([])
   const [notes, setNotes] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
@@ -53,17 +59,41 @@ export default function BookingPage() {
   const [promoError, setPromoError] = useState<string | null>(null)
   const [step, setStep] = useState(1)
 
-  const staffSlots = useMemo(() => MOCK_STAFF.map((s) => ({
+  const staffSlots = useMemo(() => staff.map((s) => ({
     staffId: s.id,
     staffName: s.name,
     slots: [],
-  })), [])
+  })), [staff])
 
-  const addonTotal = useMemo(() => {
-    return MOCK_ADDONS.filter((a) => addons.includes(a.id)).reduce((sum, a) => sum + a.price, 0)
-  }, [addons])
+  // All hooks above run unconditionally on every render (Rules of Hooks) —
+  // only branch on missing data after they've all been called.
+  if (!business || !service) {
+    return (
+      <div className="min-h-screen pt-24 pb-12">
+        <div className="max-w-lg mx-auto px-4 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-surface-secondary flex items-center justify-center mx-auto mb-4">
+            <SearchX className="w-8 h-8 text-text-tertiary" />
+          </div>
+          <h1 className="text-xl font-bold text-text-primary">Service not found</h1>
+          <p className="text-text-secondary mt-1">This service may no longer be available, or the link is incorrect.</p>
+          <Link
+            href={`/${countryCode}/search`}
+            className="mt-5 inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Browse services in {country?.name ?? 'this country'}
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
-  const subtotal = service.price + addonTotal
+  // No add-ons data model exists on Service yet (checked src/types/index.ts)
+  // — the previous MOCK_ADDONS ("Gift Wrapping", "Express Delivery") were
+  // food-delivery-specific and nonsensical on e.g. a haircut booking.
+  // Dropped rather than faked; a real add-ons feature is a separate,
+  // larger addition (would need a schema field + vendor-side management).
+  const subtotal = service.price
   const platformFee = subtotal * 0.1
   const taxRate = country?.taxRate ?? 0.075
   const tax = subtotal * taxRate
@@ -72,10 +102,6 @@ export default function BookingPage() {
 
   const priceItems: PriceLineItem[] = [
     { label: service.name, amount: service.price, type: 'subtotal' },
-    ...addons.filter((a) => addons.includes(a)).map((a) => {
-      const addon = MOCK_ADDONS.find((ad) => ad.id === a)
-      return addon ? { label: addon.name, amount: addon.price } as PriceLineItem : null
-    }).filter(Boolean) as PriceLineItem[],
     { label: 'Platform fee (10%)', amount: platformFee, type: 'fee' },
     { label: country?.taxName ?? 'Tax', amount: tax, type: 'tax' },
     ...(discount > 0 ? [{ label: 'Discount', amount: discount, type: 'discount' as const }] : []),
@@ -96,7 +122,7 @@ export default function BookingPage() {
   const canProceedStep2 = customerName && customerEmail
 
   const handleBook = () => {
-    console.log('Booking confirmed:', { service: service.id, staff: selectedStaff, date: selectedDate, time: selectedTime, addons, notes, total })
+    console.log('Booking confirmed:', { business: business.id, service: service.id, staff: selectedStaff, date: selectedDate, time: selectedTime, notes, total })
     router.push(`/${params?.country}/order/${'ORD-' + Math.random().toString(36).substring(2, 8).toUpperCase()}`)
   }
 
@@ -208,27 +234,6 @@ export default function BookingPage() {
                   </div>
                 </div>
 
-                {/* Add-ons */}
-                <div className="bg-surface rounded-2xl border border-border p-6">
-                  <h2 className="text-lg font-bold font-heading text-text-primary mb-4">Add-ons</h2>
-                  <div className="space-y-3">
-                    {MOCK_ADDONS.map((addon) => (
-                      <label key={addon.id} className="flex items-center justify-between p-3 rounded-xl bg-surface-secondary border border-border cursor-pointer hover:border-amber-500/30 transition-all">
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="checkbox"
-                            checked={addons.includes(addon.id)}
-                            onChange={() => setAddons((prev) => prev.includes(addon.id) ? prev.filter((a) => a !== addon.id) : [...prev, addon.id])}
-                            className="w-4 h-4 rounded border-border text-amber-500 focus:ring-amber-500/30"
-                          />
-                          <span className="text-sm font-medium text-text-primary">{addon.name}</span>
-                        </div>
-                        <span className="text-sm font-semibold text-text-primary">+{formatCurrency(addon.price, service.currencyCode ?? currencyCode)}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
                 {/* Notes */}
                 <div className="bg-surface rounded-2xl border border-border p-6">
                   <h2 className="text-lg font-bold font-heading text-text-primary mb-4">Notes</h2>
@@ -274,8 +279,8 @@ export default function BookingPage() {
                     { icon: User, label: 'Customer', value: customerName },
                     { icon: Clock, label: 'Date & Time', value: selectedDate ? `${selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${selectedTime}` : '' },
                     { icon: Clock, label: 'Duration', value: `${service.duration} minutes` },
-                    { icon: MapPin, label: 'Location', value: 'Victoria Island, Lagos' },
-                    { icon: User, label: 'Staff', value: MOCK_STAFF.find((s) => s.id === selectedStaff)?.name ?? 'Any available' },
+                    { icon: MapPin, label: 'Location', value: business.address?.formatted || `${business.address?.city ?? ''}, ${country?.name ?? ''}` },
+                    { icon: User, label: 'Staff', value: staff.find((s) => s.id === selectedStaff)?.name ?? 'Any available' },
                   ].map((item, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm">
                       <item.icon className="w-4 h-4 text-amber-500 shrink-0" />

@@ -11,7 +11,7 @@
 //     that layers real vendor data on top.
 // ─────────────────────────────────────────────────────────────
 
-import type { Business, Service } from '@/types'
+import type { Business, Service, Staff } from '@/types'
 import { COUNTRIES } from '@/lib/localization/countries'
 import type { CountryConfig } from '@/lib/localization/countries'
 
@@ -362,6 +362,44 @@ export function getCountryServices(countryCode: string): Service[] {
   const businesses = getCountryBusinesses(countryCode)
   if (curated.length > 0) return curated
   return generateCountryServices(countryCode, businesses)
+}
+
+const STAFF_DAY_ORDER: Staff['schedule'][number]['day'][] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
+
+function defaultStaffSchedule(): Staff['schedule'] {
+  return STAFF_DAY_ORDER.map((day, d) => ({
+    day,
+    start: d === 6 ? '10:00' : '08:00',
+    end: d === 6 ? '16:00' : '19:00',
+    isAvailable: d !== 6,
+  }))
+}
+
+/**
+ * Deterministic staff for a business, derived from the business + its own
+ * services so it stays consistent everywhere it's needed (business detail
+ * page's Staff tab, and the booking flow's staff picker) instead of each
+ * call site inventing its own — that drift is exactly how the booking page
+ * ended up showing a hardcoded mock provider regardless of which business
+ * was actually being booked.
+ */
+export function getStaffForBusiness(business: Business, services: Service[]): Staff[] {
+  return [
+    {
+      id: `${business.id}-st1`, businessId: business.id, userId: '', name: `${business.name.split(' ')[0]} Team Lead`,
+      role: 'Lead Provider', email: '', phone: business.contact.phone, avatarUrl: '',
+      schedule: defaultStaffSchedule(), serviceIds: services.slice(0, 2).map((s) => s.id),
+      isActive: true, bio: `Lead at ${business.name}, ensuring top quality service in ${business.address.city}.`,
+      rating: Math.min(5, business.rating + 0.1), createdAt: '', updatedAt: '',
+    },
+    {
+      id: `${business.id}-st2`, businessId: business.id, userId: '', name: `${business.address.city} Specialist`,
+      role: 'Service Specialist', email: '', phone: business.contact.phone, avatarUrl: '',
+      schedule: defaultStaffSchedule(), serviceIds: services.slice(2).map((s) => s.id),
+      isActive: true, bio: `Focused on delivering ${business.category} excellence to every customer.`,
+      rating: business.rating, createdAt: '', updatedAt: '',
+    },
+  ]
 }
 
 export function getAllCountryCodes(): string[] {

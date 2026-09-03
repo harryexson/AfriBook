@@ -3,9 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
   Search, Star, Users, ShoppingBag, ArrowRight,
-  Sparkles, Clock, ChevronRight, Store, Heart, Calendar, Zap,
-  Wrench, GraduationCap, Laptop, UtensilsCrossed, Car, Scale, Building2,
-  Ticket, Shirt, Sprout, Bus, Compass, Truck, BookOpen, PartyPopper, Dumbbell,
+  Clock, ChevronRight, Calendar, Zap, Store,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getCountryConfig, formatPrice } from '@/lib/localization'
@@ -18,6 +16,7 @@ import {
 } from '@/lib/countries-data'
 import BusinessCard from '@/components/marketplace/BusinessCard'
 import PromoCard, { type PromoConfig } from '@/components/marketplace/PromoCard'
+import CategoryIcon from '@/components/marketplace/CategoryIcon'
 import type { Business, Service } from '@/types'
 
 export function generateStaticParams() {
@@ -68,18 +67,6 @@ const HERO_GRADIENT = 'from-amber-600 via-amber-700 to-dark-800'
 // One distinct icon per category — previously five icons (Store, Sparkles,
 // MapPin, Star, TrendingUp) were each reused across 2-3 unrelated
 // categories, which made the category grid hard to scan at a glance.
-function CategoryIcon({ name, className }: { name: string; className?: string }) {
-  const icons: Record<string, React.ComponentType<{ className?: string }>> = {
-    'Home Services': Wrench, 'Healthcare': Heart, 'Education': GraduationCap, 'Technology': Laptop,
-    'Food & Dining': UtensilsCrossed, 'Beauty & Wellness': Sparkles, 'Automotive': Car, 'Legal & Financial': Scale,
-    'Real Estate': Building2, 'Entertainment': Ticket, 'Fashion & Tailoring': Shirt, 'Agriculture': Sprout,
-    'Transportation': Bus, 'Tourism': Compass, 'Logistics': Truck, 'Tutoring': BookOpen,
-    'Event Planning': PartyPopper, 'Fitness': Dumbbell,
-  }
-  const Icon = icons[name] ?? Store
-  return <Icon className={cn('w-6 h-6', className)} />
-}
-
 // ─── Promos (currency aware, deterministic) ──────────────────
 function getCountryPromos(country: CountryConfig): PromoConfig[] {
   const symbol = country.currency.symbol

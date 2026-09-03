@@ -12,6 +12,7 @@ import SearchHeader from '@/components/marketplace/SearchHeader'
 import FilterSidebar from '@/components/marketplace/FilterSidebar'
 import type { FilterState } from '@/components/marketplace/FilterSidebar'
 import { getCountryBusinesses, getCountryServices } from '@/lib/countries-data'
+import CategoryIcon from '@/components/marketplace/CategoryIcon'
 
 const ITEMS_PER_PAGE = 6
 const PRICE_RANGE: [number, number] = [0, 200000]
@@ -59,6 +60,16 @@ export default function SearchPage() {
     return count
   }, [filters])
 
+  // `useSearchParams()` can return a new object identity on every render
+  // (a known Next.js App Router gotcha) even when the URL hasn't changed —
+  // depending on the object itself here turned this into an effect that
+  // fires on every render, silently resetting `filters.categories` back to
+  // the URL's value in an infinite loop and fighting any local category
+  // click (both this page's own pill bar and FilterSidebar's checkboxes)
+  // before the click could ever take visible effect. Depend on the
+  // stringified params instead — a primitive that's only unequal when the
+  // query actually changes.
+  const searchParamsKey = searchParams?.toString() ?? ''
   useEffect(() => {
     setQuery(searchParams?.get('q') ?? '')
     setFilters((f) => ({
@@ -66,7 +77,8 @@ export default function SearchPage() {
       categories: searchParams?.get('category') ? [searchParams.get('category') as string] : [],
     }))
     setPage(1)
-  }, [searchParams])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParamsKey])
 
   const filteredBusinesses = useMemo(() => {
     let results = MOCK_BUSINESSES
@@ -83,7 +95,18 @@ export default function SearchPage() {
     }
 
     if (filters.categories.length > 0) {
-      results = results.filter((b) => filters.categories.includes(b.category))
+      // Match on the business's own category field OR its tags. Curated
+      // and generated businesses only ever set `category` to a broad
+      // parent (e.g. "Beauty & Wellness") — the granular gig subcategories
+      // (Barber, Spa, Photographer, ...) only show up as free-text tags
+      // ("barber", "haircut"). Matching category-only meant picking any of
+      // those granular filters always returned zero results even for a
+      // business that's exactly that kind of provider.
+      const wanted = filters.categories.map((c) => c.toLowerCase())
+      results = results.filter((b) =>
+        wanted.includes(b.category.toLowerCase()) ||
+        b.tags.some((t) => wanted.includes(t.toLowerCase())),
+      )
     }
 
     if (filters.priceMin > 0 || filters.priceMax < priceRange[1]) {
@@ -161,7 +184,45 @@ export default function SearchPage() {
           suggestions={SUGGESTIONS}
         />
 
-        <div className="flex gap-8 mt-6">
+        {/* Category pill bar — adapted from Sarwisi's horizontal category
+            browsing strip; icons come from the same CATEGORY_ICON_MAP the
+            homepage uses, so a category reads the same icon everywhere. */}
+        <div className="flex gap-2 overflow-x-auto pb-1 mt-6 scrollbar-none">
+          <button
+            onClick={() => { setFilters((f) => ({ ...f, categories: [] })); setPage(1) }}
+            className={cn(
+              'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors',
+              filters.categories.length === 0
+                ? 'border-amber-500 bg-amber-500 text-amber-950'
+                : 'border-border text-text-secondary hover:border-amber-500/40',
+            )}
+          >
+            All
+          </button>
+          {categories.map((cat) => {
+            const active = filters.categories.includes(cat)
+            return (
+              <button
+                key={cat}
+                onClick={() => {
+                  setFilters((f) => ({ ...f, categories: active ? [] : [cat] }))
+                  setPage(1)
+                }}
+                className={cn(
+                  'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors',
+                  active
+                    ? 'border-amber-500 bg-amber-500 text-amber-950'
+                    : 'border-border text-text-secondary hover:border-amber-500/40',
+                )}
+              >
+                <CategoryIcon name={cat} className="w-4 h-4" />
+                {cat}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex gap-8 mt-4">
           {/* Filter Sidebar - Desktop */}
           <FilterSidebar
             categories={categories}
