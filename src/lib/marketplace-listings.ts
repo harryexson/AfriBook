@@ -85,3 +85,15 @@ export const MARKETPLACE_LISTINGS: MarketplaceListing[] = [
 export function getMarketplaceListing(id: string): MarketplaceListing | undefined {
   return MARKETPLACE_LISTINGS.find((l) => l.id === id)
 }
+
+/** All curated cross-border listings. This is intentionally a small,
+ *  hand-curated showcase (not the per-country generated business/service
+ *  system in countries-data.ts) — it has no countryCode/currency fields,
+ *  so it isn't country-scoped the way search/business pages are. */
+export function getAllListings(): MarketplaceListing[] {
+  return MARKETPLACE_LISTINGS
+}
+
+export function getListingCategories(): string[] {
+  return Array.from(new Set(MARKETPLACE_LISTINGS.map((l) => l.category))).sort()
+}
