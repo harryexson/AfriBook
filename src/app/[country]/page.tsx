@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import {
   Search, Star, Users, ShoppingBag, ArrowRight,
-  Clock, ChevronRight, Calendar, Zap, Store,
+  Clock, Calendar, Zap, Store,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getCountryConfig, formatPrice } from '@/lib/localization'
@@ -17,6 +17,8 @@ import {
 import BusinessCard from '@/components/marketplace/BusinessCard'
 import PromoCard, { type PromoConfig } from '@/components/marketplace/PromoCard'
 import CategoryIcon from '@/components/marketplace/CategoryIcon'
+import IconTile from '@/components/ui/IconTile'
+import SectionHeader from '@/components/ui/SectionHeader'
 import type { Business, Service } from '@/types'
 
 export function generateStaticParams() {
@@ -197,33 +199,22 @@ export default async function CountryHomePage({
       {/* Categories */}
       <section className="py-16 sm:py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between mb-10">
-            <div>
-              <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
-                Browse by category
-              </h2>
-              <p className="mt-2 text-text-secondary">
-                Find services available in {countryConfig.name}
-              </p>
-            </div>
-            <Link
-              href={`/${code}/search`}
-              className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-amber-500 hover:text-amber-600 transition-colors"
-            >
-              View all <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
+          <SectionHeader
+            title="Browse by category"
+            subtitle={`Find services available in ${countryConfig.name}`}
+            viewAllHref={`/${code}/search`}
+          />
 
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {countryConfig.categories.map((cat) => (
               <Link
                 key={cat}
                 href={`/${code}/search?category=${encodeURIComponent(cat)}`}
-                className="group flex flex-col items-center gap-3 p-5 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 active:scale-[0.98] transition-all duration-300"
+                className="group flex flex-col items-center gap-3 p-5 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/30 transition-colors duration-200"
               >
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600 text-white shadow-lg transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-1">
+                <IconTile size="lg">
                   <CategoryIcon name={cat} />
-                </div>
+                </IconTile>
                 <span className="text-sm font-semibold text-text-primary text-center group-hover:text-amber-500 transition-colors">
                   {cat}
                 </span>
@@ -236,22 +227,11 @@ export default async function CountryHomePage({
       {/* Featured Businesses */}
       <section className="py-16 sm:py-20 bg-surface-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between mb-10">
-            <div>
-              <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
-                Featured in {countryConfig.name}
-              </h2>
-              <p className="mt-2 text-text-secondary">
-                Top-rated businesses near you
-              </p>
-            </div>
-            <Link
-              href={`/${code}/search`}
-              className="hidden sm:inline-flex items-center gap-1 text-sm font-semibold text-amber-500 hover:text-amber-600 transition-colors"
-            >
-              View all <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
+          <SectionHeader
+            title={`Featured in ${countryConfig.name}`}
+            subtitle="Top-rated businesses near you"
+            viewAllHref={`/${code}/search`}
+          />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {featured.map((b, i) => (
@@ -265,27 +245,19 @@ export default async function CountryHomePage({
       {trending.length > 0 && (
         <section className="py-16 sm:py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex items-end justify-between mb-10">
-              <div>
-                <h2 className="text-3xl sm:text-4xl font-bold font-heading text-text-primary">
-                  Trending services
-                </h2>
-                <p className="mt-2 text-text-secondary">
-                  Book instantly in {countryConfig.name}
-                </p>
-              </div>
-            </div>
+            <SectionHeader
+              title="Trending services"
+              subtitle={`Book instantly in ${countryConfig.name}`}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {trending.map(({ service, business }) => (
                 <Link
                   key={service.id}
                   href={`/${code}/book/${service.businessId}/${service.id}`}
-                  className="group flex items-start gap-4 p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 active:scale-[0.98] transition-all duration-300"
+                  className="group flex items-start gap-4 p-5 rounded-2xl bg-surface border border-border hover:border-amber-500/30 transition-colors duration-200"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-white flex items-center justify-center shrink-0">
-                    <Zap className="w-5 h-5" />
-                  </div>
+                  <IconTile icon={Zap} />
                   <div className="flex-1 min-w-0">
                     <span className="text-xs font-semibold text-amber-500 uppercase tracking-wider">
                       {business.name}

@@ -2,7 +2,12 @@ import { cn } from '@/lib/utils'
 import type { LucideIcon } from 'lucide-react'
 
 interface IconTileProps {
-  icon: LucideIcon
+  /** A fixed icon component. Omit and pass `children` instead when the
+   *  icon is resolved dynamically (e.g. CategoryIcon, which looks up a
+   *  Lucide icon by category name at render time rather than being one
+   *  itself). */
+  icon?: LucideIcon
+  children?: React.ReactNode
   size?: 'sm' | 'md' | 'lg'
   className?: string
 }
@@ -19,7 +24,7 @@ const SIZE_CLASSES: Record<NonNullable<IconTileProps['size']>, { box: string; ic
  * see design direction notes). Solid amber gradient by default; pass
  * className to override for a specific section's accent needs.
  */
-export default function IconTile({ icon: Icon, size = 'md', className }: IconTileProps) {
+export default function IconTile({ icon: Icon, children, size = 'md', className }: IconTileProps) {
   const { box, icon } = SIZE_CLASSES[size]
   return (
     <div
@@ -29,7 +34,7 @@ export default function IconTile({ icon: Icon, size = 'md', className }: IconTil
         className,
       )}
     >
-      <Icon className={icon} />
+      {Icon ? <Icon className={icon} /> : children}
     </div>
   )
 }
