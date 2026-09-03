@@ -19,6 +19,7 @@ import PromoCard, { type PromoConfig } from '@/components/marketplace/PromoCard'
 import CategoryIcon from '@/components/marketplace/CategoryIcon'
 import IconTile from '@/components/ui/IconTile'
 import SectionHeader from '@/components/ui/SectionHeader'
+import CtaBanner from '@/components/marketplace/CtaBanner'
 import type { Business, Service } from '@/types'
 
 export function generateStaticParams() {
@@ -305,6 +306,27 @@ export default async function CountryHomePage({
               <PromoCard key={promo.title} promo={promo} />
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Vendor recruitment — previously nowhere on the highest-traffic
+          page in the app; /sell exists but nothing on the homepage ever
+          pointed to it. Stats are the real per-country numbers already
+          computed above (getCountryStats), not invented figures. */}
+      <section className="py-16 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <CtaBanner
+            icon={Store}
+            eyebrow="Sell on AfriBook"
+            title={`Grow your business in ${countryConfig.name}`}
+            description={`Join ${stats.providers} vendors already reaching customers across ${countryConfig.name} on AfriBook — list your services or products in minutes.`}
+            ctaLabel="Become a Vendor"
+            ctaHref="/sell"
+            stats={[
+              { label: 'Active vendors', value: stats.providers },
+              { label: 'Bookings so far', value: stats.bookings },
+            ]}
+          />
         </div>
       </section>
     </div>
