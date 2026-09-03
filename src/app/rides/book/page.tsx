@@ -16,6 +16,7 @@ import { useCountry } from '@/components/shared/CountryProvider'
 import { estimateRideFare } from '@/lib/ridely/ride-pricing'
 import { cn, formatCurrency } from '@/lib/utils'
 import { geocodeAddress, requestGeolocation, reverseGeocode, haversineDistance } from '@/lib/geo'
+import Button from '@/components/ui/Button'
 
 /** Estimate a driver's ETA to pickup in minutes from their last GPS report. */
 function estimateEta(
@@ -442,7 +443,7 @@ export default function BookRidePage() {
                 </button>
               </div>
 
-              <button
+              <Button
                 onClick={async () => {
                   if (!pickupAddress.trim() || !destinationAddress.trim()) {
                     setError('Please enter both pickup and destination')
@@ -468,11 +469,12 @@ export default function BookRidePage() {
                   }
                 }}
                 disabled={!pickupAddress.trim() || !destinationAddress.trim() || geocoding}
-                className="w-full bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full"
+                size="lg"
               >
                 {geocoding && <Loader2 className="w-4 h-4 animate-spin" />}
                 Choose Ride
-              </button>
+              </Button>
             </motion.div>
           )}
 
@@ -570,18 +572,12 @@ export default function BookRidePage() {
               </div>
 
               <div className="flex gap-3">
-                <button
-                  onClick={() => setStep('details')}
-                  className="px-6 py-3.5 rounded-xl border border-border text-text-secondary hover:text-text-primary transition-colors"
-                >
+                <Button variant="secondary" size="lg" onClick={() => setStep('details')}>
                   Back
-                </button>
-                <button
-                  onClick={handleRequestRide}
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-medium py-3.5 rounded-xl transition-colors"
-                >
+                </Button>
+                <Button className="flex-1" size="lg" onClick={handleRequestRide}>
                   Confirm {RIDE_TYPES.find((t) => t.id === selectedRideType)?.name}
-                </button>
+                </Button>
               </div>
             </motion.div>
           )}
@@ -751,12 +747,9 @@ export default function BookRidePage() {
                   </button>
                 )}
                 {rideStatus === 'completed' && (
-                  <button
-                    onClick={() => setStep('complete')}
-                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-medium py-3 rounded-xl transition-colors"
-                  >
+                  <Button className="flex-1" onClick={() => setStep('complete')}>
                     Rate & Complete
-                  </button>
+                  </Button>
                 )}
               </div>
             </motion.div>
@@ -792,12 +785,9 @@ export default function BookRidePage() {
                 </div>
               </div>
 
-              <Link
-                href="/rides"
-                className="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-medium px-8 py-3 rounded-xl transition-colors"
-              >
+              <Button href="/rides" size="lg">
                 Done
-              </Link>
+              </Button>
             </motion.div>
           )}
         </AnimatePresence>

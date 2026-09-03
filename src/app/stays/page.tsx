@@ -21,6 +21,8 @@ import {
 import { useCountry } from "@/components/shared/CountryProvider";
 import { formatMoneySymbol } from "@/lib/money";
 import DestinationSelector, { DestinationChip } from "@/components/shared/DestinationSelector";
+import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
 import RecommendationBadge from "@/components/recommendations/RecommendationBadge";
 import {
   scoreCollection,
@@ -445,11 +447,11 @@ function HotelCard({ hotel, large = false, reason = null }: { hotel: StayHotelSu
   const icons = amenityIconsFor(hotel.amenities);
   return (
     <motion.div variants={fadeIn}>
-      <Link
-        href={`/stays/${hotel.id}`}
-        className={`group block overflow-hidden rounded-2xl bg-white dark:bg-dark-200 border border-border shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg ${
-          large ? "lg:flex" : ""
-        }`}
+      <Link href={`/stays/${hotel.id}`} className="group block">
+      <Card
+        padding="none"
+        interactive
+        className={`overflow-hidden ${large ? "lg:flex" : ""}`}
       >
         <div className={`relative overflow-hidden ${large ? "lg:w-1/2" : ""}`}>
           <img
@@ -463,10 +465,9 @@ function HotelCard({ hotel, large = false, reason = null }: { hotel: StayHotelSu
             </span>
           )}
           {!reason && hotel.isFeatured && (
-            <span className="absolute left-3 top-3 flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-1 text-xs font-semibold text-amber-950 shadow">
-              <Sparkles className="w-3 h-3" />
+            <Badge variant="amber" icon={<Sparkles className="w-3 h-3" />} className="absolute left-3 top-3 bg-amber-500 text-amber-950 border-transparent shadow">
               Featured
-            </span>
+            </Badge>
           )}
         </div>
         <div className={`flex flex-1 flex-col p-5 ${large ? "lg:p-7" : ""}`}>
@@ -504,13 +505,14 @@ function HotelCard({ hotel, large = false, reason = null }: { hotel: StayHotelSu
             </div>
             <div className="flex items-center gap-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1">
               <Star className="w-4 h-4 fill-emerald-500 text-emerald-500" />
-              <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+              <span className="text-sm font-semibold font-mono tabular-nums text-emerald-700 dark:text-emerald-400">
                 {hotel.rating.toFixed(1)}
               </span>
-              <span className="text-xs text-text-tertiary">({hotel.reviewCount})</span>
+              <span className="text-xs font-mono tabular-nums text-text-tertiary">({hotel.reviewCount})</span>
             </div>
           </div>
         </div>
+      </Card>
       </Link>
     </motion.div>
   );
