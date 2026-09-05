@@ -19,6 +19,7 @@ import { useMarketStore } from "../src/stores/market-store";
 import CategoryGrid from "../src/components/CategoryGrid";
 import CountryPicker from "../src/components/CountryPicker";
 import SectionHeader from "../src/components/ui/SectionHeader";
+import PressableScale from "../src/components/ui/PressableScale";
 import { photoFor } from "../src/lib/images";
 import { api } from "../src/lib/api";
 import { formatMoney } from "../src/lib/money";
@@ -131,9 +132,9 @@ export default function HomeScreen() {
 
         {/* Vertical mosaic */}
         <View style={styles.mosaic}>
-          <TouchableOpacity
+          <PressableScale
             style={styles.leadTile}
-            activeOpacity={0.92}
+            scaleTo={0.98}
             accessibilityRole="button"
             onPress={() => router.push(lead.route)}
           >
@@ -151,14 +152,14 @@ export default function HomeScreen() {
               </View>
             </View>
             <Text style={styles.leadTileLabel}>{lead.label}</Text>
-          </TouchableOpacity>
+          </PressableScale>
 
           <View style={styles.tileRow}>
             {rest.map((v) => (
-              <TouchableOpacity
+              <PressableScale
                 key={v.key}
                 style={styles.smallTile}
-                activeOpacity={0.92}
+                scaleTo={0.96}
                 accessibilityRole="button"
                 onPress={() => router.push(v.route)}
               >
@@ -168,7 +169,7 @@ export default function HomeScreen() {
                 />
                 <View style={styles.tileScrim} />
                 <Text style={styles.smallTileLabel}>{v.label}</Text>
-              </TouchableOpacity>
+              </PressableScale>
             ))}
           </View>
         </View>
@@ -199,10 +200,10 @@ export default function HomeScreen() {
               contentContainerStyle={styles.rail}
             >
               {restaurants.map((r) => (
-                <TouchableOpacity
+                <PressableScale
                   key={r.id}
                   style={styles.railCard}
-                  activeOpacity={0.9}
+                  scaleTo={0.97}
                   accessibilityRole="button"
                   onPress={() => router.push("/food")}
                 >
@@ -232,7 +233,7 @@ export default function HomeScreen() {
                         : "Free delivery"}
                     </Text>
                   </View>
-                </TouchableOpacity>
+                </PressableScale>
               ))}
             </ScrollView>
           )}

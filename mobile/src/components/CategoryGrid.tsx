@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, borderRadius, spacing, typography } from "../theme";
+import PressableScale from "./ui/PressableScale";
 
 interface CategoryGridProps {
   categories: string[];
@@ -57,10 +58,10 @@ export default function CategoryGrid({ categories, layout = "rail" }: CategoryGr
   const router = useRouter();
 
   const items = categories.map((name) => (
-    <TouchableOpacity
+    <PressableScale
       key={name}
       style={[styles.item, layout === "grid" && styles.itemGrid]}
-      activeOpacity={0.7}
+      scaleTo={0.93}
       accessibilityRole="button"
       accessibilityLabel={name}
       onPress={() => router.push(`/search?category=${encodeURIComponent(name)}`)}
@@ -71,7 +72,7 @@ export default function CategoryGrid({ categories, layout = "rail" }: CategoryGr
       <Text style={styles.label} numberOfLines={2}>
         {name}
       </Text>
-    </TouchableOpacity>
+    </PressableScale>
   ));
 
   if (layout === "grid") {

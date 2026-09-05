@@ -8,6 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Button from '../../src/components/ui/Button';
 import Chip from '../../src/components/ui/Chip';
+import PressableScale from '../../src/components/ui/PressableScale';
+import DishSheet from '../../src/components/food/DishSheet';
 import { useMarketStore } from '../../src/stores/market-store';
 import { useCartStore } from '../../src/stores/cart-store';
 import { api } from '../../src/lib/api';
@@ -58,6 +60,7 @@ export default function FoodOrderScreen() {
   const [menu, setMenu] = React.useState<MenuCategory[]>([]);
   const [menuLoading, setMenuLoading] = React.useState(false);
   const [activeMenuCategory, setActiveMenuCategory] = React.useState('');
+  const [sheetItem, setSheetItem] = React.useState<MenuItem | null>(null);
 
   const loadRestaurants = React.useCallback(async () => {
     setLoading(true);
@@ -192,7 +195,14 @@ export default function FoodOrderScreen() {
                     <View key={category.id} style={styles.menuSection}>
                       <Text style={styles.menuSectionTitle}>{category.name}</Text>
                       {category.items.map((item) => (
-                        <View key={item.id} style={styles.dishRow}>
+                        <PressableScale
+                          key={item.id}
+                          style={styles.dishRow}
+                          scaleTo={0.985}
+                          onPress={() => setSheetItem(item)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${item.name}, ${formatMoney(item.price, item.currencyCode)}`}
+                        >
                           <Image
                             source={{ uri: dishPhotoFor(item.id, item.name, item.image, 88) }}
                             style={styles.dishImage}
@@ -210,15 +220,10 @@ export default function FoodOrderScreen() {
                               {formatMoney(item.price, item.currencyCode)}
                             </Text>
                           </View>
-                          <TouchableOpacity
-                            style={styles.addButton}
-                            onPress={() => addItem({ type: 'menu', item, quantity: 1 })}
-                            accessibilityRole="button"
-                            accessibilityLabel={`Add ${item.name}`}
-                          >
+                          <View style={styles.addButton}>
                             <Ionicons name="add" size={19} color={colors.textInverse} />
-                          </TouchableOpacity>
-                        </View>
+                          </View>
+                        </PressableScale>
                       ))}
                     </View>
                   ))}
@@ -226,6 +231,13 @@ export default function FoodOrderScreen() {
             )}
           </View>
         </ScrollView>
+
+        <DishSheet
+          item={sheetItem}
+          prepTime={r.preparationTime}
+          onClose={() => setSheetItem(null)}
+          onAdd={(item, quantity, notes) => addItem({ type: 'menu', item, quantity, notes })}
+        />
 
         {/* Sticky value bar: amount left, single action right. */}
         {cartCount > 0 && (
@@ -351,11 +363,12 @@ export default function FoodOrderScreen() {
           }
           ListEmptyComponent={<Text style={styles.empty}>No restaurants found.</Text>}
           renderItem={({ item }) => (
-            <TouchableOpacity
+            <PressableScale
               style={styles.card}
-              activeOpacity={0.92}
+              scaleTo={0.98}
               onPress={() => openRestaurant(item)}
               accessibilityRole="button"
+              accessibilityLabel={`${item.name}, ${item.cuisineType}, rated ${item.rating.toFixed(1)}`}
             >
               <View style={styles.cardImageWrap}>
                 <Image
@@ -387,7 +400,7 @@ export default function FoodOrderScreen() {
                   </Text>
                 </Text>
               </View>
-            </TouchableOpacity>
+            </PressableScale>
           )}
         />
       )}

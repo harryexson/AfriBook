@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, borderRadius, spacing, typography } from "../theme";
+import PressableScale from "./ui/PressableScale";
 import { photoFor } from "../lib/images";
 import type { Business } from "../types";
 
@@ -30,9 +31,9 @@ export default function BusinessCard({ business }: BusinessCardProps) {
   );
 
   return (
-    <TouchableOpacity
+    <PressableScale
       style={styles.card}
-      activeOpacity={0.9}
+      scaleTo={0.98}
       accessibilityRole="button"
       onPress={() => router.push(`/business/${business.id}`)}
     >
@@ -84,7 +85,7 @@ export default function BusinessCard({ business }: BusinessCardProps) {
           <Text style={styles.metaDim}>{`  ·  ${business.reviewCount} reviews`}</Text>
         </Text>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 
