@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createClient } from './supabase';
 
@@ -17,6 +18,9 @@ class ApiClient {
     } catch {
       // fall through to the legacy SecureStore key
     }
+    // expo-secure-store has no web implementation — the legacy token
+    // path is native-only; web relies entirely on the Supabase session.
+    if (Platform.OS === 'web') return null;
     return SecureStore.getItemAsync('afribook-token');
   }
 

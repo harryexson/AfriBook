@@ -12,7 +12,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#F59E0B"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.afribook.app"
@@ -34,7 +36,8 @@
       "expo-camera",
       "expo-image-picker",
       "expo-location",
-      "expo-notifications"
+      "expo-notifications",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

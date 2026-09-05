@@ -89,6 +89,30 @@ export async function proxy(req: NextRequest) {
   const isApiPath = pathname.startsWith('/api');
   const isStaticPath = pathname.startsWith('/_next') || pathname.startsWith('/images');
 
+  // ─── CORS (API routes only) ─────────────────────────────────
+  // Every API route authenticates via Bearer token for non-web clients
+  // (src/lib/supabase/server.ts accepts either cookies or a bearer token —
+  // built for exactly this), so a wildcard origin here doesn't expose any
+  // cookie-based session: browsers only attach cookies cross-origin when
+  // the request is made with credentials:'include' AND the response sets
+  // Access-Control-Allow-Credentials, neither of which applies. Needed for
+  // the Expo mobile app's web build (native iOS/Android aren't subject to
+  // CORS at all, only the browser-hosted target is) and for any future
+  // cross-origin client hitting this API directly.
+  if (isApiPath) {
+    if (req.method === 'OPTIONS') {
+      return new NextResponse(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Max-Age': '86400',
+        },
+      });
+    }
+  }
+
   // ─── Rate Limiting (API routes only) ────────────────────────
   // See src/lib/rate-limit.ts for the honest limitation on serverless —
   // this is a real starting point, not a complete global limiter.
@@ -124,6 +148,10 @@ export async function proxy(req: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+
+  if (isApiPath) {
+    response.headers.set('Access-Control-Allow-Origin', '*');
+  }
 
   // ─── Country Detection ──────────────────────────────────────
   const detectedFromHost = detectCountry(hostname);
