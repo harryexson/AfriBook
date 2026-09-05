@@ -18,6 +18,39 @@
 
 const UNSPLASH = 'https://images.unsplash.com/photo-';
 
+/**
+ * Bundled cuisine photography, generated for AfriBook and committed to the
+ * repo (mobile/assets/food, mirrored into the web app's public/food).
+ *
+ * These exist because the stock fallback below is overwhelmingly Western —
+ * a Nigerian grill house was rendering a steak-and-avocado flat lay. These
+ * are the actual cuisines the catalogue reports, shot consistently: same
+ * top-down framing, daylight and warm neutral surface, so a list of them
+ * reads as one set rather than scraped stock.
+ *
+ * Bundled rather than hotlinked so they survive independently of the
+ * service that produced them, and load with no network round trip.
+ */
+const CUISINE_ASSETS: Array<[RegExp, number]> = [
+  [/local|jollof|nigerian|african|traditional/i, require('../../assets/food/local.jpg')],
+  [/grill|bbq|suya|skewer|barbec/i, require('../../assets/food/grill.jpg')],
+  [/street/i, require('../../assets/food/streetfood.jpg')],
+  [/seafood|fish/i, require('../../assets/food/seafood.jpg')],
+  [/caf|coffee|breakfast|bakery|dessert/i, require('../../assets/food/cafe.jpg')],
+  [/continental|european|fine/i, require('../../assets/food/continental.jpg')],
+];
+
+/**
+ * Bundled asset for a cuisine, or null to fall through to stock. Returns a
+ * module id, so callers pass it straight to <Image source={...}> rather than
+ * wrapping it in a uri object.
+ */
+export function cuisineAsset(cuisine?: string): number | null {
+  if (!cuisine) return null;
+  const match = CUISINE_ASSETS.find(([pattern]) => pattern.test(cuisine));
+  return match ? match[1] : null;
+}
+
 // Curated per category. Multiple options per bucket so a list of same-category
 // businesses doesn't render as a wall of identical photos.
 const CATEGORY_PHOTOS: Record<string, string[]> = {
@@ -131,6 +164,23 @@ export function photoFor(
   const h = Math.round(width * ratio * 2);
 
   return `${UNSPLASH}${photo}?w=${w}&h=${h}&q=80&auto=format&fit=crop`;
+}
+
+/**
+ * The one thing screens should call for a photo: prefers a real uploaded
+ * asset, then the bundled cuisine set, then stock. Returns something you can
+ * hand straight to <Image source={...}>.
+ */
+export function imageSourceFor(
+  id: string,
+  category?: string,
+  existing?: string | null,
+  options: PhotoOptions = {},
+): { uri: string } | number {
+  if (existing) return { uri: existing };
+  const bundled = cuisineAsset(category);
+  if (bundled) return bundled;
+  return { uri: photoFor(id, category, null, options) };
 }
 
 /** Square crop, for the circular category and dish thumbnails. */

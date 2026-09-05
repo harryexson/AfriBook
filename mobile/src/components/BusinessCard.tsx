@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, borderRadius, spacing, typography } from "../theme";
 import PressableScale from "./ui/PressableScale";
-import { photoFor } from "../lib/images";
+import { imageSourceFor } from "../lib/images";
 import type { Business } from "../types";
 
 interface BusinessCardProps {
@@ -23,7 +23,7 @@ export default function BusinessCard({ business }: BusinessCardProps) {
   const router = useRouter();
   const [isFav, setIsFav] = useState(false);
 
-  const image = photoFor(
+  const image = imageSourceFor(
     business.id,
     business.category,
     business.media?.coverUrl ?? business.media?.galleryUrls?.[0],
@@ -38,7 +38,7 @@ export default function BusinessCard({ business }: BusinessCardProps) {
       onPress={() => router.push(`/business/${business.id}`)}
     >
       <View style={styles.imageWrap}>
-        <Image source={{ uri: image }} style={styles.image} />
+        <Image source={image} style={styles.image} />
 
         <View style={styles.chip}>
           <Text style={styles.chipLabel} numberOfLines={1}>

@@ -20,7 +20,7 @@ import CategoryGrid from "../src/components/CategoryGrid";
 import CountryPicker from "../src/components/CountryPicker";
 import SectionHeader from "../src/components/ui/SectionHeader";
 import PressableScale from "../src/components/ui/PressableScale";
-import { photoFor } from "../src/lib/images";
+import { photoFor, imageSourceFor } from "../src/lib/images";
 import { api } from "../src/lib/api";
 import { formatMoney } from "../src/lib/money";
 
@@ -208,7 +208,7 @@ export default function HomeScreen() {
                   onPress={() => router.push("/food")}
                 >
                   <Image
-                    source={{ uri: photoFor(r.id, r.cuisineType, null, { width: 420, ratio: 0.66 }) }}
+                    source={imageSourceFor(r.id, r.cuisineType, null, { width: 420, ratio: 0.66 })}
                     style={styles.railImage}
                   />
                   <View style={styles.railBody}>

@@ -13,7 +13,7 @@ import DishSheet from '../../src/components/food/DishSheet';
 import { useMarketStore } from '../../src/stores/market-store';
 import { useCartStore } from '../../src/stores/cart-store';
 import { api } from '../../src/lib/api';
-import { photoFor, squarePhotoFor, dishPhotoFor } from '../../src/lib/images';
+import { photoFor, squarePhotoFor, dishPhotoFor, imageSourceFor } from '../../src/lib/images';
 import type { MenuItem } from '../../src/types';
 import { formatMoney } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
@@ -126,7 +126,7 @@ export default function FoodOrderScreen() {
           {/* Full-bleed hero: the image is the header, per the reference. */}
           <View style={styles.hero}>
             <Image
-              source={{ uri: photoFor(r.id, r.cuisineType, null, { width: 800, ratio: 0.62 }) }}
+              source={imageSourceFor(r.id, r.cuisineType, null, { width: 800, ratio: 0.62 })}
               style={styles.heroImage}
             />
             <SafeAreaView edges={['top']} style={styles.heroBar}>
@@ -340,7 +340,7 @@ export default function FoodOrderScreen() {
                           </View>
                         ) : (
                           <Image
-                            source={{ uri: squarePhotoFor(c, c, null, 120) }}
+                            source={imageSourceFor(c, c, null, { width: 120, ratio: 1 })}
                             style={styles.cuisineThumb}
                           />
                         )}
@@ -372,7 +372,7 @@ export default function FoodOrderScreen() {
             >
               <View style={styles.cardImageWrap}>
                 <Image
-                  source={{ uri: photoFor(item.id, item.cuisineType, null, { width: 640, ratio: 0.56 }) }}
+                  source={imageSourceFor(item.id, item.cuisineType, null, { width: 640, ratio: 0.56 })}
                   style={styles.cardImage}
                 />
                 <View style={styles.cardChip}>
