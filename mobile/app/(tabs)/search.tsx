@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import Input from '../../src/components/ui/Input';
 import BusinessCard from '../../src/components/BusinessCard';
+import EmptyState from '../../src/components/ui/EmptyState';
 import type { Business } from '../../src/types';
 
 const FILTERS = ['All', 'Beauty', 'Health', 'Food', 'Home', 'Auto', 'Education'];
@@ -142,11 +143,11 @@ export default function SearchScreen() {
           )}
           contentContainerStyle={styles.results}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>🔍</Text>
-              <Text style={styles.emptyText}>No results found</Text>
-              <Text style={styles.emptyHint}>Try a different search or filter</Text>
-            </View>
+            <EmptyState
+              icon="search-outline"
+              title="No results found"
+              message="Try a different search term or filter."
+            />
           }
         />
       </View>

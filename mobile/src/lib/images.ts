@@ -150,6 +150,8 @@ export function squarePhotoFor(
 const DISH_MATCHERS: Array<[RegExp, string]> = [
   [/salad|veg|bowl|greens/i, '1512621776951-a57141f2eefd'],
   [/pizza/i, '1565299624946-b28f40a0ae38'],
+  // Fish before burger: "Fish & Chips" would otherwise match on "chips".
+  [/fish|seafood|prawn|shrimp|tilapia/i, '1504674900247-0877df9cc836'],
   [/burger|sandwich|chips|fries/i, '1568901346375-23c9450c58cd'],
   [/grill|bbq|skewer|suya|chicken|beef|steak|meat|kebab/i, '1555939594-58d7cb561ad1'],
   [/soup|stew|curry|rice|ugali|jollof|noodle|pasta/i, '1504674900247-0877df9cc836'],

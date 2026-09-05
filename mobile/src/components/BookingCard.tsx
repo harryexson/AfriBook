@@ -85,7 +85,7 @@ export default function BookingCard({
           </Text>
           {booking.notes && (
             <Text style={styles.notes} numberOfLines={1}>
-              📝 {booking.notes}
+              {booking.notes}
             </Text>
           )}
         </View>

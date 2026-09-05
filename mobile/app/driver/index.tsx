@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import IconText from '../../src/components/ui/IconText';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import MapView from '../../src/components/MapView';
 import Button from '../../src/components/ui/Button';
@@ -97,9 +99,15 @@ export default function DriverHomeScreen() {
               </View>
             </View>
             <View style={styles.tripMeta}>
-              <Text style={styles.tripMetaText}>👤 {CURRENT_TRIP.customer}</Text>
-              <Text style={styles.tripMetaText}>📍 {CURRENT_TRIP.distance}</Text>
-              <Text style={styles.tripMetaText}>⏱ {CURRENT_TRIP.duration}</Text>
+              <IconText icon="person-outline" size={13} textStyle={styles.tripMetaText}>
+                {CURRENT_TRIP.customer}
+              </IconText>
+              <IconText icon="navigate-outline" size={13} textStyle={styles.tripMetaText}>
+                {CURRENT_TRIP.distance}
+              </IconText>
+              <IconText icon="time-outline" size={13} textStyle={styles.tripMetaText}>
+                {CURRENT_TRIP.duration}
+              </IconText>
             </View>
             <View style={styles.tripActions}>
               <Button
@@ -114,7 +122,9 @@ export default function DriverHomeScreen() {
         {/* No Trip State */}
         {!hasActiveTrip && isOnline && (
           <View style={styles.waitingCard}>
-            <Text style={styles.waitingEmoji}>🔍</Text>
+            <View style={styles.stateGlyph}>
+              <Ionicons name="search-outline" size={24} color={colors.textTertiary} />
+            </View>
             <Text style={styles.waitingTitle}>Looking for trips...</Text>
             <Text style={styles.waitingSubtitle}>Stay online to receive delivery requests</Text>
             <Button
@@ -128,7 +138,9 @@ export default function DriverHomeScreen() {
 
         {!isOnline && (
           <View style={styles.offlineCard}>
-            <Text style={styles.offlineEmoji}>😴</Text>
+            <View style={styles.stateGlyph}>
+              <Ionicons name="moon-outline" size={24} color={colors.textTertiary} />
+            </View>
             <Text style={styles.offlineTitle}>You're offline</Text>
             <Text style={styles.offlineSubtitle}>Go online to start receiving trips</Text>
           </View>
@@ -262,8 +274,15 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     ...shadows.lg,
   },
-  waitingEmoji: {
-    fontSize: 36,
+  stateGlyph: {
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: spacing.sm,
   },
   waitingTitle: {
     fontSize: typography.fontSize.lg,

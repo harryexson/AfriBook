@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import { useAuthStore } from '../../src/stores/auth-store';
 import { useAuth } from '../../src/hooks/useAuth';
@@ -17,7 +18,9 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>👤</Text>
+          <View style={styles.emptyGlyph}>
+            <Ionicons name="person-outline" size={26} color={colors.textTertiary} />
+          </View>
           <Text style={styles.emptyTitle}>Sign in to your account</Text>
           <Text style={styles.emptySubtitle}>
             Access your bookings, saved businesses, and more
@@ -38,15 +41,19 @@ export default function ProfileScreen() {
     );
   }
 
-  const menuItems = [
-    { label: 'My Bookings', icon: '📋', onPress: () => router.push('/(tabs)/bookings') },
-    { label: 'Saved Businesses', icon: '❤️', onPress: () => router.push('/profile/saved') },
-    { label: 'Payment Methods', icon: '💳', onPress: () => router.push('/profile/payments') },
-    { label: 'Notifications', icon: '🔔', onPress: () => router.push('/profile/notifications') },
-    { label: 'Become a Vendor', icon: '🏪', onPress: () => router.push('/vendor') },
-    { label: 'Drive with AfriBook', icon: '🚗', onPress: () => router.push('/driver') },
-    { label: 'Settings', icon: '⚙️', onPress: () => router.push('/profile/settings') },
-    { label: 'Help & Support', icon: '❓', onPress: () => router.push('/profile/help') },
+  const menuItems: Array<{
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    onPress: () => void;
+  }> = [
+    { label: 'My bookings', icon: 'receipt-outline', onPress: () => router.push('/(tabs)/bookings') },
+    { label: 'Saved businesses', icon: 'heart-outline', onPress: () => router.push('/profile/saved') },
+    { label: 'Payment methods', icon: 'card-outline', onPress: () => router.push('/profile/payments') },
+    { label: 'Notifications', icon: 'notifications-outline', onPress: () => router.push('/profile/notifications') },
+    { label: 'Become a vendor', icon: 'storefront-outline', onPress: () => router.push('/vendor') },
+    { label: 'Drive with AfriBook', icon: 'car-outline', onPress: () => router.push('/driver') },
+    { label: 'Settings', icon: 'settings-outline', onPress: () => router.push('/profile/settings') },
+    { label: 'Help & support', icon: 'help-circle-outline', onPress: () => router.push('/profile/help') },
   ];
 
   return (
@@ -75,9 +82,11 @@ export default function ProfileScreen() {
               onPress={item.onPress}
               activeOpacity={0.6}
             >
-              <Text style={styles.menuIcon}>{item.icon}</Text>
+              <View style={styles.menuIcon}>
+                <Ionicons name={item.icon} size={19} color={colors.textPrimary} />
+              </View>
               <Text style={styles.menuLabel}>{item.label}</Text>
-              <Text style={styles.menuChevron}>›</Text>
+              <Ionicons name="chevron-forward" size={17} color={colors.textTertiary} />
             </TouchableOpacity>
           ))}
         </View>
@@ -167,7 +176,12 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.borderLight,
   },
   menuIcon: {
-    fontSize: 20,
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuLabel: {
     flex: 1,
@@ -194,9 +208,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.lg,
   },
-  emptyEmoji: {
-    fontSize: 48,
-    textAlign: 'center',
+  emptyGlyph: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
   },
   emptyTitle: {
     fontSize: typography.fontSize.xl,

@@ -2,15 +2,22 @@ import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import { useMarketStore } from '../../src/stores/market-store';
 import { formatMoney } from '../../src/lib/money';
 
-const STATS = [
-  { label: 'Today\'s Revenue', value: 45000, change: '+12%', icon: '💰', kind: 'money' },
-  { label: 'Active Bookings', value: 8, change: '+3', icon: '📋', kind: 'plain' },
-  { label: 'This Week', value: 285000, change: '+8%', icon: '📈', kind: 'money' },
-  { label: 'Rating', value: 4.8, change: '+0.1', icon: '⭐', kind: 'plain' },
+const STATS: Array<{
+  label: string;
+  value: number;
+  change: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  kind: 'money' | 'plain';
+}> = [
+  { label: 'Today’s revenue', value: 45000, change: '+12%', icon: 'wallet-outline', kind: 'money' },
+  { label: 'Active bookings', value: 8, change: '+3', icon: 'receipt-outline', kind: 'plain' },
+  { label: 'This week', value: 285000, change: '+8%', icon: 'trending-up-outline', kind: 'money' },
+  { label: 'Rating', value: 4.8, change: '+0.1', icon: 'star-outline', kind: 'plain' },
 ];
 
 const RECENT_BOOKINGS = [
@@ -47,7 +54,9 @@ export default function VendorDashboard() {
         <View style={styles.statsGrid}>
           {STATS.map((stat) => (
             <View key={stat.label} style={styles.statCard}>
-              <Text style={styles.statIcon}>{stat.icon}</Text>
+              <View style={styles.statIcon}>
+                <Ionicons name={stat.icon} size={17} color={colors.textSecondary} />
+              </View>
               <Text style={styles.statValue}>
                 {stat.kind === 'money' ? formatMoney(stat.value as number, currencyCode) : stat.value}
               </Text>
@@ -89,19 +98,27 @@ export default function VendorDashboard() {
           <Text style={styles.sectionTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
             <TouchableOpacity style={styles.actionCard} onPress={() => router.push('/vendor/bookings')}>
-              <Text style={styles.actionIcon}>📋</Text>
+              <View style={styles.actionIcon}>
+                <Ionicons name="receipt-outline" size={20} color={colors.textPrimary} />
+              </View>
               <Text style={styles.actionLabel}>Manage Bookings</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
-              <Text style={styles.actionIcon}>📝</Text>
+              <View style={styles.actionIcon}>
+                <Ionicons name="create-outline" size={20} color={colors.textPrimary} />
+              </View>
               <Text style={styles.actionLabel}>Add Service</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
-              <Text style={styles.actionIcon}>👥</Text>
+              <View style={styles.actionIcon}>
+                <Ionicons name="people-outline" size={20} color={colors.textPrimary} />
+              </View>
               <Text style={styles.actionLabel}>Manage Staff</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
-              <Text style={styles.actionIcon}>📊</Text>
+              <View style={styles.actionIcon}>
+                <Ionicons name="bar-chart-outline" size={20} color={colors.textPrimary} />
+              </View>
               <Text style={styles.actionLabel}>Analytics</Text>
             </TouchableOpacity>
           </View>
@@ -165,7 +182,12 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   statIcon: {
-    fontSize: 20,
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statValue: {
     fontSize: typography.fontSize.xl,
@@ -255,7 +277,12 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   actionIcon: {
-    fontSize: 28,
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionLabel: {
     fontSize: typography.fontSize.sm,

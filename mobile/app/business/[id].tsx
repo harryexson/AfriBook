@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import ServiceCard from '../../src/components/ServiceCard';
+import IconText from '../../src/components/ui/IconText';
 import MapView from '../../src/components/MapView';
 import Badge from '../../src/components/ui/Badge';
 import Button from '../../src/components/ui/Button';
@@ -108,7 +109,7 @@ export default function BusinessDetailScreen() {
             </View>
             <View style={styles.statDivider} />
             <View style={styles.stat}>
-              <Text style={styles.statValue}>📍 {business.address.city}</Text>
+              <IconText icon="location-outline" textStyle={styles.statValue}>{business.address.city}</IconText>
               <Text style={styles.statLabel}>{business.address.formatted}</Text>
             </View>
           </View>
@@ -172,10 +173,10 @@ export default function BusinessDetailScreen() {
 
               <Text style={[styles.infoTitle, { marginTop: spacing.xl }]}>Contact</Text>
               <View style={styles.contactList}>
-                <Text style={styles.contactItem}>📞 {business.contact.phone}</Text>
+                <IconText icon="call-outline" textStyle={styles.contactItem}>{business.contact.phone}</IconText>
                 <Text style={styles.contactItem}>✉️ {business.contact.email}</Text>
                 {business.contact.website && (
-                  <Text style={styles.contactItem}>🌐 {business.contact.website}</Text>
+                  <IconText icon="globe-outline" textStyle={styles.contactItem}>{business.contact.website}</IconText>
                 )}
               </View>
             </View>

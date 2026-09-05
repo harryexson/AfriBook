@@ -13,16 +13,16 @@ import { colors, spacing, typography, borderRadius, shadows } from '../../src/th
 import { useMarketStore } from '../../src/stores/market-store';
 import { COUNTRIES } from '../../src/constants/countries';
 
-const METHOD_ICONS: Record<string, string> = {
-  paystack: '💰',
-  flutterwave: '💳',
-  stripe: '💳',
-  mpesa: '📱',
-  airtel_money: '📱',
-  mtn_momo: '📱',
-  mobile_money: '📱',
-  bank_transfer: '🏦',
-  cash: '💵',
+const METHOD_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  paystack: 'card-outline',
+  flutterwave: 'card-outline',
+  stripe: 'card-outline',
+  mpesa: 'phone-portrait-outline',
+  airtel_money: 'phone-portrait-outline',
+  mtn_momo: 'phone-portrait-outline',
+  mobile_money: 'phone-portrait-outline',
+  bank_transfer: 'business-outline',
+  cash: 'cash-outline',
 };
 
 export default function PaymentMethodsScreen() {
@@ -65,7 +65,13 @@ export default function PaymentMethodsScreen() {
 
         {methods.map((method) => (
           <View key={method.id} style={styles.methodRow}>
-            <Text style={styles.methodIcon}>{METHOD_ICONS[method.id] ?? '💳'}</Text>
+            <View style={styles.methodIcon}>
+              <Ionicons
+                name={METHOD_ICONS[method.id] ?? 'card-outline'}
+                size={19}
+                color={colors.textPrimary}
+              />
+            </View>
             <View style={styles.methodInfo}>
               <Text style={styles.methodName}>{method.name}</Text>
               <Text style={styles.methodStatus}>Connected</Text>
@@ -75,7 +81,7 @@ export default function PaymentMethodsScreen() {
         ))}
 
         <View style={styles.securityNote}>
-          <Text style={styles.securityIcon}>🔒</Text>
+          <Ionicons name="lock-closed-outline" size={16} color={colors.textTertiary} />
           <Text style={styles.securityText}>
             Payments are processed securely through your country&apos;s payment providers.
           </Text>
@@ -144,7 +150,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   methodIcon: {
-    fontSize: 24,
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.surfaceTertiary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   methodInfo: {
     flex: 1,

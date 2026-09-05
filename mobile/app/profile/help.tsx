@@ -60,14 +60,14 @@ export default function HelpScreen() {
               style={styles.contactButton}
               onPress={() => Linking.openURL('tel:+2340000000000')}
             >
-              <Text style={styles.contactEmoji}>📞</Text>
+              <Ionicons name="call-outline" size={22} color={colors.textPrimary} />
               <Text style={styles.contactLabel}>Call</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.contactButton}
               onPress={() => Linking.openURL('https://wa.me/2340000000000')}
             >
-              <Text style={styles.contactEmoji}>💬</Text>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.textPrimary} />
               <Text style={styles.contactLabel}>WhatsApp</Text>
             </TouchableOpacity>
           </View>

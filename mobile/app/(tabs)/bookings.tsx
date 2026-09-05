@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography } from '../../src/theme';
 import BookingCard from '../../src/components/BookingCard';
+import EmptyState from '../../src/components/ui/EmptyState';
 import type { Booking } from '../../src/types';
 
 const MOCK_BOOKINGS: Booking[] = [
@@ -72,11 +73,11 @@ export default function BookingsScreen() {
           )}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyEmoji}>📋</Text>
-              <Text style={styles.emptyText}>No bookings yet</Text>
-              <Text style={styles.emptyHint}>Book a service to get started</Text>
-            </View>
+            <EmptyState
+              icon="receipt-outline"
+              title="No bookings yet"
+              message="Book a service and it'll show up here."
+            />
           }
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />

@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
+import EmptyState from '../../src/components/ui/EmptyState';
 
 const NOTIFICATION_TYPES: { icon: React.ComponentProps<typeof Ionicons>['name']; title: string; text: string }[] = [
   { icon: 'car', title: 'Ride updates', text: 'Driver assigned, arrived, and trip completed.' },
@@ -32,13 +33,11 @@ export default function NotificationsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyEmoji}>🔕</Text>
-          <Text style={styles.emptyTitle}>No notifications yet</Text>
-          <Text style={styles.emptySubtitle}>
-            We&apos;ll keep you updated here on your rides, orders, and bookings.
-          </Text>
-        </View>
+        <EmptyState
+          icon="notifications-off-outline"
+          title="No notifications yet"
+          message="We&apos;ll keep you updated here on your rides, orders, and bookings."
+        />
 
         <Text style={styles.sectionTitle}>What you&apos;ll receive</Text>
         {NOTIFICATION_TYPES.map((item) => (

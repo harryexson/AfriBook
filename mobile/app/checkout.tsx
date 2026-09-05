@@ -9,6 +9,7 @@ import {
 import { useRouter } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../src/theme';
 import Button from '../src/components/ui/Button';
 import { api } from '../src/lib/api';
@@ -17,10 +18,10 @@ import { useMarketStore } from '../src/stores/market-store';
 import { useCartStore } from '../src/stores/cart-store';
 
 const PAYMENT_METHODS = [
-  { id: 'card', label: 'Credit/Debit Card', icon: '💳' },
-  { id: 'mobile_money', label: 'Mobile Money', icon: '📱' },
-  { id: 'bank_transfer', label: 'Bank Transfer', icon: '🏦' },
-  { id: 'cash', label: 'Pay with Cash', icon: '💵' },
+  { id: 'card', label: 'Credit/Debit Card', icon: 'card-outline' },
+  { id: 'mobile_money', label: 'Mobile Money', icon: 'phone-portrait-outline' },
+  { id: 'bank_transfer', label: 'Bank Transfer', icon: 'business-outline' },
+  { id: 'cash', label: 'Pay with Cash', icon: 'cash-outline' },
 ];
 
 const DEFAULT_TOTAL = 5500;
@@ -153,7 +154,7 @@ export default function CheckoutScreen() {
 
         {/* Security Note */}
         <View style={styles.securityNote}>
-          <Text style={styles.securityIcon}>🔒</Text>
+          <Ionicons name="lock-closed-outline" size={16} color={colors.textTertiary} />
           <Text style={styles.securityText}>
             Your payment is secured with 256-bit SSL encryption
           </Text>

@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import Button from '../../src/components/ui/Button';
+import EmptyState from '../../src/components/ui/EmptyState';
 import { useCartStore } from '../../src/stores/cart-store';
 import { useMarketStore } from '../../src/stores/market-store';
 import { formatMoney } from '../../src/lib/money';
@@ -35,12 +36,19 @@ export default function FoodCartScreen() {
           <Text style={styles.headerTitle}>Your Cart</Text>
           <View style={{ width: 24 }} />
         </View>
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyEmoji}>🛒</Text>
-          <Text style={styles.emptyTitle}>Your cart is empty</Text>
-          <Text style={styles.emptySubtitle}>Add some delicious items to get started</Text>
-          <Button title="Browse Restaurants" onPress={() => router.replace('/food')} fullWidth />
-        </View>
+        <EmptyState
+          icon="bag-outline"
+          title="Your cart is empty"
+          message="Add a few dishes and they'll appear here."
+          action={
+            <Button
+              title="Browse restaurants"
+              variant="ink"
+              onPress={() => router.replace('/food')}
+              fullWidth
+            />
+          }
+        />
       </SafeAreaView>
     );
   }

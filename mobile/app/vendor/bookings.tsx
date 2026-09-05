@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius, shadows } from '../../src/theme';
 import Badge from '../../src/components/ui/Badge';
+import IconText from '../../src/components/ui/IconText';
 import { useMarketStore } from '../../src/stores/market-store';
 import { formatMoney } from '../../src/lib/money';
 
@@ -69,7 +70,7 @@ export default function VendorBookingsScreen() {
                 <Badge label={item.status} variant={STATUS_VARIANT[item.status]} />
               </View>
               <View style={styles.cardFooter}>
-                <Text style={styles.datetime}>📅 {item.date} · 🕐 {item.time}</Text>
+                <IconText icon="calendar-outline" textStyle={styles.datetime}>{item.date} · {item.time}</IconText>
                 <Text style={styles.amount}>{formatMoney(item.amount, currencyCode)}</Text>
               </View>
             </View>

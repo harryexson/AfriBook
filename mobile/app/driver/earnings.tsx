@@ -56,7 +56,7 @@ export default function DriverEarningsScreen() {
               </View>
               <View style={styles.tripRoute}>
                 <Text style={styles.tripRouteText}>
-                  📍 {trip.pickup} → {trip.dropoff}
+                  {trip.pickup} → {trip.dropoff}
                 </Text>
               </View>
               <Text style={styles.tripDuration}>⏱ {trip.duration}</Text>
