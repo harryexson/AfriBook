@@ -19,6 +19,9 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { formatMoneySymbol } from "@/lib/money";
 import type { MenuItem } from "@/types";
+import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import Button from "@/components/ui/Button";
 
 interface MenuCategory {
   id: string;
@@ -148,13 +151,12 @@ export default function RestaurantMenuPage() {
           </div>
           <h1 className="mt-4 text-xl font-semibold text-text-primary">Restaurant unavailable</h1>
           <p className="mt-1 text-sm text-text-secondary">{error ?? "This restaurant could not be found."}</p>
-          <Link
-            href="/food"
-            className="mt-5 inline-flex items-center gap-1.5 rounded-2xl bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-600"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Back to restaurants
-          </Link>
+          <div className="mt-5 flex justify-center">
+            <Button href="/food">
+              <ChevronLeft className="h-4 w-4" />
+              Back to restaurants
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -171,7 +173,7 @@ export default function RestaurantMenuPage() {
     <div className="min-h-screen bg-surface">
       {/* Header */}
       <section className="relative overflow-hidden bg-dark-700">
-        <div className="absolute inset-0 bg-[radial-gradient(45rem_45rem_at_75%_10%,rgba(255,132,93,0.2),transparent_60%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(45rem_45rem_at_75%_10%,rgba(245,158,11,0.2),transparent_60%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,14,20,0.9),rgba(15,14,20,0.95))]" />
         <div className="relative mx-auto max-w-4xl px-4 pb-14 pt-20 sm:px-6 lg:px-8">
           <button
@@ -272,9 +274,16 @@ export default function RestaurantMenuPage() {
                     initial={{ opacity: 0, y: 16 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-40px" }}
-                    className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition hover:border-amber-500/40"
                   >
-                    <div className="min-w-0">
+                  <Card interactive={false} className="flex items-center justify-between gap-4">
+                    {item.image && (
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="hidden h-20 w-20 shrink-0 rounded-2xl object-cover sm:block"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-semibold text-text-primary">{item.name}</h3>
                         {spicy && (
@@ -283,9 +292,9 @@ export default function RestaurantMenuPage() {
                           </span>
                         )}
                         {item.dietaryTags?.includes("vegetarian") && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
-                            <Leaf className="h-3 w-3" /> Veg
-                          </span>
+                          <Badge variant="success" icon={<Leaf className="h-3 w-3" />}>
+                            Veg
+                          </Badge>
                         )}
                       </div>
                       {item.description && (
@@ -338,6 +347,7 @@ export default function RestaurantMenuPage() {
                         </div>
                       )}
                     </div>
+                  </Card>
                   </motion.div>
                 );
               })}
@@ -365,12 +375,9 @@ export default function RestaurantMenuPage() {
                 <p className="text-xs text-white/60">{formatMoneySymbol(cartTotal, cartCurrency)}</p>
               </div>
             </div>
-            <button
-              onClick={() => router.push("/checkout")}
-              className="inline-flex items-center gap-2 rounded-2xl bg-amber-500 px-6 py-3 text-sm font-semibold text-amber-950 shadow-gold transition hover:bg-amber-400"
-            >
+            <Button onClick={() => router.push("/checkout")} size="lg">
               Checkout
-            </button>
+            </Button>
           </motion.div>
         </div>
       )}

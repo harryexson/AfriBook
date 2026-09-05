@@ -9,6 +9,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import MapEmbed from '@/components/shared/MapEmbed'
+import Button from '@/components/ui/Button'
 import { cn, formatCurrency, timeAgo } from '@/lib/utils'
 import type { Order, OrderStatus, Driver, Delivery } from '@/types'
 
@@ -152,9 +153,9 @@ export default function OrderTrackingPage() {
                 </p>
               )}
             </div>
-            <button className="ml-auto px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors">
+            <Button size="sm" className="ml-auto">
               Contact driver
-            </button>
+            </Button>
           </motion.div>
         )}
 
@@ -317,19 +318,20 @@ export default function OrderTrackingPage() {
 
         {/* Actions */}
         <div className="flex flex-wrap gap-3">
-          <button
-            onClick={() => router.push(`/${params?.country}/search`)}
-            className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 transition-colors"
-          >
-            Order again
-          </button>
-          <button className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-surface-secondary border border-border text-text-secondary text-sm font-medium hover:border-amber-500/30 hover:text-text-primary transition-all">
-            Contact support
-          </button>
+          <div className="flex-1 sm:flex-none">
+            <Button onClick={() => router.push(`/${params?.country}/search`)} className="w-full">
+              Order again
+            </Button>
+          </div>
+          <div className="flex-1 sm:flex-none">
+            <Button variant="secondary" className="w-full">
+              Contact support
+            </Button>
+          </div>
           {canCancel && !isCancelled && (
             <button
               onClick={() => setShowCancelModal(true)}
-              className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-red-200 dark:border-red-500/20 text-red-500 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
+              className="flex-1 sm:flex-none px-5 py-2.5 rounded-full border border-red-200 dark:border-red-500/20 text-red-500 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-500/10 transition-all"
             >
               Cancel order
             </button>

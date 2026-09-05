@@ -1,73 +1,140 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, TextInput, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import AfriBookMapView from '../../src/components/MapView';
-import { useLocation } from '../../src/hooks/useLocation';
+import Card from '../../src/components/ui/Card';
+import Button from '../../src/components/ui/Button';
+import Badge from '../../src/components/ui/Badge';
 import { useMarketStore } from '../../src/stores/market-store';
 import { useCartStore } from '../../src/stores/cart-store';
+import { api } from '../../src/lib/api';
 import type { MenuItem } from '../../src/types';
 import { formatMoney } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
 
-interface Restaurant {
+interface RestaurantSummary {
   id: string;
+  businessId: string;
   name: string;
-  cuisine: string;
+  description: string;
+  cuisineType: string;
   rating: number;
-  deliveryTime: string;
-  deliveryFee: string;
-  distance: string;
-  imageUrl?: string;
+  preparationTime: number;
+  minimumOrder: number;
+  deliveryFee: number;
+  currency: string;
+  countryCode: string;
+  address: string;
 }
 
-const MOCK_RESTAURANTS: Restaurant[] = [
-  { id: '1', name: 'Mama Ashanti', cuisine: 'Ghanaian', rating: 4.8, deliveryTime: '25-35 min', deliveryFee: '500', distance: '1.2 km' },
-  { id: '2', name: 'Buka Kitchen', cuisine: 'Nigerian', rating: 4.6, deliveryTime: '20-30 min', deliveryFee: '300', distance: '0.8 km' },
-  { id: '3', name: 'Spice Garden', cuisine: 'Indian', rating: 4.5, deliveryTime: '30-40 min', deliveryFee: '600', distance: '2.1 km' },
-  { id: '4', name: 'Pizza Palace', cuisine: 'Italian', rating: 4.3, deliveryTime: '25-35 min', deliveryFee: '400', distance: '1.5 km' },
-];
+interface MenuCategory {
+  id: string;
+  businessId: string;
+  name: string;
+  description: string;
+  sortOrder: number;
+  items: MenuItem[];
+}
 
-const MOCK_MENU = [
-  { id: 'm1', name: 'Jollof Rice Special', description: 'Smoky jollof with grilled chicken', price: 2500 },
-  { id: 'm2', name: 'Fried Plantains', description: 'Crispy golden plantains', price: 800 },
-  { id: 'm3', name: 'Chin Chin', description: 'Sweet fried dough snack', price: 500 },
-  { id: 'm4', name: 'Chapman', description: 'Nigerian cocktail drink', price: 600 },
-];
+interface RestaurantDetail extends RestaurantSummary {}
+
+// Cuisine → Ionicons name, for the category row (adapted from the
+// Haneul/food-app reference screenshots: a row of circular cuisine icons
+// above the restaurant list). Matched by substring against the real
+// cuisineType values the API returns.
+const CUISINE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  pizza: 'pizza', italian: 'pizza',
+  asian: 'restaurant', chinese: 'restaurant', japanese: 'restaurant', korean: 'restaurant', thai: 'restaurant',
+  burger: 'fast-food', fast: 'fast-food',
+  cafe: 'cafe', coffee: 'cafe', breakfast: 'cafe',
+  drink: 'wine',
+  salad: 'nutrition', healthy: 'nutrition', vegan: 'nutrition', vegetarian: 'nutrition',
+  bbq: 'flame', grill: 'flame', suya: 'flame', spicy: 'flame',
+  dessert: 'ice-cream',
+};
+
+function cuisineIcon(cuisine: string): keyof typeof Ionicons.glyphMap {
+  const key = Object.keys(CUISINE_ICONS).find((k) => cuisine.toLowerCase().includes(k));
+  return key ? CUISINE_ICONS[key] : 'restaurant';
+}
 
 export default function FoodOrderScreen() {
   const router = useRouter();
-  const { location } = useLocation();
+  const countryCode = useMarketStore((s) => s.countryCode);
   const currencyCode = useMarketStore((s) => s.currencyCode());
   const { addItem } = useCartStore();
   const cartCount = useCartStore((s) => s.itemCount());
   const cartSubtotal = useCartStore((s) => s.subtotal());
 
-  const [restaurants] = React.useState<Restaurant[]>(MOCK_RESTAURANTS);
-  const [selectedRestaurant, setSelectedRestaurant] = React.useState<Restaurant | null>(null);
+  const [restaurants, setRestaurants] = React.useState<RestaurantSummary[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [selectedCategory, setSelectedCategory] = React.useState('All');
 
-  const toMenuItem = (item: { id: string; name: string; description: string; price: number }): MenuItem => ({
-    id: item.id,
-    businessId: selectedRestaurant?.id ?? 'restaurant-1',
-    categoryId: 'food',
-    name: item.name,
-    description: item.description,
-    price: item.price,
-    currencyCode,
-    image: undefined,
-    ingredients: [],
-    allergens: [],
-    dietaryTags: [],
-    available: true,
-    preparationTime: 15,
-    sortOrder: 0,
-  });
+  const [selectedRestaurant, setSelectedRestaurant] = React.useState<RestaurantDetail | null>(null);
+  const [menu, setMenu] = React.useState<MenuCategory[]>([]);
+  const [menuLoading, setMenuLoading] = React.useState(false);
+  const [activeMenuCategory, setActiveMenuCategory] = React.useState('');
 
-  const addToCart = (item: { id: string; name: string; description: string; price: number }) => {
-    addItem({ type: 'menu', item: toMenuItem(item), quantity: 1 });
+  const loadRestaurants = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await api.get<{ data: { restaurants: RestaurantSummary[] } }>(
+        `/api/restaurants?country=${countryCode}`,
+      );
+      setRestaurants(res.data?.restaurants ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load restaurants');
+    } finally {
+      setLoading(false);
+    }
+  }, [countryCode]);
+
+  React.useEffect(() => {
+    loadRestaurants();
+  }, [loadRestaurants]);
+
+  const categories = React.useMemo(() => {
+    const cuisines = new Set(restaurants.map((r) => r.cuisineType));
+    return ['All', ...Array.from(cuisines).sort()];
+  }, [restaurants]);
+
+  const filteredRestaurants = React.useMemo(() => {
+    let result = [...restaurants];
+    if (selectedCategory !== 'All') {
+      result = result.filter((r) => r.cuisineType === selectedCategory);
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter((r) => r.name.toLowerCase().includes(q) || r.cuisineType.toLowerCase().includes(q));
+    }
+    return result.sort((a, b) => b.rating - a.rating);
+  }, [restaurants, selectedCategory, searchQuery]);
+
+  const openRestaurant = async (restaurant: RestaurantSummary) => {
+    setSelectedRestaurant(restaurant);
+    setMenuLoading(true);
+    try {
+      const res = await api.get<{ data: { restaurant: RestaurantDetail; menu: MenuCategory[] } }>(
+        `/api/restaurants/${restaurant.id}`,
+      );
+      setMenu(res.data?.menu ?? []);
+      if (res.data?.menu?.length) setActiveMenuCategory(res.data.menu[0].id);
+      if (res.data?.restaurant) setSelectedRestaurant(res.data.restaurant);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load menu');
+    } finally {
+      setMenuLoading(false);
+    }
+  };
+
+  const addToCart = (item: MenuItem) => {
+    addItem({ type: 'menu', item, quantity: 1 });
   };
 
   if (selectedRestaurant) {
@@ -77,53 +144,88 @@ export default function FoodOrderScreen() {
           <TouchableOpacity onPress={() => setSelectedRestaurant(null)}>
             <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{selectedRestaurant.name}</Text>
+          <Text style={styles.headerTitle} numberOfLines={1}>{selectedRestaurant.name}</Text>
           <View style={{ width: 24 }} />
         </View>
 
-        <ScrollView style={styles.content}>
-          <View style={styles.restaurantBanner}>
-            <Text style={styles.cuisineText}>{selectedRestaurant.cuisine}</Text>
-            <View style={styles.ratingRow}>
-              <Ionicons name="star" size={14} color={colors.primary} />
-              <Text style={styles.ratingText}>{selectedRestaurant.rating}</Text>
-              <Text style={styles.metaText}>· {selectedRestaurant.deliveryTime}</Text>
-            </View>
+        {menuLoading ? (
+          <View style={styles.centerFill}>
+            <ActivityIndicator color={colors.primary} />
           </View>
-
-          {/* Menu items */}
-          <View style={styles.menuSection}>
-            <Text style={styles.sectionTitle}>Popular Items</Text>
-            {MOCK_MENU.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.menuItem}
-                onPress={() => addToCart(item)}
-              >
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.menuItemName}>{item.name}</Text>
-                  <Text style={styles.menuItemDesc}>{item.description}</Text>
-                  <Text style={styles.menuItemPrice}>{formatMoney(item.price, currencyCode)}</Text>
+        ) : (
+          <>
+            <ScrollView style={styles.content}>
+              <View style={styles.restaurantBanner}>
+                <Text style={styles.cuisineText}>{selectedRestaurant.cuisineType}</Text>
+                <View style={styles.ratingRow}>
+                  <Ionicons name="star" size={14} color={colors.primary} />
+                  <Text style={styles.ratingText}>{selectedRestaurant.rating.toFixed(1)}</Text>
+                  <Text style={styles.metaText}>· {selectedRestaurant.preparationTime}-{selectedRestaurant.preparationTime + 10} min</Text>
                 </View>
-                <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
-                  <Ionicons name="add" size={20} color={colors.primary} />
-                </TouchableOpacity>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+              </View>
 
-        {/* Cart bar */}
-        {cartCount > 0 && (
-          <View style={styles.cartBar}>
-            <View style={styles.cartInfo}>
-              <Text style={styles.cartCount}>{cartCount} items</Text>
-              <Text style={styles.cartTotal}>{formatMoney(cartSubtotal, currencyCode)}</Text>
-            </View>
-            <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/food/cart')}>
-              <Text style={styles.primaryButtonText}>View Cart</Text>
-            </TouchableOpacity>
-          </View>
+              {menu.length > 1 && (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryTabs}>
+                  {menu.map((category) => (
+                    <TouchableOpacity
+                      key={category.id}
+                      onPress={() => setActiveMenuCategory(category.id)}
+                      style={[styles.categoryTab, activeMenuCategory === category.id && styles.categoryTabActive]}
+                    >
+                      <Text style={[styles.categoryTabText, activeMenuCategory === category.id && styles.categoryTabTextActive]}>
+                        {category.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+
+              {menu.length === 0 ? (
+                <View style={styles.menuSection}>
+                  <Text style={styles.metaText}>Menu coming soon.</Text>
+                </View>
+              ) : (
+                menu
+                  .filter((c) => !activeMenuCategory || c.id === activeMenuCategory)
+                  .map((category) => (
+                    <View key={category.id} style={styles.menuSection}>
+                      <Text style={styles.sectionTitle}>{category.name}</Text>
+                      {category.items.map((item) => (
+                        <Card key={item.id} variant="outlined" padding="md" style={styles.menuItemCard}>
+                          <View style={styles.menuItemRow}>
+                            <View style={{ flex: 1 }}>
+                              <View style={styles.menuItemNameRow}>
+                                <Text style={styles.menuItemName}>{item.name}</Text>
+                                {item.dietaryTags?.includes('vegetarian') && (
+                                  <Badge label="Veg" variant="success" />
+                                )}
+                              </View>
+                              {item.description ? (
+                                <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>
+                              ) : null}
+                              <Text style={styles.menuItemPrice}>{formatMoney(item.price, item.currencyCode)}</Text>
+                            </View>
+                            <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
+                              <Ionicons name="add" size={20} color={colors.primary} />
+                            </TouchableOpacity>
+                          </View>
+                        </Card>
+                      ))}
+                    </View>
+                  ))
+              )}
+            </ScrollView>
+
+            {cartCount > 0 && (
+              <View style={styles.cartBar}>
+                <View style={styles.cartInfo}>
+                  <Text style={styles.cartCount}>{cartCount} item{cartCount !== 1 ? 's' : ''}</Text>
+                  <Text style={styles.cartTotal}>{formatMoney(cartSubtotal, currencyCode)}</Text>
+                </View>
+                <Button title="View Cart" onPress={() => router.push('/food/cart')} />
+              </View>
+            )}
+          </>
         )}
       </SafeAreaView>
     );
@@ -135,53 +237,86 @@ export default function FoodOrderScreen() {
         <Text style={styles.headerTitle}>Food Delivery</Text>
       </View>
 
-      {location && (
-        <AfriBookMapView
-          region={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.03,
-            longitudeDelta: 0.03,
-          }}
-          markers={restaurants.map((r, i) => ({
-            id: r.id,
-            coordinate: {
-              latitude: location.latitude + (i * 0.003) - 0.005,
-              longitude: location.longitude + (i * 0.002) - 0.004,
-            },
-            title: r.name,
-            subtitle: r.cuisine,
-          }))}
-          style={styles.map}
-        />
-      )}
-
-      <View style={styles.restaurantList}>
-        <FlatList
-          data={restaurants}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.restaurantCard}
-              onPress={() => setSelectedRestaurant(item)}
-            >
-              <View style={styles.restaurantCardImage}>
-                <Ionicons name="restaurant" size={24} color={colors.textTertiary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.restaurantName}>{item.name}</Text>
-                <Text style={styles.restaurantCuisine}>{item.cuisine}</Text>
-                <View style={styles.restaurantMeta}>
-                  <Ionicons name="star" size={12} color={colors.primary} />
-                  <Text style={styles.ratingText}>{item.rating}</Text>
-                  <Text style={styles.metaText}>· {item.deliveryTime} · {item.distance}</Text>
-                </View>
-              </View>
-              <Text style={styles.deliveryFeeText}>{formatMoney(Number(item.deliveryFee), currencyCode)}</Text>
-            </TouchableOpacity>
-          )}
+      <View style={styles.searchRow}>
+        <Ionicons name="search" size={18} color={colors.textTertiary} style={{ marginLeft: spacing.md }} />
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search restaurants or cuisines"
+          placeholderTextColor={colors.textTertiary}
+          style={styles.searchInput}
         />
       </View>
+
+      <View style={styles.categoryRow}>
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          data={categories}
+          keyExtractor={(c) => c}
+          contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}
+          renderItem={({ item: category }) => {
+            const active = selectedCategory === category;
+            return (
+              <TouchableOpacity style={styles.categoryItem} onPress={() => setSelectedCategory(category)}>
+                <View style={[styles.categoryIcon, active ? styles.categoryIconActive : styles.categoryIconInactive]}>
+                  <Ionicons
+                    name={category === 'All' ? 'sparkles' : cuisineIcon(category)}
+                    size={22}
+                    color={active ? colors.textInverse : colors.textTertiary}
+                  />
+                </View>
+                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]} numberOfLines={1}>
+                  {category}
+                </Text>
+              </TouchableOpacity>
+            );
+          }}
+        />
+      </View>
+
+      {loading ? (
+        <View style={styles.centerFill}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.centerFill}>
+          <Text style={styles.metaText}>{error}</Text>
+          <View style={{ height: spacing.md }} />
+          <Button title="Try again" onPress={loadRestaurants} variant="outline" size="sm" />
+        </View>
+      ) : (
+        <View style={styles.restaurantList}>
+          <FlatList
+            data={filteredRestaurants}
+            keyExtractor={(item) => item.id}
+            ListEmptyComponent={<Text style={styles.metaText}>No restaurants found.</Text>}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => openRestaurant(item)}>
+                <Card variant="outlined" padding="md" style={styles.restaurantCard}>
+                  <View style={styles.restaurantCardRow}>
+                    <View style={styles.restaurantCardImage}>
+                      <Ionicons name={cuisineIcon(item.cuisineType)} size={22} color={colors.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.restaurantName}>{item.name}</Text>
+                      <Text style={styles.restaurantCuisine}>{item.cuisineType}</Text>
+                      <View style={styles.restaurantMeta}>
+                        <Ionicons name="star" size={12} color={colors.primary} />
+                        <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+                        <Text style={styles.metaText}>· {item.preparationTime}-{item.preparationTime + 10} min</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.deliveryFeeText}>
+                      {item.deliveryFee > 0 ? formatMoney(item.deliveryFee, item.currency) : 'Free'}
+                    </Text>
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -203,6 +338,62 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.textPrimary,
   },
+  centerFill: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.md,
+    backgroundColor: colors.surfaceSecondary,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
+  },
+  categoryRow: {
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  categoryItem: {
+    alignItems: 'center',
+    width: 64,
+  },
+  categoryIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius['2xl'],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryIconActive: {
+    backgroundColor: colors.primary,
+  },
+  categoryIconInactive: {
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  categoryLabel: {
+    marginTop: spacing.xs,
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  categoryLabelActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
   map: {
     height: 180,
     marginHorizontal: spacing.lg,
@@ -211,22 +402,20 @@ const styles = StyleSheet.create({
   restaurantList: {
     flex: 1,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
   },
   restaurantCard: {
+    marginBottom: spacing.sm,
+  },
+  restaurantCardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadows.sm,
   },
   restaurantCardImage: {
-    width: 56,
-    height: 56,
+    width: 48,
+    height: 48,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.surfaceTertiary,
+    backgroundColor: colors.primarySurface,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
@@ -276,8 +465,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: spacing.xs,
   },
+  categoryTabs: {
+    paddingLeft: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  categoryTab: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginRight: spacing.sm,
+  },
+  categoryTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryTabText: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  categoryTabTextActive: {
+    color: colors.textInverse,
+  },
   menuSection: {
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: typography.fontSize.lg,
@@ -285,12 +500,17 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
-  menuItem: {
+  menuItemCard: {
+    marginBottom: spacing.sm,
+  },
+  menuItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
+  },
+  menuItemNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   menuItemName: {
     fontSize: typography.fontSize.md,
@@ -339,16 +559,5 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.lg,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  primaryButton: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-  },
-  primaryButtonText: {
-    color: colors.textInverse,
-    fontSize: typography.fontSize.md,
-    fontWeight: '600',
   },
 });

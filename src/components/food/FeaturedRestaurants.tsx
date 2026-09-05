@@ -3,6 +3,10 @@
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Star, ArrowRight } from 'lucide-react'
+import Card from '@/components/ui/Card'
+import Badge from '@/components/ui/Badge'
+import { formatMoneySymbol } from '@/lib/money'
+import type { RestaurantSummary } from '@/app/food/page'
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -14,88 +18,16 @@ const staggerContainer = {
   visible: { transition: { staggerChildren: 0.1 } },
 }
 
-interface Restaurant {
-  name: string
-  cuisine: string
-  rating: number
-  deliveryTime: string
-  deliveryFee: string
-  location: string
-  initials: string
-  featured: boolean
-  gradient: string
-}
+// A small amber-family rotation for placeholder card headers (restaurants
+// have no photo field yet) — matches the treatment on the main grid in
+// src/app/food/page.tsx, kept in sync deliberately.
+const GRADIENTS = ['from-amber-500 to-orange-600', 'from-amber-600 to-amber-800', 'from-orange-500 to-amber-600']
 
-const featuredRestaurants: Restaurant[] = [
-  {
-    name: 'Lagos Kitchen',
-    cuisine: 'Nigerian',
-    rating: 4.9,
-    deliveryTime: '25-35 min',
-    deliveryFee: '$1.50',
-    location: 'Lekki, Lagos',
-    initials: 'LK',
-    featured: true,
-    gradient: 'from-amber-500/30 to-orange-500/25',
-  },
-  {
-    name: 'Nairobi Bites',
-    cuisine: 'Kenyan',
-    rating: 4.8,
-    deliveryTime: '30-40 min',
-    deliveryFee: '$2.00',
-    location: 'Westlands, Nairobi',
-    initials: 'NB',
-    featured: true,
-    gradient: 'from-emerald-500/30 to-teal-500/25',
-  },
-  {
-    name: 'Accra Flavors',
-    cuisine: 'Ghanaian',
-    rating: 4.7,
-    deliveryTime: '20-30 min',
-    deliveryFee: '$1.20',
-    location: 'Osu, Accra',
-    initials: 'AF',
-    featured: false,
-    gradient: 'from-yellow-500/30 to-orange-500/25',
-  },
-  {
-    name: 'Cape Town Grill',
-    cuisine: 'South African',
-    rating: 4.8,
-    deliveryTime: '35-45 min',
-    deliveryFee: '$2.50',
-    location: 'Sandton, Cape Town',
-    initials: 'CT',
-    featured: true,
-    gradient: 'from-blue-500/25 to-indigo-500/30',
-  },
-  {
-    name: 'Cairo Eats',
-    cuisine: 'Egyptian',
-    rating: 4.6,
-    deliveryTime: '25-35 min',
-    deliveryFee: '$1.80',
-    location: 'Zamalek, Cairo',
-    initials: 'CE',
-    featured: false,
-    gradient: 'from-orange-500/30 to-red-500/25',
-  },
-  {
-    name: 'Dar es Salaam Delights',
-    cuisine: 'Tanzanian',
-    rating: 4.7,
-    deliveryTime: '30-40 min',
-    deliveryFee: '$1.60',
-    location: 'Masaki, Dar es Salaam',
-    initials: 'DD',
-    featured: false,
-    gradient: 'from-purple-500/30 to-violet-500/25',
-  },
-]
+export default function FeaturedRestaurants({ restaurants }: { restaurants: RestaurantSummary[] }) {
+  const featured = [...restaurants].sort((a, b) => b.rating - a.rating).slice(0, 3)
 
-export default function FeaturedRestaurants() {
+  if (featured.length === 0) return null
+
   return (
     <section className="py-16 sm:py-24 bg-surface">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -110,7 +42,7 @@ export default function FeaturedRestaurants() {
               Popular picks
             </p>
             <h2 className="mt-3 text-3xl font-bold tracking-tight text-text-primary sm:text-4xl">
-              Handpicked restaurants for your next order
+              Top-rated restaurants for your next order
             </h2>
           </motion.div>
 
@@ -130,65 +62,74 @@ export default function FeaturedRestaurants() {
           variants={staggerContainer}
           className="grid grid-cols-1 gap-6 lg:grid-cols-3"
         >
-          {featuredRestaurants.map((restaurant) => (
-            <motion.div
-              key={restaurant.name}
-              variants={fadeIn}
-              className="group overflow-hidden rounded-[2rem] border border-border bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
-            >
-              <div
-                className={`relative h-52 overflow-hidden bg-gradient-to-br ${restaurant.gradient}`}
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.22),_transparent_35%)]" />
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(0,0,0,0.18),_transparent_45%)]" />
-                <div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text-primary shadow-sm">
-                  {restaurant.deliveryFee}
-                </div>
-                <div className="absolute right-5 top-5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
-                  {restaurant.deliveryTime}
-                </div>
-              </div>
+          {featured.map((restaurant, i) => {
+            const initials = restaurant.name
+              .split(' ')
+              .map((w) => w[0])
+              .join('')
+              .slice(0, 2)
+              .toUpperCase()
+            const deliveryFeeText =
+              restaurant.deliveryFee > 0
+                ? formatMoneySymbol(restaurant.deliveryFee, restaurant.currency)
+                : 'Free'
 
-              <div className="space-y-5 p-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-text-primary group-hover:text-amber-500 transition-colors">
-                      {restaurant.name}
-                    </h3>
-                    <p className="mt-1 text-sm text-text-secondary">
-                      {restaurant.cuisine}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-600">
-                    <Star className="h-4 w-4" />
-                    {restaurant.rating}
-                  </div>
-                </div>
+            return (
+              <motion.div key={restaurant.id} variants={fadeIn}>
+                <Link href={`/food/${restaurant.id}`} className="group block h-full">
+                  <Card padding="none" interactive className="overflow-hidden">
+                    <div
+                      className={`relative h-52 overflow-hidden bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]}`}
+                    >
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.22),_transparent_35%)]" />
+                      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(0,0,0,0.18),_transparent_45%)]" />
+                      <div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text-primary shadow-sm">
+                        {deliveryFeeText} delivery
+                      </div>
+                      <div className="absolute right-5 top-5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm">
+                        {restaurant.preparationTime}-{restaurant.preparationTime + 10} min
+                      </div>
+                      <div className="absolute bottom-5 left-5 grid h-14 w-14 place-items-center rounded-2xl bg-white/15 text-lg font-bold text-white backdrop-blur-md">
+                        {initials}
+                      </div>
+                    </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
-                    <p className="font-semibold text-text-primary">Delivery fee</p>
-                    <p>{restaurant.deliveryFee}</p>
-                  </div>
-                  <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
-                    <p className="font-semibold text-text-primary">Location</p>
-                    <p>{restaurant.location}</p>
-                  </div>
-                </div>
+                    <div className="space-y-5 p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <h3 className="text-xl font-semibold text-text-primary group-hover:text-amber-600 transition-colors">
+                            {restaurant.name}
+                          </h3>
+                          <p className="mt-1 text-sm text-text-secondary">
+                            {restaurant.cuisineType}
+                          </p>
+                        </div>
+                        <Badge variant="amber" icon={<Star className="h-3.5 w-3.5" />}>
+                          {restaurant.rating.toFixed(1)}
+                        </Badge>
+                      </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {restaurant.featured && (
-                    <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600">
-                      Featured
-                    </span>
-                  )}
-                  <span className="rounded-full bg-surface-secondary px-3 py-1 text-xs font-medium text-text-secondary">
-                    {restaurant.cuisine}
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          ))}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+                          <p className="font-semibold text-text-primary">Delivery fee</p>
+                          <p>{deliveryFeeText}</p>
+                        </div>
+                        <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+                          <p className="font-semibold text-text-primary">Location</p>
+                          <p className="truncate">{restaurant.address}</p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="amber">Featured</Badge>
+                        <Badge variant="neutral">{restaurant.cuisineType}</Badge>
+                      </div>
+                    </div>
+                  </Card>
+                </Link>
+              </motion.div>
+            )
+          })}
         </motion.div>
       </div>
     </section>

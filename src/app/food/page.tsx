@@ -20,6 +20,10 @@ import { formatMoneySymbol } from "@/lib/money";
 import { useCountry } from "@/components/shared/CountryProvider";
 import DestinationSelector, { DestinationChip } from "@/components/shared/DestinationSelector";
 import { useDestinationStore } from "@/stores/destination-store";
+import Card from "@/components/ui/Card";
+import Badge from "@/components/ui/Badge";
+import IconTile from "@/components/ui/IconTile";
+import CuisineIcon from "@/components/food/CuisineIcon";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -181,7 +185,7 @@ export default function FoodPage() {
                 className="mt-8 text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-white sm:text-6xl"
               >
                 Discover the best restaurants,
-                <span className="block bg-gradient-to-r from-amber-400 via-rose-400 to-purple-500 bg-clip-text text-transparent">
+                <span className="block bg-gradient-to-r from-amber-400 to-amber-200 bg-clip-text text-transparent">
                   delivered fast.
                 </span>
               </motion.h1>
@@ -274,7 +278,7 @@ export default function FoodPage() {
                 className="absolute -left-6 top-24 hidden rounded-[2rem] border border-white/10 bg-dark-800/90 p-4 shadow-2xl backdrop-blur-xl sm:block"
               >
                 <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-3xl bg-rose-500/15 text-rose-300">
+                  <div className="grid h-12 w-12 place-items-center rounded-3xl bg-amber-500/15 text-amber-300">
                     <Clock className="h-5 w-5" />
                   </div>
                   <div>
@@ -305,26 +309,48 @@ export default function FoodPage() {
         </div>
       </section>
 
-      {/* Category Filters & Sort */}
-      <section className="sticky top-0 z-20 border-b border-border bg-surface/95 py-6 backdrop-blur-xl">
+      {/* Cuisine categories */}
+      <section className="border-b border-border bg-surface py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="-mb-1 flex gap-2 overflow-x-auto pb-1">
-              {categories.map((category) => (
+          <div className="flex gap-5 overflow-x-auto pb-1">
+            {categories.map((category) => {
+              const active = selectedCategory === category;
+              return (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`shrink-0 rounded-full px-5 py-2.5 text-sm font-medium transition-colors ${
-                    selectedCategory === category
-                      ? "bg-amber-500 text-white shadow-[0_18px_50px_rgba(245,158,11,0.18)]"
-                      : "border border-border bg-surface-secondary text-text-secondary hover:border-amber-500/40 hover:text-text-primary"
-                  }`}
+                  className="flex shrink-0 flex-col items-center gap-2"
                 >
-                  {category}
+                  <IconTile
+                    size="lg"
+                    className={
+                      active
+                        ? undefined
+                        : "bg-none bg-surface-secondary text-text-tertiary border border-border"
+                    }
+                  >
+                    {category === "All" ? (
+                      <Sparkles className="w-6 h-6" />
+                    ) : (
+                      <CuisineIcon cuisine={category} className="w-6 h-6" />
+                    )}
+                  </IconTile>
+                  <span
+                    className={`text-xs font-medium ${active ? "text-amber-600" : "text-text-secondary"}`}
+                  >
+                    {category}
+                  </span>
                 </button>
-              ))}
-            </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
 
+      {/* Sort */}
+      <section className="sticky top-0 z-20 border-b border-border bg-surface/95 py-4 backdrop-blur-xl">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-end">
             <div className="relative shrink-0">
               <button
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
@@ -405,15 +431,13 @@ export default function FoodPage() {
               className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
             >
               {filteredRestaurants.map((restaurant, i) => {
+                // A small amber-family rotation for placeholder card headers
+                // (restaurants have no photo field yet) — variety without
+                // introducing competing brand colors at grid scale.
                 const gradients = [
                   "from-amber-500 to-orange-600",
-                  "from-emerald-500 to-teal-600",
-                  "from-yellow-500 to-amber-600",
-                  "from-red-500 to-rose-600",
-                  "from-cyan-500 to-blue-600",
-                  "from-purple-500 to-violet-600",
-                  "from-pink-500 to-rose-600",
-                  "from-indigo-500 to-blue-600",
+                  "from-amber-600 to-amber-800",
+                  "from-orange-500 to-amber-600",
                 ];
                 const gradient = gradients[i % gradients.length];
                 const initials = restaurant.name
@@ -432,63 +456,58 @@ export default function FoodPage() {
                     : "Free";
                 return (
                   <motion.div key={restaurant.id} variants={fadeIn}>
-                    <Link
-                      href={`/food/${restaurant.id}`}
-                      className="group block h-full overflow-hidden rounded-[2rem] border border-border bg-white shadow-[0_12px_40px_rgba(0,0,0,0.06)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_60px_rgba(0,0,0,0.12)]"
-                    >
-                      <div
-                        className={`relative h-52 bg-gradient-to-br ${gradient} overflow-hidden`}
-                      >
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.25),_transparent_35%)]" />
-                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(0,0,0,0.15),_transparent_40%)]" />
-                        <div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text-primary shadow-sm">
-                          {priceRange}
-                        </div>
-                        <div className="absolute right-5 top-5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-amber-950 shadow-sm">
-                          {deliveryFeeText} delivery
-                        </div>
-                        <div className="absolute bottom-5 left-5 grid h-14 w-14 place-items-center rounded-2xl bg-white/15 text-lg font-bold text-white backdrop-blur-md">
-                          {initials}
-                        </div>
-                      </div>
-
-                      <div className="space-y-5 p-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <h3 className="text-xl font-semibold text-text-primary transition group-hover:text-amber-500">
-                              {restaurant.name}
-                            </h3>
-                            <p className="mt-1 text-sm text-text-secondary">
-                              {restaurant.cuisineType}
-                            </p>
+                    <Link href={`/food/${restaurant.id}`} className="group block h-full">
+                      <Card padding="none" interactive className="overflow-hidden">
+                        <div
+                          className={`relative h-52 bg-gradient-to-br ${gradient} overflow-hidden`}
+                        >
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.25),_transparent_35%)]" />
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(0,0,0,0.15),_transparent_40%)]" />
+                          <div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text-primary shadow-sm">
+                            {priceRange}
                           </div>
-                          <div className="flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-600">
-                            <Star className="h-4 w-4" />
-                            {restaurant.rating.toFixed(1)}
+                          <div className="absolute right-5 top-5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm">
+                            {deliveryFeeText} delivery
+                          </div>
+                          <div className="absolute bottom-5 left-5 grid h-14 w-14 place-items-center rounded-2xl bg-white/15 text-lg font-bold text-white backdrop-blur-md">
+                            {initials}
                           </div>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
-                            <p className="font-semibold text-text-primary">Prep time</p>
-                            <p>{restaurant.preparationTime}-{restaurant.preparationTime + 10} min</p>
+                        <div className="space-y-5 p-6">
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <h3 className="text-xl font-semibold text-text-primary transition group-hover:text-amber-600">
+                                {restaurant.name}
+                              </h3>
+                              <p className="mt-1 text-sm text-text-secondary">
+                                {restaurant.cuisineType}
+                              </p>
+                            </div>
+                            <Badge variant="amber" icon={<Star className="h-3.5 w-3.5" />}>
+                              {restaurant.rating.toFixed(1)}
+                            </Badge>
                           </div>
-                          <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
-                            <p className="font-semibold text-text-primary">Location</p>
-                            <p className="truncate">{restaurant.address}</p>
-                          </div>
-                        </div>
 
-                        <div className="flex flex-wrap gap-2">
-                          <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-600">
-                            {restaurant.cuisineType}
-                          </span>
-                          <span className="inline-flex items-center gap-1 rounded-full bg-surface-secondary px-3 py-1 text-xs font-semibold text-text-secondary">
-                            <UtensilsCrossed className="h-3 w-3" />
-                            Order food
-                          </span>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+                              <p className="font-semibold text-text-primary">Prep time</p>
+                              <p>{restaurant.preparationTime}-{restaurant.preparationTime + 10} min</p>
+                            </div>
+                            <div className="rounded-3xl bg-surface-secondary px-4 py-3 text-sm text-text-secondary">
+                              <p className="font-semibold text-text-primary">Location</p>
+                              <p className="truncate">{restaurant.address}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="amber">{restaurant.cuisineType}</Badge>
+                            <Badge variant="neutral" icon={<UtensilsCrossed className="h-3 w-3" />}>
+                              Order food
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
+                      </Card>
                     </Link>
                   </motion.div>
                 );
@@ -512,7 +531,7 @@ export default function FoodPage() {
 
       <DestinationSelector open={destinationOpen} onClose={() => setDestinationOpen(false)} />
 
-      <FeaturedRestaurants />
+      <FeaturedRestaurants restaurants={restaurants} />
     </div>
   );
 }

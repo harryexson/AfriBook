@@ -8,6 +8,7 @@ import { useCartStore } from '@/stores/cart-store'
 import { StripePaymentSection } from '@/components/checkout/StripePaymentSection'
 import { useCountry } from '@/components/shared/CountryProvider'
 import { formatMoneySymbol, getCurrencyForCountry } from '@/lib/money'
+import Button from '@/components/ui/Button'
 import {
   Truck, Package,
   ChevronLeft, CheckCircle, ArrowRight, Clock,
@@ -203,12 +204,11 @@ export default function CheckoutPage() {
               </p>
             </div>
           )}
-          <button
-            onClick={() => router.push('/account/orders')}
-            className="mt-6 w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-semibold text-sm shadow-lg shadow-amber-500/25"
-          >
-            View My Orders
-          </button>
+          <div className="mt-6">
+            <Button onClick={() => router.push('/account/orders')} size="lg" className="w-full">
+              View My Orders
+            </Button>
+          </div>
         </motion.div>
       </div>
     )
@@ -370,20 +370,15 @@ export default function CheckoutPage() {
 
           {/* Place order button */}
           <motion.div variants={ITEM}>
-            <button
+            <Button
               onClick={handlePlaceOrder}
               disabled={submitting || store.items.length === 0 || (store.fulfillmentMethod === 'delivery' && !deliveryAddress.trim())}
-              className={cn(
-                'w-full py-3.5 rounded-xl font-bold text-sm transition-all',
-                'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
-                'shadow-lg shadow-amber-500/25 hover:from-amber-600 hover:to-amber-700',
-                'disabled:opacity-50 disabled:cursor-not-allowed',
-                'flex items-center justify-center gap-2',
-              )}
+              size="lg"
+              className="w-full"
             >
               {submitting ? (
                 <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-amber-950 border-t-transparent rounded-full animate-spin" />
                   Processing...
                 </>
               ) : (
@@ -392,7 +387,7 @@ export default function CheckoutPage() {
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
-            </button>
+            </Button>
           </motion.div>
         </motion.div>
       </div>
