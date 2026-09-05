@@ -46,7 +46,11 @@ export type ButtonProps = ButtonAsButton | ButtonAsLink
 const Button = forwardRef<HTMLButtonElement | HTMLAnchorElement, ButtonProps>(
   ({ variant = 'primary', size = 'md', className, children, ...props }, ref) => {
     const classes = cn(
-      'inline-flex items-center justify-center rounded-full font-semibold transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none',
+      // A short press dip, matching PressableScale on mobile. Note this is
+      // `active:` (pointer down), not `hover:` — a hover-scale would shift
+      // layout under the cursor, which the design system rules out. Press
+      // feedback is a different thing: it confirms the touch landed.
+      'inline-flex items-center justify-center rounded-full font-semibold transition-[colors,transform] duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none',
       VARIANT_CLASSES[variant],
       SIZE_CLASSES[size],
       className,

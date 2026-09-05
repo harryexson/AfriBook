@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Star, MapPin, Heart, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { imageFor } from "@/lib/images";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import type { Business } from "@/types";
@@ -40,21 +41,14 @@ export default function BusinessCard({
       <Link href={linkHref} className="group block">
         <Card padding="none" interactive className="overflow-hidden rounded-[28px]">
           <div className="relative h-44 overflow-hidden bg-surface-secondary">
-            {business.media?.coverUrl ? (
-              <img
-                src={business.media.coverUrl}
-                alt={business.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center">
-                  <span className="text-2xl font-bold text-amber-500">
-                    {business.name.charAt(0)}
-                  </span>
-                </div>
-              </div>
-            )}
+            <img
+              src={imageFor(business.id, business.category, business.media?.coverUrl, {
+                width: 440,
+                ratio: 0.62,
+              })}
+              alt={business.name}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+            />
             <button
               onClick={(e) => {
                 e.preventDefault();

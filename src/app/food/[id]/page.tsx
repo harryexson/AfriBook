@@ -22,6 +22,7 @@ import type { MenuItem } from "@/types";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
+import DishDialog from "@/components/food/DishDialog";
 
 interface MenuCategory {
   id: string;
@@ -64,6 +65,7 @@ export default function RestaurantMenuPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<string>("");
   const [addedId, setAddedId] = useState<string | null>(null);
+  const [sheetItem, setSheetItem] = useState<MenuItem | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,6 +105,18 @@ export default function RestaurantMenuPage() {
     const first = store.items.find((i) => i.type === "menu");
     return first?.type === "menu" ? first.item.currencyCode : restaurant?.currency ?? "USD";
   }, [store.items, restaurant]);
+
+  // Adding a new item goes through the configurator so the flow matches the
+  // mobile app; the inline stepper below stays for items already in the cart,
+  // where the choice has already been made and only the count changes.
+  const handleAddConfigured = (item: MenuItem, quantity: number, notes?: string) => {
+    const existingIndex = cartIndexFor.get(item.id);
+    if (existingIndex !== undefined) {
+      store.updateQuantity(existingIndex, store.items[existingIndex].quantity + quantity);
+    } else {
+      store.addItem({ type: "menu", item, quantity, notes });
+    }
+  };
 
   const handleAdd = (item: MenuItem) => {
     const existingIndex = cartIndexFor.get(item.id);
@@ -315,9 +329,9 @@ export default function RestaurantMenuPage() {
                     <div className="shrink-0">
                       {count === 0 ? (
                         <button
-                          onClick={() => handleAdd(item)}
-                          aria-label={`Add ${item.name} to cart`}
-                          className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-500 text-white shadow-gold transition hover:bg-amber-600 active:scale-95"
+                          onClick={() => setSheetItem(item)}
+                          aria-label={`Choose options for ${item.name}`}
+                          className="grid h-11 w-11 place-items-center rounded-2xl bg-dark-300 text-white transition-[colors,transform] hover:bg-dark-200 active:scale-95"
                         >
                           <Plus className="h-5 w-5" />
                         </button>
@@ -355,6 +369,13 @@ export default function RestaurantMenuPage() {
           </div>
         ))}
       </section>
+
+      <DishDialog
+        item={sheetItem}
+        prepTime={restaurant.preparationTime}
+        onClose={() => setSheetItem(null)}
+        onAdd={handleAddConfigured}
+      />
 
       {/* Cart bar */}
       {cartCount > 0 && (

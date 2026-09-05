@@ -13,6 +13,7 @@ import FilterSidebar from '@/components/marketplace/FilterSidebar'
 import type { FilterState } from '@/components/marketplace/FilterSidebar'
 import { getCountryBusinesses, getCountryServices } from '@/lib/countries-data'
 import CategoryIcon from '@/components/marketplace/CategoryIcon'
+import Chip from '@/components/ui/Chip'
 
 const ITEMS_PER_PAGE = 6
 const PRICE_RANGE: [number, number] = [0, 200000]
@@ -188,36 +189,31 @@ export default function SearchPage() {
             browsing strip; icons come from the same CATEGORY_ICON_MAP the
             homepage uses, so a category reads the same icon everywhere. */}
         <div className="flex gap-2 overflow-x-auto pb-1 mt-6 scrollbar-none">
-          <button
-            onClick={() => { setFilters((f) => ({ ...f, categories: [] })); setPage(1) }}
-            className={cn(
-              'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors',
-              filters.categories.length === 0
-                ? 'border-amber-500 bg-amber-500 text-amber-950'
-                : 'border-border text-text-secondary hover:border-amber-500/40',
-            )}
-          >
-            All
-          </button>
+          <Chip
+            label="All"
+            variant="filter"
+            selected={filters.categories.length === 0}
+            onClick={() => {
+              setFilters((f) => ({ ...f, categories: [] }))
+              setPage(1)
+            }}
+            className="px-4 py-2 text-sm"
+          />
           {categories.map((cat) => {
             const active = filters.categories.includes(cat)
             return (
-              <button
+              <Chip
                 key={cat}
+                label={cat}
+                variant="filter"
+                selected={active}
+                icon={<CategoryIcon name={cat} className="w-4 h-4" />}
                 onClick={() => {
                   setFilters((f) => ({ ...f, categories: active ? [] : [cat] }))
                   setPage(1)
                 }}
-                className={cn(
-                  'inline-flex shrink-0 items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors',
-                  active
-                    ? 'border-amber-500 bg-amber-500 text-amber-950'
-                    : 'border-border text-text-secondary hover:border-amber-500/40',
-                )}
-              >
-                <CategoryIcon name={cat} className="w-4 h-4" />
-                {cat}
-              </button>
+                className="px-4 py-2 text-sm"
+              />
             )
           })}
         </div>

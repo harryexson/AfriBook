@@ -28,8 +28,11 @@ const Card = forwardRef<HTMLDivElement, CardProps>(
     <div
       ref={ref}
       className={cn(
-        'rounded-2xl border border-border bg-surface shadow-sm transition-colors duration-200',
-        interactive && 'hover:border-amber-500/30 hover:shadow-md cursor-pointer',
+        'rounded-2xl border border-border bg-surface shadow-sm transition-[colors,transform] duration-200',
+        // Hover only changes colour (no lift — that shifts layout in long
+        // scrolling lists). Press dips the whole card, matching the spring
+        // dip PressableScale gives the same card on mobile.
+        interactive && 'hover:border-amber-500/30 hover:shadow-md active:scale-[0.985] cursor-pointer',
         PADDING_CLASSES[padding],
         className,
       )}
