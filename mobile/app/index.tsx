@@ -18,6 +18,7 @@ import { useAuthStore } from "../src/stores/auth-store";
 import { useMarketStore } from "../src/stores/market-store";
 import CategoryGrid from "../src/components/CategoryGrid";
 import CountryPicker from "../src/components/CountryPicker";
+import CountryNotice from "../src/components/CountryNotice";
 import SectionHeader from "../src/components/ui/SectionHeader";
 import PressableScale from "../src/components/ui/PressableScale";
 import { photoFor, imageSourceFor } from "../src/lib/images";
@@ -129,6 +130,8 @@ export default function HomeScreen() {
           <Ionicons name="search" size={18} color={colors.textTertiary} />
           <Text style={styles.searchText}>Search services, food, stays…</Text>
         </TouchableOpacity>
+
+        <CountryNotice />
 
         {/* Vertical mosaic */}
         <View style={styles.mosaic}>

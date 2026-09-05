@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
+import CountryNotice from '@/components/shared/CountryNotice'
 import Footer from '@/components/shared/Footer'
 import ClientProviders from '@/components/providers/ClientProviders'
 import ServiceWorkerRegister from '@/components/shared/ServiceWorkerRegister'
@@ -85,6 +86,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col antialiased">
         <ClientProviders>
           <Header />
+          <CountryNotice />
           <main className="flex-1">{children}</main>
           <Footer />
         </ClientProviders>

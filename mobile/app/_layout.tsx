@@ -4,13 +4,19 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuth } from '../src/hooks/useAuth';
+import { useMarketStore } from '../src/stores/market-store';
 import { colors } from '../src/theme';
 
 export default function RootLayout() {
   const { initialize } = useAuth();
+  const hydrateMarket = useMarketStore((s) => s.hydrate);
 
   useEffect(() => {
     initialize();
+    // Restores the stored market and resolves the device's country. Async and
+    // non-blocking: the app renders its stored (or fallback) market first and
+    // corrects itself only if detection disagrees and the user never chose.
+    hydrateMarket();
   }, []);
 
   return (

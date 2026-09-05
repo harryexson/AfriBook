@@ -180,6 +180,22 @@ export async function proxy(req: NextRequest) {
 
   response.headers.set('X-Detected-Country', resolvedCountry);
 
+  // Where the request physically came from, kept separate from the `country`
+  // preference cookie above. Once a preference is stored it overwrites the
+  // resolved country, so without this the client can no longer tell "chose
+  // Ghana" from "is in Ghana" — and can't honestly tell the user they're
+  // browsing away from home. Readable by the client (not httpOnly) precisely
+  // so CountryNotice can compare the two; it is a hint for copy, never an
+  // authority for pricing or access.
+  if (ipCountry && isValid(ipCountry)) {
+    response.cookies.set('country_detected', ipCountry, {
+      path: '/',
+      maxAge: 60 * 60 * 24,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+
   // ─── Country-based redirect for homepage ────────────────────
   if (pathname === '/' && !isStaticPath && !isApiPath) {
     const url = req.nextUrl.clone();
