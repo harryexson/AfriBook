@@ -59,7 +59,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     alignItems: 'center',
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing['3xl'],
     gap: spacing.md,
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,

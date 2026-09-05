@@ -103,7 +103,7 @@ export default function HelpScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   faqRow: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginBottom: spacing.sm,

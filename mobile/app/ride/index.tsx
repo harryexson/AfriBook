@@ -327,7 +327,7 @@ export default function RideRequestScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   map: {
     flex: 1,
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   inputGroup: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.lg,
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   driverInfo: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
     marginTop: spacing.md,

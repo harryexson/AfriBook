@@ -110,7 +110,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   content: {
     paddingHorizontal: spacing.xl,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
   profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     gap: spacing.lg,

@@ -86,7 +86,7 @@ export default function VendorEarningsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   content: {
     paddingHorizontal: spacing.xl,

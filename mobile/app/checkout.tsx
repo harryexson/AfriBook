@@ -180,7 +180,7 @@ export default function CheckoutScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   content: {
     paddingHorizontal: spacing.xl,

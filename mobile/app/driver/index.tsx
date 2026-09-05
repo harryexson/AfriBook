@@ -153,7 +153,7 @@ export default function DriverHomeScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   container: {
     flex: 1,

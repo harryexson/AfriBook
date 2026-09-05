@@ -213,7 +213,7 @@ export default function BusinessDetailScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   coverContainer: {
     height: 220,

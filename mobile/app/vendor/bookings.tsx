@@ -85,7 +85,7 @@ export default function VendorBookingsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   container: {
     flex: 1,
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
   },

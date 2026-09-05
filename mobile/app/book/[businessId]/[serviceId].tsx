@@ -172,7 +172,7 @@ export default function BookServiceScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   content: {
     paddingHorizontal: spacing.xl,
@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   serviceCard: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.xl,
     marginBottom: spacing.xl,
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.md,
     borderRadius: borderRadius.xl,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderWidth: 1.5,
     borderColor: 'transparent',
   },
@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     color: colors.textInverse,
   },
   notesInput: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     padding: spacing.lg,
     minHeight: 80,

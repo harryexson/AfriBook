@@ -71,7 +71,7 @@ export default function DriverEarningsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   content: {
     paddingHorizontal: spacing.xl,
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.border,

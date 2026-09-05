@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Alert, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import PressableScale from '../../src/components/ui/PressableScale';
+import { imageSourceFor } from '../../src/lib/images';
 import { useMarketStore } from '../../src/stores/market-store';
 import { formatMoneySymbol } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
@@ -354,13 +356,16 @@ export default function StaysScreen() {
         contentContainerStyle={styles.hotelList}
         showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
-          <TouchableOpacity
+          <PressableScale
             style={styles.hotelCard}
+            scaleTo={0.98}
+            accessibilityRole="button"
             onPress={() => openHotel(item)}
           >
-            <View style={styles.hotelCardImage}>
-              <Ionicons name="bed" size={24} color={colors.textTertiary} />
-            </View>
+            <Image
+              source={imageSourceFor(item.id, 'stays', undefined, { width: 200, ratio: 1 })}
+              style={styles.hotelCardImage}
+            />
             <View style={{ flex: 1 }}>
               <Text style={styles.hotelName}>{item.name}</Text>
               <Text style={styles.hotelCuisine}>{item.city}, {item.country}</Text>
@@ -375,7 +380,7 @@ export default function StaysScreen() {
               {'\n'}
               <Text style={styles.hotelPricePer}>/night</Text>
             </Text>
-          </TouchableOpacity>
+          </PressableScale>
         )}
       />
     </SafeAreaView>
@@ -385,7 +390,7 @@ export default function StaysScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -415,13 +420,12 @@ const styles = StyleSheet.create({
     ...shadows.sm,
   },
   hotelCardImage: {
-    width: 56,
-    height: 56,
-    borderRadius: borderRadius.md,
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.surfaceTertiary,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: spacing.md,
+    resizeMode: 'cover',
   },
   hotelName: {
     fontSize: typography.fontSize.md,
@@ -493,7 +497,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -556,7 +560,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   formCard: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
   },
@@ -683,7 +687,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
   },
   summaryCard: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
   },

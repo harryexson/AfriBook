@@ -138,7 +138,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.canvas,
   },
   header: {
     flexDirection: 'row',
@@ -164,7 +164,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
   },
   group: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surface,
     borderRadius: borderRadius.xl,
     paddingHorizontal: spacing.lg,
     ...shadows.sm,
