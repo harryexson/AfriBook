@@ -52,8 +52,11 @@ function shouldUseTransparentHeader(pathname: string): boolean {
   if (TRANSPARENT_HEADER_PATHS.has(pathname)) return true
   // Stays detail pages (e.g. /stays/stay-mw-0) use a dark hero.
   if (pathname.startsWith('/stays/')) return true
-  // Country home pages (e.g. /US) have a dark hero.
-  return pathname.split('/').filter(Boolean).length === 1
+  // Country home pages (e.g. /US) used to open on a dark gradient hero and
+  // needed the light-on-dark treatment. They now open on the light photo
+  // mosaic (HeroMosaic), so the transparent header would render white type
+  // on an off-white canvas.
+  return false
 }
 
 export default function Header() {

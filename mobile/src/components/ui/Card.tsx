@@ -3,12 +3,19 @@ import { View, StyleSheet, ViewProps, ViewStyle } from "react-native";
 import { colors, borderRadius, spacing, shadows } from "../../theme";
 
 interface CardProps extends ViewProps {
-  variant?: "default" | "outlined" | "elevated";
-  padding?: keyof typeof spacing;
+  /**
+   * `plain` is the default and draws no chrome at all — it relies on the
+   * canvas/surface tone step for separation. Reach for `outlined` or
+   * `elevated` only when the container is genuinely interactive or genuinely
+   * floating; a card that reads the same with its border removed shouldn't
+   * have had one.
+   */
+  variant?: "plain" | "default" | "outlined" | "elevated";
+  padding?: keyof typeof spacing | "none";
 }
 
 export default function Card({
-  variant = "default",
+  variant = "plain",
   padding = "lg",
   style,
   children,
@@ -19,7 +26,7 @@ export default function Card({
       style={[
         styles.base,
         styles[variant],
-        { padding: spacing[padding] },
+        { padding: padding === "none" ? 0 : spacing[padding] },
         style as ViewStyle,
       ]}
       {...props}
@@ -34,24 +41,21 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius["2xl"],
     backgroundColor: colors.surface,
     overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "rgba(15, 23, 42, 0.08)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.12,
-    shadowRadius: 36,
-    elevation: 7,
+  },
+  plain: {
+    backgroundColor: colors.surface,
   },
   default: {
     backgroundColor: colors.surface,
+    ...shadows.md,
   },
   outlined: {
     backgroundColor: colors.surface,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   elevated: {
     backgroundColor: colors.surface,
-    ...shadows.premium,
-    borderColor: "rgba(15, 23, 42, 0.06)",
+    ...shadows.lg,
   },
 });

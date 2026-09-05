@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,281 +6,236 @@ import {
   TouchableOpacity,
   StyleSheet,
   RefreshControl,
+  Image,
+  ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  colors,
-  spacing,
-  typography,
-  borderRadius,
-  shadows,
-} from "../src/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, spacing, typography, borderRadius } from "../src/theme";
 import { COUNTRIES } from "../src/constants/countries";
 import { useAuthStore } from "../src/stores/auth-store";
 import { useMarketStore } from "../src/stores/market-store";
 import CategoryGrid from "../src/components/CategoryGrid";
-import BusinessCard from "../src/components/BusinessCard";
 import CountryPicker from "../src/components/CountryPicker";
-import type { Business } from "../src/types";
+import SectionHeader from "../src/components/ui/SectionHeader";
+import { photoFor } from "../src/lib/images";
+import { api } from "../src/lib/api";
+import { formatMoney } from "../src/lib/money";
 
-const FEATURED_BUSINESSES: Business[] = [
-  {
-    id: "1",
-    name: "Lagos Barbershop",
-    description: "Premium grooming for the modern gentleman",
-    category: "Beauty & Wellness",
-    countryCode: "NG",
-    ownerId: "u1",
-    address: {
-      street: "12 Allen Ave",
-      city: "Lagos",
-      state: "Lagos",
-      postalCode: "100001",
-      countryCode: "NG",
-      formatted: "12 Allen Ave, Lagos",
-    },
-    location: { latitude: 6.5244, longitude: 3.3792 },
-    contact: { phone: "+2348012345678", email: "info@lagosbarber.com" },
-    media: { galleryUrls: [] },
-    hours: [
-      { day: "mon", open: "09:00", close: "18:00", isClosed: false },
-      { day: "tue", open: "09:00", close: "18:00", isClosed: false },
-      { day: "wed", open: "09:00", close: "18:00", isClosed: false },
-      { day: "thu", open: "09:00", close: "18:00", isClosed: false },
-      { day: "fri", open: "09:00", close: "18:00", isClosed: false },
-      { day: "sat", open: "10:00", close: "16:00", isClosed: false },
-      { day: "sun", open: "00:00", close: "00:00", isClosed: true },
-    ],
-    status: "active",
-    rating: 4.8,
-    reviewCount: 124,
-    qrBookingUrl: "",
-    tags: ["barber", "haircut", "grooming"],
-    deliveryAvailable: false,
-    deliveryRadiusKm: 0,
-    minimumOrder: 0,
-    commissionRate: 0.1,
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01",
-  },
-  {
-    id: "2",
-    name: "Nairobi Wellness Spa",
-    description: "Relax and rejuvenate at Nairobi's finest spa",
-    category: "Healthcare",
-    countryCode: "KE",
-    ownerId: "u2",
-    address: {
-      street: "5 Kenyatta Ave",
-      city: "Nairobi",
-      state: "Nairobi",
-      postalCode: "00100",
-      countryCode: "KE",
-      formatted: "5 Kenyatta Ave, Nairobi",
-    },
-    location: { latitude: -1.2921, longitude: 36.8219 },
-    contact: { phone: "+254712345678", email: "info@nairobiwellness.com" },
-    media: { galleryUrls: [] },
-    hours: [
-      { day: "mon", open: "08:00", close: "20:00", isClosed: false },
-      { day: "tue", open: "08:00", close: "20:00", isClosed: false },
-      { day: "wed", open: "08:00", close: "20:00", isClosed: false },
-      { day: "thu", open: "08:00", close: "20:00", isClosed: false },
-      { day: "fri", open: "08:00", close: "20:00", isClosed: false },
-      { day: "sat", open: "09:00", close: "18:00", isClosed: false },
-      { day: "sun", open: "00:00", close: "00:00", isClosed: true },
-    ],
-    status: "active",
-    rating: 4.6,
-    reviewCount: 89,
-    qrBookingUrl: "",
-    tags: ["spa", "wellness", "massage"],
-    deliveryAvailable: false,
-    deliveryRadiusKm: 0,
-    minimumOrder: 0,
-    commissionRate: 0.1,
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01",
-  },
-  {
-    id: "3",
-    name: "Joburg Eats",
-    description: "Authentic South African cuisine delivered to your door",
-    category: "Food & Dining",
-    countryCode: "ZA",
-    ownerId: "u3",
-    address: {
-      street: "22 Commissioner St",
-      city: "Johannesburg",
-      state: "Gauteng",
-      postalCode: "2001",
-      countryCode: "ZA",
-      formatted: "22 Commissioner St, Johannesburg",
-    },
-    location: { latitude: -26.2041, longitude: 28.0473 },
-    contact: { phone: "+27123456789", email: "info@joburgeats.com" },
-    media: { galleryUrls: [] },
-    hours: [
-      { day: "mon", open: "10:00", close: "22:00", isClosed: false },
-      { day: "tue", open: "10:00", close: "22:00", isClosed: false },
-      { day: "wed", open: "10:00", close: "22:00", isClosed: false },
-      { day: "thu", open: "10:00", close: "22:00", isClosed: false },
-      { day: "fri", open: "10:00", close: "23:00", isClosed: false },
-      { day: "sat", open: "10:00", close: "23:00", isClosed: false },
-      { day: "sun", open: "11:00", close: "21:00", isClosed: false },
-    ],
-    status: "active",
-    rating: 4.7,
-    reviewCount: 256,
-    qrBookingUrl: "",
-    tags: ["food", "delivery", "african"],
-    deliveryAvailable: true,
-    deliveryRadiusKm: 15,
-    minimumOrder: 200,
-    commissionRate: 0.15,
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-01",
-  },
-];
+interface RestaurantSummary {
+  id: string;
+  name: string;
+  cuisineType: string;
+  rating: number;
+  preparationTime: number;
+  deliveryFee: number;
+  currency: string;
+  address: string;
+}
+
+/**
+ * The service verticals, rendered as an asymmetric photo mosaic — one lead
+ * tile plus a 2x2 grid. Adapted from the Sarwisi workforce-marketplace hero,
+ * which uses photo tiles with a floating label and a corner affordance rather
+ * than the usual icon grid. This replaces a 2-column grid of emoji buttons.
+ */
+const VERTICALS = [
+  { key: "food", label: "Food delivery", caption: "Order in minutes", route: "/food", photoKey: "food" },
+  { key: "rides", label: "Rides", caption: "Get moving", route: "/ride", photoKey: "rides" },
+  { key: "stays", label: "Stays", caption: "Book a room", route: "/stays", photoKey: "stays" },
+  { key: "events", label: "Events", caption: "What's on", route: "/events", photoKey: "events" },
+] as const;
 
 export default function HomeScreen() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const countryCode = useMarketStore((s) => s.countryCode);
   const setCountry = useMarketStore((s) => s.setCountry);
+
   const [refreshing, setRefreshing] = useState(false);
+  const [restaurants, setRestaurants] = useState<RestaurantSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const country = COUNTRIES[countryCode] ?? COUNTRIES.NG;
+
+  const load = useCallback(async () => {
+    try {
+      const res = await api.get<{ data: { restaurants: RestaurantSummary[] } }>(
+        `/api/restaurants?country=${countryCode}`,
+      );
+      setRestaurants((res.data?.restaurants ?? []).slice(0, 6));
+    } catch {
+      // A failed feed shouldn't blank the whole home screen — the verticals
+      // and categories above stay usable.
+      setRestaurants([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [countryCode]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await new Promise((r) => setTimeout(r, 1000));
+    await load();
     setRefreshing(false);
   };
+
+  const lead = VERTICALS[0];
+  const rest = VERTICALS.slice(1);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <ScrollView
-        style={styles.scroll}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.primary}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.ink} />
         }
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* Location-first header, per the reference: where you are matters more
+            than a greeting on a marketplace home screen. */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>
-              {user ? `Hello, ${user.name.split(" ")[0]}` : "Hello!"}
+          <View style={styles.locationGroup}>
+            <Text style={styles.locationLabel}>
+              {user ? `Hello, ${user.name.split(" ")[0]}` : "Delivering to"}
             </Text>
-            <Text style={styles.subtitle}>What do you need today?</Text>
+            <CountryPicker
+              selectedCode={countryCode}
+              onSelect={(c) => setCountry(c.code)}
+            />
           </View>
-          <CountryPicker
-            selectedCode={countryCode}
-            onSelect={(country) => setCountry(country.code)}
-          />
+          <TouchableOpacity
+            style={styles.bell}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            onPress={() => router.push("/profile/notifications")}
+          >
+            <Ionicons name="notifications-outline" size={20} color={colors.textPrimary} />
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>
-            Premium local services in one place
-          </Text>
-          <Text style={styles.heroText}>
-            Discover trusted vendors, book instantly, and experience a curated
-            marketplace designed for modern urban life.
-          </Text>
-        </View>
-
-        {/* Search Bar */}
         <TouchableOpacity
-          style={styles.searchBar}
-          activeOpacity={0.7}
+          style={styles.search}
+          activeOpacity={0.8}
+          accessibilityRole="search"
           onPress={() => router.push("/(tabs)/search")}
         >
-          <Text style={styles.searchIcon}>🔍</Text>
-          <Text style={styles.searchPlaceholder}>
-            Search businesses, services...
-          </Text>
+          <Ionicons name="search" size={18} color={colors.textTertiary} />
+          <Text style={styles.searchText}>Search services, food, stays…</Text>
         </TouchableOpacity>
 
-        {/* Categories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Explore by category</Text>
-          <CategoryGrid
-            categories={(
-              COUNTRIES[countryCode]?.categories ?? COUNTRIES.NG.categories
-            ).slice(0, 9)}
-          />
-        </View>
+        {/* Vertical mosaic */}
+        <View style={styles.mosaic}>
+          <TouchableOpacity
+            style={styles.leadTile}
+            activeOpacity={0.92}
+            accessibilityRole="button"
+            onPress={() => router.push(lead.route)}
+          >
+            <Image
+              source={{ uri: photoFor(lead.key, lead.photoKey, null, { width: 700, ratio: 0.52 }) }}
+              style={styles.tileImage}
+            />
+            <View style={styles.tileScrim} />
+            <View style={styles.tileTop}>
+              <View style={styles.tileChip}>
+                <Text style={styles.tileChipLabel}>{lead.caption}</Text>
+              </View>
+              <View style={styles.tileArrow}>
+                <Ionicons name="arrow-forward" size={15} color={colors.ink} />
+              </View>
+            </View>
+            <Text style={styles.leadTileLabel}>{lead.label}</Text>
+          </TouchableOpacity>
 
-        {/* Featured Businesses */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Featured businesses</Text>
-            <TouchableOpacity onPress={() => router.push("/(tabs)/search")}>
-              <Text style={styles.seeAll}>See all →</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.businessList}>
-            {FEATURED_BUSINESSES.map((biz) => (
-              <BusinessCard key={biz.id} business={biz} />
+          <View style={styles.tileRow}>
+            {rest.map((v) => (
+              <TouchableOpacity
+                key={v.key}
+                style={styles.smallTile}
+                activeOpacity={0.92}
+                accessibilityRole="button"
+                onPress={() => router.push(v.route)}
+              >
+                <Image
+                  source={{ uri: photoFor(v.key, v.photoKey, null, { width: 320, ratio: 0.9 }) }}
+                  style={styles.tileImage}
+                />
+                <View style={styles.tileScrim} />
+                <Text style={styles.smallTileLabel}>{v.label}</Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Quick Actions */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick actions</Text>
-          <View style={styles.actionsGrid}>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/stays")}
+          <SectionHeader
+            title="Browse by category"
+            onAction={() => router.push("/(tabs)/search")}
+          />
+          <CategoryGrid categories={(country?.categories ?? []).slice(0, 10)} />
+        </View>
+
+        <View style={styles.section}>
+          <SectionHeader
+            title="Popular near you"
+            subtitle={`Top rated in ${country?.name ?? "your area"}`}
+            onAction={() => router.push("/food")}
+          />
+
+          {loading ? (
+            <ActivityIndicator color={colors.ink} style={styles.loader} />
+          ) : restaurants.length === 0 ? (
+            <Text style={styles.empty}>Nothing to show here yet.</Text>
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.rail}
             >
-              <Text style={styles.actionIcon}>🏨</Text>
-              <Text style={styles.actionLabel}>Hotels</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/food")}
-            >
-              <Text style={styles.actionIcon}>🍽️</Text>
-              <Text style={styles.actionLabel}>Restaurants</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/(tabs)/bookings")}
-            >
-              <Text style={styles.actionIcon}>📋</Text>
-              <Text style={styles.actionLabel}>My Bookings</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/vendor")}
-            >
-              <Text style={styles.actionIcon}>🏪</Text>
-              <Text style={styles.actionLabel}>Vendor Hub</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() => router.push("/driver")}
-            >
-              <Text style={styles.actionIcon}>🚗</Text>
-              <Text style={styles.actionLabel}>Drive</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.actionCard}
-              onPress={() =>
-                router.push(user ? "/(tabs)/profile" : "/(auth)/login")
-              }
-            >
-              <Text style={styles.actionIcon}>👤</Text>
-              <Text style={styles.actionLabel}>Profile</Text>
-            </TouchableOpacity>
-          </View>
+              {restaurants.map((r) => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={styles.railCard}
+                  activeOpacity={0.9}
+                  accessibilityRole="button"
+                  onPress={() => router.push("/food")}
+                >
+                  <Image
+                    source={{ uri: photoFor(r.id, r.cuisineType, null, { width: 420, ratio: 0.66 }) }}
+                    style={styles.railImage}
+                  />
+                  <View style={styles.railBody}>
+                    <View style={styles.railTitleRow}>
+                      <Text style={styles.railName} numberOfLines={1}>
+                        {r.name}
+                      </Text>
+                      <View style={styles.rating}>
+                        <Ionicons name="star" size={12} color={colors.primary} />
+                        <Text style={styles.ratingValue}>{r.rating.toFixed(1)}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.railMeta} numberOfLines={1}>
+                      {r.cuisineType}
+                      <Text style={styles.railMetaDim}>
+                        {`  ·  ${r.preparationTime}-${r.preparationTime + 10} min`}
+                      </Text>
+                    </Text>
+                    <Text style={styles.railFee}>
+                      {r.deliveryFee > 0
+                        ? `${formatMoney(r.deliveryFee, r.currency)} delivery`
+                        : "Free delivery"}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -290,128 +245,190 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
-  },
-  scroll: {
-    flex: 1,
+    backgroundColor: colors.canvas,
   },
   content: {
-    paddingHorizontal: spacing.xl,
     paddingBottom: spacing["5xl"],
   },
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
+    justifyContent: "space-between",
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
-  greeting: {
-    fontSize: typography.fontSize["2xl"],
-    fontWeight: "700",
-    color: colors.textPrimary,
+  locationGroup: {
+    flex: 1,
+    gap: 2,
   },
-  subtitle: {
-    fontSize: typography.fontSize.md,
-    color: colors.textSecondary,
-    marginTop: 2,
+  locationLabel: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textTertiary,
+    fontWeight: "500",
+    letterSpacing: 0.2,
   },
-  searchBar: {
+  bell: {
+    width: 42,
+    height: 42,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  search: {
     flexDirection: "row",
     alignItems: "center",
+    gap: spacing.md,
+    marginHorizontal: spacing.xl,
     backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: borderRadius["2xl"],
+    borderRadius: borderRadius.full,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    gap: spacing.sm,
-    marginBottom: spacing["2xl"],
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 28,
-    elevation: 4,
+    height: 50,
   },
-  searchIcon: {
-    fontSize: 18,
-  },
-  searchPlaceholder: {
+  searchText: {
     fontSize: typography.fontSize.md,
     color: colors.textTertiary,
   },
-  section: {
-    marginBottom: spacing["2xl"],
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.xl,
-    fontWeight: "700",
-    color: colors.textPrimary,
-    marginBottom: spacing.lg,
-  },
-  seeAll: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  businessList: {
-    gap: spacing.lg,
-  },
-  actionsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  mosaic: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
     gap: spacing.md,
   },
-  actionCard: {
-    width: "47%",
-    backgroundColor: colors.surface,
+  leadTile: {
+    height: 168,
     borderRadius: borderRadius["2xl"],
-    padding: spacing.xl,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+    backgroundColor: colors.surfaceTertiary,
+  },
+  tileRow: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  smallTile: {
+    flex: 1,
+    height: 108,
+    borderRadius: borderRadius.xl,
+    overflow: "hidden",
+    justifyContent: "flex-end",
+    backgroundColor: colors.surfaceTertiary,
+  },
+  tileImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  tileScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.photoScrim,
+  },
+  tileTop: {
+    position: "absolute",
+    top: spacing.md,
+    left: spacing.md,
+    right: spacing.md,
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+  },
+  tileChip: {
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+  },
+  tileChipLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
+  tileArrow: {
+    width: 30,
+    height: 30,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  leadTileLabel: {
+    fontSize: typography.fontSize["2xl"],
+    fontWeight: "700",
+    color: colors.textInverse,
+    padding: spacing.lg,
+    letterSpacing: -0.4,
+  },
+  smallTileLabel: {
+    fontSize: typography.fontSize.md,
+    fontWeight: "700",
+    color: colors.textInverse,
+    padding: spacing.md,
+  },
+  section: {
+    marginTop: spacing["3xl"],
+    paddingHorizontal: spacing.xl,
+  },
+  rail: {
+    gap: spacing.md,
+    paddingRight: spacing.xl,
+  },
+  railCard: {
+    width: 232,
+  },
+  railImage: {
+    width: "100%",
+    height: 140,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.surfaceTertiary,
+    resizeMode: "cover",
+  },
+  railBody: {
+    paddingTop: spacing.md,
+    gap: 3,
+  },
+  railTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 28,
-    elevation: 4,
   },
-  actionIcon: {
-    fontSize: 28,
+  railName: {
+    flex: 1,
+    fontSize: typography.fontSize.md,
+    fontWeight: "700",
+    color: colors.textPrimary,
+    letterSpacing: -0.2,
   },
-  actionLabel: {
+  rating: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  ratingValue: {
     fontSize: typography.fontSize.sm,
     fontWeight: "700",
     color: colors.textPrimary,
   },
-  heroCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius["3xl"],
-    padding: spacing.xl,
-    marginBottom: spacing["2xl"],
-    borderWidth: 1,
-    borderColor: colors.goldLight,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.08,
-    shadowRadius: 32,
-    elevation: 5,
-  },
-  heroTitle: {
-    fontSize: typography.fontSize["2xl"],
-    fontWeight: "800",
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  heroText: {
+  railMeta: {
     fontSize: typography.fontSize.sm,
     color: colors.textSecondary,
-    lineHeight: typography.lineHeight.relaxed * typography.fontSize.sm,
+  },
+  railMetaDim: {
+    color: colors.textTertiary,
+  },
+  railFee: {
+    fontSize: typography.fontSize.xs,
+    fontWeight: "600",
+    color: colors.primaryDark,
+    marginTop: 2,
+  },
+  loader: {
+    marginVertical: spacing.xl,
+  },
+  empty: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textTertiary,
+    paddingVertical: spacing.lg,
   },
 });

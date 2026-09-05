@@ -1,14 +1,26 @@
 import React from 'react';
 import { Tabs } from 'expo-router';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, typography, spacing } from '../../src/theme';
 
-function TabIcon({ icon, focused }: { icon: string; focused: boolean }) {
-  return (
-    <View style={styles.tabIcon}>
-      <Text style={[styles.tabEmoji, focused && styles.tabEmojiActive]}>{icon}</Text>
-    </View>
-  );
+/**
+ * Filled glyph when active, outline when not — the standard iOS/Android
+ * affordance, and a real icon set instead of the emoji this used to render
+ * (emoji render differently per OS and never match the type weight).
+ */
+const ICONS: Record<string, [keyof typeof Ionicons.glyphMap, keyof typeof Ionicons.glyphMap]> = {
+  index: ['home', 'home-outline'],
+  search: ['search', 'search-outline'],
+  bookings: ['receipt', 'receipt-outline'],
+  profile: ['person', 'person-outline'],
+};
+
+function tabIcon(name: string) {
+  return ({ focused, color }: { focused: boolean; color: string }) => {
+    const [active, inactive] = ICONS[name];
+    return <Ionicons name={focused ? active : inactive} size={23} color={color} />;
+  };
 }
 
 export default function TabLayout() {
@@ -16,40 +28,17 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.ink,
         tabBarInactiveTintColor: colors.textTertiary,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
+        tabBarItemStyle: styles.tabItem,
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ focused }) => <TabIcon icon="🏠" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ focused }) => <TabIcon icon="🔍" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          title: 'Bookings',
-          tabBarIcon: ({ focused }) => <TabIcon icon="📋" focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ focused }) => <TabIcon icon="👤" focused={focused} />,
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: 'Home', tabBarIcon: tabIcon('index') }} />
+      <Tabs.Screen name="search" options={{ title: 'Search', tabBarIcon: tabIcon('search') }} />
+      <Tabs.Screen name="bookings" options={{ title: 'Bookings', tabBarIcon: tabIcon('bookings') }} />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: tabIcon('profile') }} />
     </Tabs>
   );
 }
@@ -59,23 +48,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderTopColor: colors.borderLight,
     borderTopWidth: 1,
-    height: 85,
+    height: Platform.OS === 'ios' ? 88 : 68,
     paddingTop: spacing.sm,
-    paddingBottom: spacing.xl,
+    paddingBottom: Platform.OS === 'ios' ? spacing['2xl'] : spacing.sm,
+  },
+  tabItem: {
+    paddingTop: 2,
   },
   tabLabel: {
-    fontSize: typography.fontSize.xs,
+    fontSize: 11,
     fontWeight: '600',
-  },
-  tabIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabEmoji: {
-    fontSize: 22,
-    opacity: 0.5,
-  },
-  tabEmojiActive: {
-    opacity: 1,
+    letterSpacing: 0.1,
   },
 });

@@ -1,92 +1,88 @@
 import React, { useState } from "react";
 import { View, Text, Image, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { colors, borderRadius, spacing, typography, shadows } from "../theme";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, borderRadius, spacing, typography } from "../theme";
+import { photoFor } from "../lib/images";
 import type { Business } from "../types";
-import Badge from "./ui/Badge";
 
 interface BusinessCardProps {
   business: Business;
   index?: number;
 }
 
-export default function BusinessCard({
-  business,
-  index = 0,
-}: BusinessCardProps) {
+/**
+ * Photography carries this card. Previously it laid a flat 24% black scrim
+ * over every image (muddying the one piece of colour on screen), stacked a
+ * gold category pill against a gold rating pill, and wrapped the whole thing
+ * in both a border and a 42px shadow. Now: clean image, one floating category
+ * chip, rating as inline type, and separation via whitespace.
+ */
+export default function BusinessCard({ business }: BusinessCardProps) {
   const router = useRouter();
   const [isFav, setIsFav] = useState(false);
+
+  const image = photoFor(
+    business.id,
+    business.category,
+    business.media?.coverUrl ?? business.media?.galleryUrls?.[0],
+    { width: 400, ratio: 0.62 },
+  );
 
   return (
     <TouchableOpacity
       style={styles.card}
-      activeOpacity={0.8}
+      activeOpacity={0.9}
+      accessibilityRole="button"
       onPress={() => router.push(`/business/${business.id}`)}
     >
-      <View style={styles.imageContainer}>
-        {business.media?.coverUrl ? (
-          <Image
-            source={{ uri: business.media.coverUrl }}
-            style={styles.image}
-          />
-        ) : (
-          <View style={styles.imageFallback}>
-            <Text style={styles.imageFallbackText}>
-              {business.name.charAt(0)}
-            </Text>
-          </View>
-        )}
-        <View style={styles.imageOverlay} />
-        {business.deliveryAvailable && (
-          <Badge
-            label="Delivery"
-            variant="success"
-            style={styles.deliveryBadge}
-          />
-        )}
-        <TouchableOpacity
-          style={[styles.favButton, isFav && styles.favButtonActive]}
-          onPress={() => setIsFav(!isFav)}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.favIcon, isFav && styles.favIconActive]}>
-            {isFav ? "♥" : "♡"}
+      <View style={styles.imageWrap}>
+        <Image source={{ uri: image }} style={styles.image} />
+
+        <View style={styles.chip}>
+          <Text style={styles.chipLabel} numberOfLines={1}>
+            {business.category}
           </Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.favButton}
+          onPress={() => setIsFav(!isFav)}
+          activeOpacity={0.8}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel={isFav ? "Remove from saved" : "Save"}
+        >
+          <Ionicons
+            name={isFav ? "heart" : "heart-outline"}
+            size={17}
+            color={isFav ? colors.error : colors.textPrimary}
+          />
         </TouchableOpacity>
+
+        {business.deliveryAvailable ? (
+          <View style={styles.deliveryChip}>
+            <Ionicons name="bicycle" size={12} color={colors.textInverse} />
+            <Text style={styles.deliveryLabel}>Delivery</Text>
+          </View>
+        ) : null}
       </View>
 
-      <View style={styles.content}>
+      <View style={styles.body}>
         <View style={styles.titleRow}>
-          <Text style={styles.category}>{business.category}</Text>
-          <Text style={styles.ratingBadge}>★ {business.rating.toFixed(1)}</Text>
-        </View>
-
-        <Text style={styles.name} numberOfLines={2}>
-          {business.name}
-        </Text>
-
-        <Text style={styles.description} numberOfLines={2}>
-          {business.address?.formatted ??
-            business.address?.city ??
-            "Top-rated vendor near you."}
-        </Text>
-
-        <View style={styles.meta}>
-          <Text style={styles.metaText}>{business.reviewCount} reviews</Text>
-          <Text style={styles.metaDot}>·</Text>
-          <Text style={styles.metaText}>
-            {business.address?.city ?? "Nearby"}
+          <Text style={styles.name} numberOfLines={1}>
+            {business.name}
           </Text>
+          <View style={styles.rating}>
+            <Ionicons name="star" size={13} color={colors.primary} />
+            <Text style={styles.ratingValue}>{business.rating.toFixed(1)}</Text>
+          </View>
         </View>
 
-        <View style={styles.footer}>
-          <Text style={styles.hours}>
-            {business.hours?.length
-              ? `${business.hours[0].open} - ${business.hours[0].close}`
-              : "Open now"}
-          </Text>
-          <Text style={styles.bookNow}>View details</Text>
-        </View>
+        <Text style={styles.meta} numberOfLines={1}>
+          {business.address?.city ?? "Nearby"}
+          <Text style={styles.metaDim}>{`  ·  ${business.reviewCount} reviews`}</Text>
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -95,142 +91,95 @@ export default function BusinessCard({
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.surface,
-    borderRadius: borderRadius["3xl"],
-    overflow: "hidden",
-    ...shadows.premium,
-    borderWidth: 1,
-    borderColor: "rgba(15, 23, 42, 0.06)",
+    borderRadius: borderRadius["2xl"],
   },
-  imageContainer: {
-    height: 210,
+  imageWrap: {
+    height: 172,
+    borderRadius: borderRadius["2xl"],
+    overflow: "hidden",
     backgroundColor: colors.surfaceTertiary,
-    position: "relative",
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderLight,
   },
   image: {
     width: "100%",
     height: "100%",
     resizeMode: "cover",
   },
-  imageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.24)",
-  },
-  imageFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.primarySurface,
-  },
-  imageFallbackText: {
-    fontSize: typography.fontSize["4xl"],
-    fontWeight: "700",
-    color: colors.primary,
-  },
-  deliveryBadge: {
+  chip: {
     position: "absolute",
-    top: spacing.sm,
-    left: spacing.sm,
-    zIndex: 2,
+    top: spacing.md,
+    left: spacing.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+    maxWidth: "62%",
+  },
+  chipLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textPrimary,
   },
   favButton: {
     position: "absolute",
-    top: spacing.sm,
-    right: spacing.sm,
-    width: 38,
-    height: 38,
+    top: spacing.md,
+    right: spacing.md,
+    width: 34,
+    height: 34,
     borderRadius: borderRadius.full,
-    backgroundColor: "rgba(255,255,255,0.94)",
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 2,
   },
-  favButtonActive: {
-    backgroundColor: colors.error,
+  deliveryChip: {
+    position: "absolute",
+    bottom: spacing.md,
+    left: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: colors.ink,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
   },
-  favIcon: {
-    fontSize: 16,
-    color: colors.textSecondary,
+  deliveryLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: colors.textInverse,
   },
-  favIconActive: {
-    color: "#FFF",
-  },
-  content: {
-    padding: spacing.xl,
-    gap: spacing.sm,
+  body: {
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.xs,
+    gap: 3,
   },
   titleRow: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: spacing.sm,
-  },
-  category: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: "700",
-    color: colors.goldDark,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    backgroundColor: colors.goldLight,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-    overflow: "hidden",
-  },
-  ratingBadge: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: "700",
-    color: colors.surface,
-    backgroundColor: colors.goldDark,
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    overflow: "hidden",
+    gap: spacing.md,
   },
   name: {
-    fontSize: typography.fontSize["2xl"],
-    fontWeight: "900",
+    flex: 1,
+    fontSize: typography.fontSize.lg,
+    fontWeight: "700",
     color: colors.textPrimary,
-    marginTop: spacing.xs,
+    letterSpacing: -0.3,
   },
-  description: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    lineHeight: 22,
-  },
-  meta: {
+  rating: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: spacing.sm,
-    flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: 3,
   },
-  metaText: {
-    fontSize: typography.fontSize.xs,
-    color: colors.textTertiary,
-  },
-  metaDot: {
-    fontSize: typography.fontSize.xs,
-    color: colors.textTertiary,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.borderLight,
-    paddingTop: spacing.md,
-  },
-  hours: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  bookNow: {
+  ratingValue: {
     fontSize: typography.fontSize.sm,
     fontWeight: "700",
-    color: colors.primary,
+    color: colors.textPrimary,
+  },
+  meta: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  metaDim: {
+    color: colors.textTertiary,
   },
 });

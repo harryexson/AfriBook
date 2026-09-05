@@ -1,107 +1,125 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, borderRadius, spacing, typography } from "../theme";
-import { CATEGORY_ICONS, CATEGORY_GRADIENTS } from "../constants/countries";
-
-interface Category {
-  name: string;
-  icon: string;
-}
 
 interface CategoryGridProps {
   categories: string[];
+  /** Horizontal rail (home) vs wrapped grid (browse). */
+  layout?: "rail" | "grid";
 }
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  "Beauty & Wellness": "✨",
-  Healthcare: "❤️",
-  Automotive: "🚗",
-  "Food & Dining": "🍽️",
-  "Home Services": "🏠",
-  Education: "🎓",
-  Technology: "💻",
-  Entertainment: "🎵",
-  Transportation: "🚚",
-  "Fashion & Tailoring": "✂️",
-  Agriculture: "🌿",
-  "Legal & Financial": "⚖️",
-  "Real Estate": "🏢",
-  "Event Planning": "📅",
-  Tutoring: "📚",
-  Logistics: "📦",
-  Tourism: "🗺️",
+/**
+ * One icon language (Ionicons outline), one accent.
+ *
+ * This previously rendered an emoji on a per-category coloured tile — sixteen
+ * different saturated backgrounds across one screen. Emoji don't scale, don't
+ * theme, render differently on every OS, and read as placeholder art; the
+ * rainbow tiles meant the screen had no colour hierarchy at all. Now the tile
+ * is a neutral square, the icon is a real glyph, and amber is reserved for
+ * selection state so it still means something.
+ */
+const CATEGORY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  "Home Services": "construct-outline",
+  Healthcare: "medkit-outline",
+  Education: "school-outline",
+  Technology: "laptop-outline",
+  "Food & Dining": "restaurant-outline",
+  "Beauty & Wellness": "sparkles-outline",
+  Automotive: "car-sport-outline",
+  "Legal & Financial": "briefcase-outline",
+  "Real Estate": "business-outline",
+  Entertainment: "musical-notes-outline",
+  "Fashion & Tailoring": "shirt-outline",
+  Agriculture: "leaf-outline",
+  Transportation: "bus-outline",
+  Tourism: "compass-outline",
+  Logistics: "cube-outline",
+  Tutoring: "book-outline",
+  "Event Planning": "calendar-outline",
+  Fitness: "barbell-outline",
+  Barber: "cut-outline",
+  "Mobile Barber": "cut-outline",
+  Spa: "flower-outline",
+  Photographer: "camera-outline",
+  Videographer: "videocam-outline",
+  Cosmetician: "color-wand-outline",
+  "Beauty Salon": "sparkles-outline",
+  "Mobile Carwash": "water-outline",
 };
 
-export default function CategoryGrid({ categories }: CategoryGridProps) {
+export function iconForCategory(name: string): keyof typeof Ionicons.glyphMap {
+  return CATEGORY_ICONS[name] ?? "grid-outline";
+}
+
+export default function CategoryGrid({ categories, layout = "rail" }: CategoryGridProps) {
   const router = useRouter();
 
+  const items = categories.map((name) => (
+    <TouchableOpacity
+      key={name}
+      style={[styles.item, layout === "grid" && styles.itemGrid]}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityLabel={name}
+      onPress={() => router.push(`/search?category=${encodeURIComponent(name)}`)}
+    >
+      <View style={styles.tile}>
+        <Ionicons name={iconForCategory(name)} size={22} color={colors.textPrimary} />
+      </View>
+      <Text style={styles.label} numberOfLines={2}>
+        {name}
+      </Text>
+    </TouchableOpacity>
+  ));
+
+  if (layout === "grid") {
+    return <View style={styles.grid}>{items}</View>;
+  }
+
   return (
-    <View style={styles.grid}>
-      {categories.map((name) => {
-        const gradient = CATEGORY_GRADIENTS[name] || ["#F59E0B", "#D97706"];
-        return (
-          <TouchableOpacity
-            key={name}
-            style={styles.item}
-            activeOpacity={0.7}
-            onPress={() =>
-              router.push(`/search?category=${encodeURIComponent(name)}`)
-            }
-          >
-            <View
-              style={[styles.iconContainer, { backgroundColor: gradient[0] }]}
-            >
-              <Text style={styles.iconEmoji}>
-                {CATEGORY_EMOJI[name] || "📌"}
-              </Text>
-            </View>
-            <Text style={styles.label} numberOfLines={2}>
-              {name}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
-    </View>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.rail}
+    >
+      {items}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  rail: {
+    gap: spacing.lg,
+    paddingRight: spacing.xl,
+  },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.md,
+    gap: spacing.lg,
   },
   item: {
-    width: "47%",
     alignItems: "center",
+    width: 72,
     gap: spacing.sm,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius["2xl"],
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 30,
-    elevation: 4,
   },
-  iconContainer: {
-    width: 62,
-    height: 62,
-    borderRadius: borderRadius["2xl"],
+  itemGrid: {
+    width: "21%",
+  },
+  tile: {
+    width: 60,
+    height: 60,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.surfaceTertiary,
     alignItems: "center",
     justifyContent: "center",
   },
-  iconEmoji: {
-    fontSize: 24,
-  },
   label: {
-    fontSize: typography.fontSize.xs,
-    fontWeight: "600",
-    color: colors.textPrimary,
+    fontSize: 11,
+    fontWeight: "500",
+    color: colors.textSecondary,
     textAlign: "center",
+    lineHeight: 14,
   },
 });

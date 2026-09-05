@@ -1,16 +1,17 @@
 import React from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, TextInput, ActivityIndicator,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, TextInput,
+  ActivityIndicator, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import Card from '../../src/components/ui/Card';
 import Button from '../../src/components/ui/Button';
-import Badge from '../../src/components/ui/Badge';
+import Chip from '../../src/components/ui/Chip';
 import { useMarketStore } from '../../src/stores/market-store';
 import { useCartStore } from '../../src/stores/cart-store';
 import { api } from '../../src/lib/api';
+import { photoFor, squarePhotoFor, dishPhotoFor } from '../../src/lib/images';
 import type { MenuItem } from '../../src/types';
 import { formatMoney } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
@@ -39,28 +40,6 @@ interface MenuCategory {
   items: MenuItem[];
 }
 
-interface RestaurantDetail extends RestaurantSummary {}
-
-// Cuisine → Ionicons name, for the category row (adapted from the
-// Haneul/food-app reference screenshots: a row of circular cuisine icons
-// above the restaurant list). Matched by substring against the real
-// cuisineType values the API returns.
-const CUISINE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  pizza: 'pizza', italian: 'pizza',
-  asian: 'restaurant', chinese: 'restaurant', japanese: 'restaurant', korean: 'restaurant', thai: 'restaurant',
-  burger: 'fast-food', fast: 'fast-food',
-  cafe: 'cafe', coffee: 'cafe', breakfast: 'cafe',
-  drink: 'wine',
-  salad: 'nutrition', healthy: 'nutrition', vegan: 'nutrition', vegetarian: 'nutrition',
-  bbq: 'flame', grill: 'flame', suya: 'flame', spicy: 'flame',
-  dessert: 'ice-cream',
-};
-
-function cuisineIcon(cuisine: string): keyof typeof Ionicons.glyphMap {
-  const key = Object.keys(CUISINE_ICONS).find((k) => cuisine.toLowerCase().includes(k));
-  return key ? CUISINE_ICONS[key] : 'restaurant';
-}
-
 export default function FoodOrderScreen() {
   const router = useRouter();
   const countryCode = useMarketStore((s) => s.countryCode);
@@ -75,7 +54,7 @@ export default function FoodOrderScreen() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [selectedCategory, setSelectedCategory] = React.useState('All');
 
-  const [selectedRestaurant, setSelectedRestaurant] = React.useState<RestaurantDetail | null>(null);
+  const [selectedRestaurant, setSelectedRestaurant] = React.useState<RestaurantSummary | null>(null);
   const [menu, setMenu] = React.useState<MenuCategory[]>([]);
   const [menuLoading, setMenuLoading] = React.useState(false);
   const [activeMenuCategory, setActiveMenuCategory] = React.useState('');
@@ -111,7 +90,9 @@ export default function FoodOrderScreen() {
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      result = result.filter((r) => r.name.toLowerCase().includes(q) || r.cuisineType.toLowerCase().includes(q));
+      result = result.filter(
+        (r) => r.name.toLowerCase().includes(q) || r.cuisineType.toLowerCase().includes(q),
+      );
     }
     return result.sort((a, b) => b.rating - a.rating);
   }, [restaurants, selectedCategory, searchQuery]);
@@ -120,7 +101,7 @@ export default function FoodOrderScreen() {
     setSelectedRestaurant(restaurant);
     setMenuLoading(true);
     try {
-      const res = await api.get<{ data: { restaurant: RestaurantDetail; menu: MenuCategory[] } }>(
+      const res = await api.get<{ data: { restaurant: RestaurantSummary; menu: MenuCategory[] } }>(
         `/api/restaurants/${restaurant.id}`,
       );
       setMenu(res.data?.menu ?? []);
@@ -133,112 +114,167 @@ export default function FoodOrderScreen() {
     }
   };
 
-  const addToCart = (item: MenuItem) => {
-    addItem({ type: 'menu', item, quantity: 1 });
-  };
-
+  // ─── Restaurant detail ──────────────────────────────────────
   if (selectedRestaurant) {
+    const r = selectedRestaurant;
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => setSelectedRestaurant(null)}>
-            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>{selectedRestaurant.name}</Text>
-          <View style={{ width: 24 }} />
-        </View>
-
-        {menuLoading ? (
-          <View style={styles.centerFill}>
-            <ActivityIndicator color={colors.primary} />
+      <View style={styles.container}>
+        <ScrollView contentContainerStyle={styles.detailScroll} showsVerticalScrollIndicator={false}>
+          {/* Full-bleed hero: the image is the header, per the reference. */}
+          <View style={styles.hero}>
+            <Image
+              source={{ uri: photoFor(r.id, r.cuisineType, null, { width: 800, ratio: 0.62 }) }}
+              style={styles.heroImage}
+            />
+            <SafeAreaView edges={['top']} style={styles.heroBar}>
+              <TouchableOpacity
+                style={styles.circleButton}
+                onPress={() => setSelectedRestaurant(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Back"
+              >
+                <Ionicons name="arrow-back" size={20} color={colors.ink} />
+              </TouchableOpacity>
+            </SafeAreaView>
           </View>
-        ) : (
-          <>
-            <ScrollView style={styles.content}>
-              <View style={styles.restaurantBanner}>
-                <Text style={styles.cuisineText}>{selectedRestaurant.cuisineType}</Text>
-                <View style={styles.ratingRow}>
-                  <Ionicons name="star" size={14} color={colors.primary} />
-                  <Text style={styles.ratingText}>{selectedRestaurant.rating.toFixed(1)}</Text>
-                  <Text style={styles.metaText}>· {selectedRestaurant.preparationTime}-{selectedRestaurant.preparationTime + 10} min</Text>
-                </View>
-              </View>
 
-              {menu.length > 1 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryTabs}>
-                  {menu.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      onPress={() => setActiveMenuCategory(category.id)}
-                      style={[styles.categoryTab, activeMenuCategory === category.id && styles.categoryTabActive]}
-                    >
-                      <Text style={[styles.categoryTabText, activeMenuCategory === category.id && styles.categoryTabTextActive]}>
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              )}
+          <View style={styles.detailSheet}>
+            <Text style={styles.detailName}>{r.name}</Text>
+            <Text style={styles.detailAddress} numberOfLines={1}>
+              {r.address}
+            </Text>
 
-              {menu.length === 0 ? (
-                <View style={styles.menuSection}>
-                  <Text style={styles.metaText}>Menu coming soon.</Text>
-                </View>
-              ) : (
-                menu
+            {/* Fact row — the reference's signature meta strip. */}
+            <View style={styles.metaRow}>
+              <Chip
+                label={r.rating.toFixed(1)}
+                icon={<Ionicons name="star" size={12} color={colors.primary} />}
+              />
+              <Chip
+                label={`${r.preparationTime}-${r.preparationTime + 10} min`}
+                icon={<Ionicons name="time-outline" size={12} color={colors.textSecondary} />}
+              />
+              <Chip
+                label={r.deliveryFee > 0 ? formatMoney(r.deliveryFee, r.currency) : 'Free'}
+                icon={<Ionicons name="bicycle-outline" size={12} color={colors.textSecondary} />}
+              />
+            </View>
+
+            {r.description ? <Text style={styles.detailDesc}>{r.description}</Text> : null}
+
+            {menuLoading ? (
+              <ActivityIndicator color={colors.ink} style={{ marginVertical: spacing['3xl'] }} />
+            ) : menu.length === 0 ? (
+              <Text style={styles.empty}>Menu coming soon.</Text>
+            ) : (
+              <>
+                {menu.length > 1 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.tabs}
+                  >
+                    {menu.map((c) => (
+                      <Chip
+                        key={c.id}
+                        label={c.name}
+                        variant="filter"
+                        selected={activeMenuCategory === c.id}
+                        onPress={() => setActiveMenuCategory(c.id)}
+                      />
+                    ))}
+                  </ScrollView>
+                )}
+
+                {menu
                   .filter((c) => !activeMenuCategory || c.id === activeMenuCategory)
                   .map((category) => (
                     <View key={category.id} style={styles.menuSection}>
-                      <Text style={styles.sectionTitle}>{category.name}</Text>
+                      <Text style={styles.menuSectionTitle}>{category.name}</Text>
                       {category.items.map((item) => (
-                        <Card key={item.id} variant="outlined" padding="md" style={styles.menuItemCard}>
-                          <View style={styles.menuItemRow}>
-                            <View style={{ flex: 1 }}>
-                              <View style={styles.menuItemNameRow}>
-                                <Text style={styles.menuItemName}>{item.name}</Text>
-                                {item.dietaryTags?.includes('vegetarian') && (
-                                  <Badge label="Veg" variant="success" />
-                                )}
-                              </View>
-                              {item.description ? (
-                                <Text style={styles.menuItemDesc} numberOfLines={2}>{item.description}</Text>
-                              ) : null}
-                              <Text style={styles.menuItemPrice}>{formatMoney(item.price, item.currencyCode)}</Text>
-                            </View>
-                            <TouchableOpacity style={styles.addButton} onPress={() => addToCart(item)}>
-                              <Ionicons name="add" size={20} color={colors.primary} />
-                            </TouchableOpacity>
+                        <View key={item.id} style={styles.dishRow}>
+                          <Image
+                            source={{ uri: dishPhotoFor(item.id, item.name, item.image, 88) }}
+                            style={styles.dishImage}
+                          />
+                          <View style={styles.dishBody}>
+                            <Text style={styles.dishName} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            {item.description ? (
+                              <Text style={styles.dishDesc} numberOfLines={2}>
+                                {item.description}
+                              </Text>
+                            ) : null}
+                            <Text style={styles.dishPrice}>
+                              {formatMoney(item.price, item.currencyCode)}
+                            </Text>
                           </View>
-                        </Card>
+                          <TouchableOpacity
+                            style={styles.addButton}
+                            onPress={() => addItem({ type: 'menu', item, quantity: 1 })}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Add ${item.name}`}
+                          >
+                            <Ionicons name="add" size={19} color={colors.textInverse} />
+                          </TouchableOpacity>
+                        </View>
                       ))}
                     </View>
-                  ))
-              )}
-            </ScrollView>
-
-            {cartCount > 0 && (
-              <View style={styles.cartBar}>
-                <View style={styles.cartInfo}>
-                  <Text style={styles.cartCount}>{cartCount} item{cartCount !== 1 ? 's' : ''}</Text>
-                  <Text style={styles.cartTotal}>{formatMoney(cartSubtotal, currencyCode)}</Text>
-                </View>
-                <Button title="View Cart" onPress={() => router.push('/food/cart')} />
-              </View>
+                  ))}
+              </>
             )}
-          </>
+          </View>
+        </ScrollView>
+
+        {/* Sticky value bar: amount left, single action right. */}
+        {cartCount > 0 && (
+          <SafeAreaView edges={['bottom']} style={styles.cartBar}>
+            <View style={styles.cartBarInner}>
+              <View>
+                <Text style={styles.cartCount}>
+                  {cartCount} item{cartCount !== 1 ? 's' : ''}
+                </Text>
+                <Text style={styles.cartTotal}>{formatMoney(cartSubtotal, currencyCode)}</Text>
+              </View>
+              <Button
+                title="View cart"
+                variant="ink"
+                onPress={() => router.push('/food/cart')}
+                iconRight={<Ionicons name="arrow-forward" size={16} color={colors.textInverse} />}
+              />
+            </View>
+          </SafeAreaView>
         )}
-      </SafeAreaView>
+      </View>
     );
   }
 
+  // ─── Browse ─────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Food Delivery</Text>
+      <View style={styles.browseHeader}>
+        <View>
+          <Text style={styles.eyebrow}>Order in</Text>
+          <Text style={styles.screenTitle}>Food delivery</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.cartButton}
+          onPress={() => router.push('/food/cart')}
+          accessibilityRole="button"
+          accessibilityLabel="Cart"
+        >
+          <Ionicons name="bag-outline" size={20} color={colors.textPrimary} />
+          {cartCount > 0 && (
+            <View style={styles.cartDot}>
+              <Text style={styles.cartDotText}>{cartCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
 
-      <View style={styles.searchRow}>
-        <Ionicons name="search" size={18} color={colors.textTertiary} style={{ marginLeft: spacing.md }} />
+      <View style={styles.search}>
+        <Ionicons name="search" size={18} color={colors.textTertiary} />
         <TextInput
           value={searchQuery}
           onChangeText={setSearchQuery}
@@ -248,316 +284,355 @@ export default function FoodOrderScreen() {
         />
       </View>
 
-      <View style={styles.categoryRow}>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={categories}
-          keyExtractor={(c) => c}
-          contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.lg }}
-          renderItem={({ item: category }) => {
-            const active = selectedCategory === category;
-            return (
-              <TouchableOpacity style={styles.categoryItem} onPress={() => setSelectedCategory(category)}>
-                <View style={[styles.categoryIcon, active ? styles.categoryIconActive : styles.categoryIconInactive]}>
-                  <Ionicons
-                    name={category === 'All' ? 'sparkles' : cuisineIcon(category)}
-                    size={22}
-                    color={active ? colors.textInverse : colors.textTertiary}
-                  />
-                </View>
-                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]} numberOfLines={1}>
-                  {category}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      </View>
-
       {loading ? (
         <View style={styles.centerFill}>
-          <ActivityIndicator color={colors.primary} />
+          <ActivityIndicator color={colors.ink} />
         </View>
       ) : error ? (
         <View style={styles.centerFill}>
-          <Text style={styles.metaText}>{error}</Text>
-          <View style={{ height: spacing.md }} />
-          <Button title="Try again" onPress={loadRestaurants} variant="outline" size="sm" />
+          <Text style={styles.empty}>{error}</Text>
+          <View style={{ height: spacing.lg }} />
+          <Button title="Try again" variant="outline" size="sm" onPress={loadRestaurants} />
         </View>
       ) : (
-        <View style={styles.restaurantList}>
-          <FlatList
-            data={filteredRestaurants}
-            keyExtractor={(item) => item.id}
-            ListEmptyComponent={<Text style={styles.metaText}>No restaurants found.</Text>}
-            renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => openRestaurant(item)}>
-                <Card variant="outlined" padding="md" style={styles.restaurantCard}>
-                  <View style={styles.restaurantCardRow}>
-                    <View style={styles.restaurantCardImage}>
-                      <Ionicons name={cuisineIcon(item.cuisineType)} size={22} color={colors.primary} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.restaurantName}>{item.name}</Text>
-                      <Text style={styles.restaurantCuisine}>{item.cuisineType}</Text>
-                      <View style={styles.restaurantMeta}>
-                        <Ionicons name="star" size={12} color={colors.primary} />
-                        <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
-                        <Text style={styles.metaText}>· {item.preparationTime}-{item.preparationTime + 10} min</Text>
+        <FlatList
+          data={filteredRestaurants}
+          keyExtractor={(item) => item.id}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.list}
+          ListHeaderComponent={
+            <View style={styles.cuisineRail}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cuisineRailInner}
+              >
+                {categories.map((c) => {
+                  const active = selectedCategory === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      style={styles.cuisineItem}
+                      activeOpacity={0.8}
+                      onPress={() => setSelectedCategory(c)}
+                      accessibilityRole="button"
+                    >
+                      <View style={[styles.cuisineThumbWrap, active && styles.cuisineThumbActive]}>
+                        {c === 'All' ? (
+                          <View style={styles.cuisineAll}>
+                            <Ionicons
+                              name="restaurant"
+                              size={20}
+                              color={active ? colors.ink : colors.textSecondary}
+                            />
+                          </View>
+                        ) : (
+                          <Image
+                            source={{ uri: squarePhotoFor(c, c, null, 120) }}
+                            style={styles.cuisineThumb}
+                          />
+                        )}
                       </View>
-                    </View>
-                    <Text style={styles.deliveryFeeText}>
-                      {item.deliveryFee > 0 ? formatMoney(item.deliveryFee, item.currency) : 'Free'}
-                    </Text>
+                      <Text
+                        style={[styles.cuisineLabel, active && styles.cuisineLabelActive]}
+                        numberOfLines={1}
+                      >
+                        {c}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+              <Text style={styles.resultCount}>
+                {filteredRestaurants.length} restaurant
+                {filteredRestaurants.length !== 1 ? 's' : ''}
+              </Text>
+            </View>
+          }
+          ListEmptyComponent={<Text style={styles.empty}>No restaurants found.</Text>}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.card}
+              activeOpacity={0.92}
+              onPress={() => openRestaurant(item)}
+              accessibilityRole="button"
+            >
+              <View style={styles.cardImageWrap}>
+                <Image
+                  source={{ uri: photoFor(item.id, item.cuisineType, null, { width: 640, ratio: 0.56 }) }}
+                  style={styles.cardImage}
+                />
+                <View style={styles.cardChip}>
+                  <Text style={styles.cardChipLabel}>
+                    {item.deliveryFee > 0
+                      ? `${formatMoney(item.deliveryFee, item.currency)} delivery`
+                      : 'Free delivery'}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.cardBody}>
+                <View style={styles.cardTitleRow}>
+                  <Text style={styles.cardName} numberOfLines={1}>
+                    {item.name}
+                  </Text>
+                  <View style={styles.rating}>
+                    <Ionicons name="star" size={13} color={colors.primary} />
+                    <Text style={styles.ratingValue}>{item.rating.toFixed(1)}</Text>
                   </View>
-                </Card>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
+                </View>
+                <Text style={styles.cardMeta} numberOfLines={1}>
+                  {item.cuisineType}
+                  <Text style={styles.cardMetaDim}>
+                    {`  ·  ${item.preparationTime}-${item.preparationTime + 10} min`}
+                  </Text>
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        />
       )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
-  header: {
+  container: { flex: 1, backgroundColor: colors.canvas },
+  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl },
+
+  browseHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
   },
-  headerTitle: {
-    fontSize: typography.fontSize.lg,
+  eyebrow: {
+    fontSize: typography.fontSize.xs,
+    color: colors.textTertiary,
+    fontWeight: '500',
+    letterSpacing: 0.2,
+  },
+  screenTitle: {
+    fontSize: typography.fontSize['2xl'],
     fontWeight: '700',
     color: colors.textPrimary,
+    letterSpacing: -0.5,
+    marginTop: 1,
   },
-  centerFill: {
-    flex: 1,
+  cartButton: {
+    width: 42,
+    height: 42,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
   },
-  searchRow: {
+  cartDot: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cartDotText: { fontSize: 10, fontWeight: '700', color: colors.ink },
+
+  search: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
-    backgroundColor: colors.surfaceSecondary,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: spacing.md,
+    marginHorizontal: spacing.xl,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.lg,
+    height: 50,
   },
   searchInput: {
     flex: 1,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.md,
-    fontSize: typography.fontSize.sm,
-    color: colors.textPrimary,
-  },
-  categoryRow: {
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  categoryItem: {
-    alignItems: 'center',
-    width: 64,
-  },
-  categoryIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: borderRadius['2xl'],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryIconActive: {
-    backgroundColor: colors.primary,
-  },
-  categoryIconInactive: {
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  categoryLabel: {
-    marginTop: spacing.xs,
-    fontSize: typography.fontSize.xs,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  categoryLabelActive: {
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  map: {
-    height: 180,
-    marginHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-  },
-  restaurantList: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xs,
-  },
-  restaurantCard: {
-    marginBottom: spacing.sm,
-  },
-  restaurantCardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  restaurantCardImage: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primarySurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: spacing.md,
-  },
-  restaurantName: {
     fontSize: typography.fontSize.md,
-    fontWeight: '600',
     color: colors.textPrimary,
   },
-  restaurantCuisine: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  restaurantMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  ratingText: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginLeft: 2,
-  },
-  metaText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  deliveryFeeText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  content: {
-    flex: 1,
-  },
-  restaurantBanner: {
-    padding: spacing.lg,
-  },
-  cuisineText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: spacing.xs,
-  },
-  categoryTabs: {
-    paddingLeft: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  categoryTab: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+
+  cuisineRail: { paddingTop: spacing.xl },
+  cuisineRailInner: { gap: spacing.lg, paddingHorizontal: spacing.xl },
+  cuisineItem: { alignItems: 'center', width: 66, gap: spacing.sm },
+  cuisineThumbWrap: {
+    width: 62,
+    height: 62,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginRight: spacing.sm,
+    padding: 2,
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  categoryTabActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  cuisineThumbActive: { borderColor: colors.primary },
+  cuisineThumb: {
+    width: '100%',
+    height: '100%',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceTertiary,
   },
-  categoryTabText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  categoryTabTextActive: {
-    color: colors.textInverse,
-  },
-  menuSection: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  sectionTitle: {
-    fontSize: typography.fontSize.lg,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  menuItemCard: {
-    marginBottom: spacing.sm,
-  },
-  menuItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  menuItemNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  menuItemName: {
-    fontSize: typography.fontSize.md,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  menuItemDesc: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  menuItemPrice: {
-    fontSize: typography.fontSize.sm,
-    fontWeight: '600',
-    color: colors.primary,
-    marginTop: spacing.xs,
-  },
-  addButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+  cuisineAll: {
+    width: '100%',
+    height: '100%',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceTertiary,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cartBar: {
+  cuisineLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  cuisineLabelActive: { color: colors.textPrimary, fontWeight: '700' },
+  resultCount: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textTertiary,
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing['2xl'],
+  },
+
+  list: { paddingBottom: spacing['5xl'] },
+  card: { marginTop: spacing.lg, paddingHorizontal: spacing.xl },
+  cardImageWrap: {
+    height: 168,
+    borderRadius: borderRadius['2xl'],
+    overflow: 'hidden',
+    backgroundColor: colors.surfaceTertiary,
+  },
+  cardImage: { width: '100%', height: '100%', resizeMode: 'cover' },
+  cardChip: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    backgroundColor: colors.surface,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: borderRadius.full,
+  },
+  cardChipLabel: { fontSize: 11, fontWeight: '600', color: colors.textPrimary },
+  cardBody: { paddingTop: spacing.md, gap: 3 },
+  cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    ...shadows.lg,
+    gap: spacing.md,
   },
-  cartInfo: {
+  cardName: {
     flex: 1,
-  },
-  cartCount: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  cartTotal: {
     fontSize: typography.fontSize.lg,
     fontWeight: '700',
     color: colors.textPrimary,
+    letterSpacing: -0.3,
+  },
+  cardMeta: { fontSize: typography.fontSize.sm, color: colors.textSecondary },
+  cardMetaDim: { color: colors.textTertiary },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingValue: { fontSize: typography.fontSize.sm, fontWeight: '700', color: colors.textPrimary },
+
+  detailScroll: { paddingBottom: spacing['5xl'] },
+  hero: { height: 260, backgroundColor: colors.surfaceTertiary },
+  heroImage: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%', resizeMode: 'cover' },
+  heroBar: { paddingHorizontal: spacing.xl, paddingTop: spacing.sm },
+  circleButton: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Sheet overlaps the hero — the standard premium detail treatment.
+  detailSheet: {
+    marginTop: -28,
+    backgroundColor: colors.canvas,
+    borderTopLeftRadius: borderRadius['3xl'],
+    borderTopRightRadius: borderRadius['3xl'],
+    paddingTop: spacing['2xl'],
+    paddingHorizontal: spacing.xl,
+  },
+  detailName: {
+    fontSize: typography.fontSize['3xl'],
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: -0.8,
+  },
+  detailAddress: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  metaRow: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg },
+  detailDesc: {
+    fontSize: typography.fontSize.md,
+    color: colors.textSecondary,
+    lineHeight: 23,
+    marginTop: spacing.lg,
+  },
+  tabs: { gap: spacing.sm, paddingVertical: spacing['2xl'] },
+  menuSection: { marginBottom: spacing.xl },
+  menuSectionTitle: {
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.lg,
+    letterSpacing: -0.3,
+  },
+  dishRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  dishImage: {
+    width: 76,
+    height: 76,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  dishBody: { flex: 1, gap: 2 },
+  dishName: { fontSize: typography.fontSize.md, fontWeight: '600', color: colors.textPrimary },
+  dishDesc: { fontSize: typography.fontSize.sm, color: colors.textSecondary, lineHeight: 19 },
+  dishPrice: {
+    fontSize: typography.fontSize.md,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginTop: 3,
+  },
+  addButton: {
+    width: 34,
+    height: 34,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  cartBar: { backgroundColor: colors.surface, ...shadows.premium },
+  cartBarInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+  },
+  cartCount: { fontSize: typography.fontSize.xs, color: colors.textTertiary, fontWeight: '500' },
+  cartTotal: {
+    fontSize: typography.fontSize.xl,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    letterSpacing: -0.4,
+  },
+
+  empty: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    paddingVertical: spacing['2xl'],
   },
 });

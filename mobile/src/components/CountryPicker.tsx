@@ -8,6 +8,7 @@ import {
   StyleSheet,
   TextInput,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { colors, borderRadius, spacing, typography, shadows } from '../theme';
 import { COUNTRIES, CountryConfig } from '../constants/countries';
 
@@ -34,9 +35,11 @@ export default function CountryPicker({ selectedCode, onSelect }: CountryPickerP
         activeOpacity={0.7}
         onPress={() => setVisible(true)}
       >
-        <Text style={styles.flag}>{selected?.flag ?? '🌍'}</Text>
-        <Text style={styles.code}>{selected?.code ?? 'Select'}</Text>
-        <Text style={styles.chevron}>▾</Text>
+        <Text style={styles.flag}>{selected?.flag ?? '🏳️'}</Text>
+        <Text style={styles.code} numberOfLines={1}>
+          {selected?.name ?? 'Select country'}
+        </Text>
+        <Ionicons name="chevron-down" size={15} color={colors.textSecondary} />
       </TouchableOpacity>
 
       <Modal visible={visible} animationType="slide" transparent>
@@ -101,29 +104,22 @@ export default function CountryPicker({ selectedCode, onSelect }: CountryPickerP
 }
 
 const styles = StyleSheet.create({
+  // Reads as a location line, not a boxed control — the label above it
+  // ("Delivering to") already frames what it does, so the chrome is redundant.
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.surfaceSecondary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+    gap: 6,
+    alignSelf: 'flex-start',
   },
   flag: {
-    fontSize: 22,
+    fontSize: 16,
   },
   code: {
-    fontSize: typography.fontSize.md,
-    fontWeight: '600',
+    fontSize: typography.fontSize.lg,
+    fontWeight: '700',
     color: colors.textPrimary,
-  },
-  chevron: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textTertiary,
-    marginLeft: 'auto',
+    letterSpacing: -0.3,
   },
   overlay: {
     flex: 1,

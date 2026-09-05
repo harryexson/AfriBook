@@ -6,19 +6,33 @@ import {
   ActivityIndicator,
   TouchableOpacityProps,
   ViewStyle,
-  TextStyle,
 } from "react-native";
 import { colors, borderRadius, spacing, typography } from "../../theme";
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
-  variant?: "primary" | "secondary" | "outline" | "ghost" | "danger";
+  variant?: "primary" | "ink" | "secondary" | "outline" | "ghost" | "danger";
   size?: "sm" | "md" | "lg";
   loading?: boolean;
   fullWidth?: boolean;
   icon?: React.ReactNode;
+  iconRight?: React.ReactNode;
 }
 
+/**
+ * Pill-shaped, flat, no drop shadow. Buttons previously carried a 26px-blur
+ * shadow at every size, which made them read as floating stickers rather than
+ * controls.
+ *
+ * Variants carry fixed roles — don't repurpose them:
+ *  - primary: amber fill, ink label. The brand action. Dark-on-amber is
+ *    deliberate; white-on-amber fails contrast at this hue (see MASTER.md),
+ *    and the web Button already renders it that way.
+ *  - ink: near-black fill. The single highest-emphasis action on a screen
+ *    (Add to cart, Place order) where amber would compete with the amber
+ *    accents already present in the content around it.
+ *  - secondary / outline / ghost: quiet neutrals.
+ */
 export default function Button({
   title,
   variant = "primary",
@@ -26,6 +40,7 @@ export default function Button({
   loading = false,
   fullWidth = false,
   icon,
+  iconRight,
   disabled,
   style,
   ...props
@@ -45,22 +60,30 @@ export default function Button({
     styles[`textSize_${size}`],
   ];
 
+  const spinnerColor =
+    variant === "ink" || variant === "danger"
+      ? colors.textInverse
+      : variant === "primary"
+        ? colors.ink
+        : colors.textPrimary;
+
   return (
     <TouchableOpacity
       style={buttonStyles}
       disabled={disabled || loading}
-      activeOpacity={0.7}
+      activeOpacity={0.85}
+      accessibilityRole="button"
       {...props}
     >
       {loading ? (
-        <ActivityIndicator
-          color={variant === "primary" ? colors.textInverse : colors.primary}
-          size="small"
-        />
+        <ActivityIndicator color={spinnerColor} size="small" />
       ) : (
         <>
           {icon}
-          <Text style={textStyles}>{title}</Text>
+          <Text style={textStyles} numberOfLines={1}>
+            {title}
+          </Text>
+          {iconRight}
         </>
       )}
     </TouchableOpacity>
@@ -72,23 +95,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: borderRadius.xl,
+    borderRadius: borderRadius.full,
     gap: spacing.sm,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.12,
-    shadowRadius: 26,
-    elevation: 5,
   },
   primary: {
     backgroundColor: colors.primary,
   },
+  ink: {
+    backgroundColor: colors.ink,
+  },
   secondary: {
-    backgroundColor: colors.surfaceSecondary,
+    backgroundColor: colors.surfaceTertiary,
   },
   outline: {
     backgroundColor: "transparent",
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
   },
   ghost: {
@@ -100,28 +121,32 @@ const styles = StyleSheet.create({
   size_sm: {
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    minHeight: 36,
+    minHeight: 38,
   },
   size_md: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-    minHeight: 44,
+    minHeight: 48,
   },
   size_lg: {
     paddingHorizontal: spacing["2xl"],
     paddingVertical: spacing.lg,
-    minHeight: 52,
+    minHeight: 56,
   },
   fullWidth: {
     width: "100%",
   },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   text: {
     fontWeight: "600",
+    letterSpacing: 0.1,
   },
   text_primary: {
+    color: colors.ink,
+  },
+  text_ink: {
     color: colors.textInverse,
   },
   text_secondary: {
@@ -131,7 +156,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   text_ghost: {
-    color: colors.primary,
+    color: colors.textPrimary,
   },
   text_danger: {
     color: colors.textInverse,
@@ -143,6 +168,6 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.md,
   },
   textSize_lg: {
-    fontSize: typography.fontSize.lg,
+    fontSize: typography.fontSize.md,
   },
 });

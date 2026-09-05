@@ -20,6 +20,7 @@ import CategoryIcon from '@/components/marketplace/CategoryIcon'
 import IconTile from '@/components/ui/IconTile'
 import SectionHeader from '@/components/ui/SectionHeader'
 import CtaBanner from '@/components/marketplace/CtaBanner'
+import HeroMosaic from '@/components/marketplace/HeroMosaic'
 import type { Business, Service } from '@/types'
 
 export function generateStaticParams() {
@@ -111,89 +112,26 @@ export default async function CountryHomePage({
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="flex flex-col">
-      {/* Hero Section */}
-      <section className={cn('relative min-h-[80vh] flex items-center bg-gradient-to-br overflow-hidden', heroGradient)}>
-        {/* Signature motif: a routed path connecting stops, not a stock grid.
-            Stands in for the rides/delivery/booking "something is en route"
-            idea that recurs across the product (see MASTER.md signature
-            element). Static by default; animates only if motion is allowed. */}
-        <svg
-          className="absolute inset-0 w-full h-full opacity-[0.18] motion-reduce:opacity-[0.12]"
-          viewBox="0 0 1200 600"
-          preserveAspectRatio="xMidYMid slice"
-          aria-hidden="true"
-        >
-          <path
-            d="M -50 480 C 180 480, 220 220, 420 220 S 640 60, 860 140 S 1120 120, 1260 260"
-            fill="none"
-            stroke="white"
-            strokeWidth="2"
-            strokeDasharray="2 14"
-            strokeLinecap="round"
-          />
+      <HeroMosaic country={countryConfig} code={code} businessCount={stats.businesses} />
+
+      {/* Trust strip — real catalogue numbers, set quietly under the hero
+          rather than reversed out over a gradient. */}
+      <section className="border-b border-border bg-surface-secondary">
+        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 pb-12 sm:grid-cols-4 sm:px-6 lg:px-8">
           {[
-            { cx: 420, cy: 220 },
-            { cx: 860, cy: 140 },
-          ].map((p) => (
-            <circle key={`${p.cx}-${p.cy}`} cx={p.cx} cy={p.cy} r="5" fill="white" />
+            { icon: Store, label: 'Businesses', value: stats.businesses },
+            { icon: ShoppingBag, label: 'Bookings', value: stats.bookings },
+            { icon: Users, label: 'Users', value: stats.users },
+            { icon: Clock, label: 'Rides & Delivery', value: stats.deliveries },
+          ].map((s) => (
+            <div key={s.label} className="flex items-center gap-3">
+              <s.icon className="h-4 w-4 shrink-0 text-text-tertiary" />
+              <div className="min-w-0">
+                <p className="font-mono text-lg font-bold tabular-nums text-text-primary">{s.value}</p>
+                <p className="truncate text-xs text-text-secondary">{s.label}</p>
+              </div>
+            </div>
           ))}
-        </svg>
-
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 w-full">
-          <div className="max-w-3xl">
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-5xl">{countryConfig.flag}</span>
-              <div>
-                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold font-heading text-white leading-[1.05] tracking-tight text-balance">
-                  Services, rides, and deliveries in {countryConfig.name} — one app, local prices
-                </h1>
-                <p className="text-xl text-white/80 mt-3 max-w-xl">
-                  Book a trusted business, request a ride, or get something delivered, all priced in {countryConfig.currency.code}.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-3 mt-6">
-              <Link
-                href={`/${code}/search`}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white text-text-primary font-semibold hover:bg-white/90 active:scale-[0.98] transition-all shadow-lg group"
-              >
-                <Search className="w-5 h-5" />
-                Browse services in {countryConfig.name}
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-              <Link
-                href="/rides/book"
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-white/10 backdrop-blur-sm text-white font-semibold border border-white/25 hover:bg-white/20 active:scale-[0.98] transition-all"
-              >
-                <Calendar className="w-5 h-5" />
-                Request a ride
-              </Link>
-            </div>
-
-            <p className="mt-4 text-sm text-white/70 flex items-center gap-1.5">
-              <Zap className="w-4 h-4" />
-              {businesses.length}+ vetted businesses &middot; Instant booking &middot; Secure local payments
-            </p>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 mt-16 max-w-2xl">
-            {[
-              { icon: Store, label: 'Businesses', value: stats.businesses },
-              { icon: ShoppingBag, label: 'Bookings', value: stats.bookings },
-              { icon: Users, label: 'Users', value: stats.users },
-              { icon: Clock, label: 'Rides & Delivery', value: stats.deliveries },
-            ].map((s) => (
-              <div key={s.label} className="text-center">
-                <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-white/10 backdrop-blur-sm mx-auto mb-2">
-                  <s.icon className="w-6 h-6 text-white" />
-                </div>
-                <p className="text-2xl font-bold font-mono tabular-nums text-white">{s.value}</p>
-                <p className="text-xs text-white/70">{s.label}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
