@@ -1342,6 +1342,88 @@ export interface VehicleFavorite {
   createdAt: string;
 }
 
+// ─── API Keys for External Platform Integration ─────────────────
+
+export type ApiKeyScope = 'read' | 'write' | 'bookings' | 'vehicles' | 'availability' | 'webhooks' | 'admin';
+
+export interface ApiKey {
+  id: string;
+  hostId: string;
+  name: string;
+  keyPrefix: string;
+  keyHash: string;
+  scopes: ApiKeyScope[];
+  rateLimitPerMinute: number;
+  rateLimitPerDay: number;
+  lastUsedAt?: string;
+  lastUsedIp?: string;
+  expiresAt?: string;
+  isActive: boolean;
+  createdBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ApiKeyUsageLog {
+  id: string;
+  apiKeyId: string;
+  endpoint: string;
+  method: string;
+  statusCode?: number;
+  responseTimeMs?: number;
+  ipAddress?: string;
+  userAgent?: string;
+  requestId?: string;
+  createdAt: string;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  hostId: string;
+  apiKeyId?: string;
+  url: string;
+  secret: string;
+  events: string[];
+  isActive: boolean;
+  retryCount: number;
+  lastTriggeredAt?: string;
+  lastSuccessAt?: string;
+  lastFailureAt?: string;
+  lastFailureReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WebhookDeliveryLog {
+  id: string;
+  webhookEndpointId: string;
+  eventType: string;
+  payload: Record<string, unknown>;
+  responseStatusCode?: number;
+  responseBody?: string;
+  attemptNumber: number;
+  success: boolean;
+  errorMessage?: string;
+  deliveredAt?: string;
+  createdAt: string;
+}
+
+export interface ExternalPlatformConnection {
+  id: string;
+  hostId: string;
+  platformName: string;
+  platformUrl?: string;
+  apiKeyId?: string;
+  syncEnabled: boolean;
+  syncFrequency: string;
+  lastSyncedAt?: string;
+  syncStatus: string;
+  syncErrorMessage?: string;
+  fieldMapping: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface VehicleSearchFilters {
   location?: string;
   latitude?: number;
@@ -1579,6 +1661,11 @@ export interface Database {
       vehicle_documents: { Row: Omit<VehicleDocument, never>; Insert: Omit<VehicleDocument, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleDocument, 'id'>>; Relationships: never[] };
       host_payouts: { Row: Omit<HostPayout, never>; Insert: Omit<HostPayout, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<HostPayout, 'id'>>; Relationships: never[] };
       vehicle_favorites: { Row: Omit<VehicleFavorite, never>; Insert: Omit<VehicleFavorite, 'id' | 'createdAt'>; Update: Partial<Omit<VehicleFavorite, 'id'>>; Relationships: never[] };
+      api_keys: { Row: Omit<ApiKey, never>; Insert: Omit<ApiKey, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<ApiKey, 'id'>>; Relationships: never[] };
+      api_key_usage_logs: { Row: Omit<ApiKeyUsageLog, never>; Insert: Omit<ApiKeyUsageLog, 'id' | 'createdAt'>; Update: Partial<Omit<ApiKeyUsageLog, 'id'>>; Relationships: never[] };
+      webhook_endpoints: { Row: Omit<WebhookEndpoint, never>; Insert: Omit<WebhookEndpoint, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<WebhookEndpoint, 'id'>>; Relationships: never[] };
+      webhook_delivery_logs: { Row: Omit<WebhookDeliveryLog, never>; Insert: Omit<WebhookDeliveryLog, 'id' | 'createdAt'>; Update: Partial<Omit<WebhookDeliveryLog, 'id'>>; Relationships: never[] };
+      external_platform_connections: { Row: Omit<ExternalPlatformConnection, never>; Insert: Omit<ExternalPlatformConnection, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<ExternalPlatformConnection, 'id'>>; Relationships: never[] };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

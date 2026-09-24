@@ -482,3 +482,222 @@ BEGIN
   WHERE v.id = p_vehicle_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ─── API Keys for External Platform Integration ─────────────────
+
+-- API key scopes enum
+CREATE TYPE api_key_scope AS ENUM ('read', 'write', 'bookings', 'vehicles', 'availability', 'webhooks', 'admin');
+
+-- API keys table for external platform integration
+CREATE TABLE api_keys (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  host_id UUID NOT NULL REFERENCES host_profiles(id) ON DELETE CASCADE,
+  name TEXT NOT NULL, -- e.g., "Website Integration", "Mobile App", "Partner Platform"
+  key_prefix TEXT NOT NULL, -- First 8 chars for display: "afb_live_abc123"
+  key_hash TEXT NOT NULL, -- bcrypt hash of the full key
+  scopes api_key_scope[] NOT NULL DEFAULT ARRAY['read'],
+  rate_limit_per_minute INTEGER DEFAULT 60,
+  rate_limit_per_day INTEGER DEFAULT 10000,
+  last_used_at TIMESTAMPTZ,
+  last_used_ip INET,
+  expires_at TIMESTAMPTZ,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- API key usage logs for monitoring
+CREATE TABLE api_key_usage_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  api_key_id UUID NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  method TEXT NOT NULL,
+  status_code INTEGER,
+  response_time_ms INTEGER,
+  ip_address INET,
+  user_agent TEXT,
+  request_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Webhook endpoints for external platforms
+CREATE TABLE webhook_endpoints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  host_id UUID NOT NULL REFERENCES host_profiles(id) ON DELETE CASCADE,
+  api_key_id UUID REFERENCES api_keys(id) ON DELETE SET NULL,
+  url TEXT NOT NULL,
+  secret TEXT NOT NULL, -- Used to sign webhook payloads
+  events TEXT[] NOT NULL DEFAULT ARRAY['booking.created', 'booking.confirmed', 'booking.cancelled', 'booking.completed', 'vehicle.availability_changed'],
+  is_active BOOLEAN DEFAULT TRUE,
+  retry_count INTEGER DEFAULT 0,
+  last_triggered_at TIMESTAMPTZ,
+  last_success_at TIMESTAMPTZ,
+  last_failure_at TIMESTAMPTZ,
+  last_failure_reason TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Webhook delivery logs
+CREATE TABLE webhook_delivery_logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  webhook_endpoint_id UUID NOT NULL REFERENCES webhook_endpoints(id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  response_status_code INTEGER,
+  response_body TEXT,
+  attempt_number INTEGER DEFAULT 1,
+  success BOOLEAN DEFAULT FALSE,
+  error_message TEXT,
+  delivered_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- External platform connections (for tracking partner integrations)
+CREATE TABLE external_platform_connections (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  host_id UUID NOT NULL REFERENCES host_profiles(id) ON DELETE CASCADE,
+  platform_name TEXT NOT NULL, -- e.g., "Turo", "Getaround", "Custom Website"
+  platform_url TEXT,
+  api_key_id UUID REFERENCES api_keys(id) ON DELETE SET NULL,
+  sync_enabled BOOLEAN DEFAULT FALSE,
+  sync_frequency TEXT DEFAULT 'hourly', -- hourly, daily, manual
+  last_synced_at TIMESTAMPTZ,
+  sync_status TEXT DEFAULT 'pending', -- pending, success, failed
+  sync_error_message TEXT,
+  field_mapping JSONB DEFAULT '{}', -- Map external fields to our fields
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes for API keys
+CREATE INDEX idx_api_keys_host_id ON api_keys(host_id);
+CREATE INDEX idx_api_keys_key_prefix ON api_keys(key_prefix);
+CREATE INDEX idx_api_keys_is_active ON api_keys(is_active);
+CREATE INDEX idx_api_key_usage_logs_api_key_id ON api_key_usage_logs(api_key_id);
+CREATE INDEX idx_api_key_usage_logs_created_at ON api_key_usage_logs(created_at);
+CREATE INDEX idx_webhook_endpoints_host_id ON webhook_endpoints(host_id);
+CREATE INDEX idx_webhook_endpoints_api_key_id ON webhook_endpoints(api_key_id);
+CREATE INDEX idx_webhook_delivery_logs_webhook_endpoint_id ON webhook_delivery_logs(webhook_endpoint_id);
+CREATE INDEX idx_external_platform_connections_host_id ON external_platform_connections(host_id);
+
+-- Enable Row Level Security
+ALTER TABLE api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_key_usage_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE webhook_endpoints ENABLE ROW LEVEL SECURITY;
+ALTER TABLE webhook_delivery_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE external_platform_connections ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for api_keys
+CREATE POLICY "Hosts can view own api keys" ON api_keys
+  FOR SELECT USING (EXISTS (SELECT 1 FROM host_profiles WHERE id = api_keys.host_id AND user_id = auth.uid()));
+CREATE POLICY "Hosts can create own api keys" ON api_keys
+  FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM host_profiles WHERE id = api_keys.host_id AND user_id = auth.uid()));
+CREATE POLICY "Hosts can update own api keys" ON api_keys
+  FOR UPDATE USING (EXISTS (SELECT 1 FROM host_profiles WHERE id = api_keys.host_id AND user_id = auth.uid()));
+CREATE POLICY "Hosts can delete own api keys" ON api_keys
+  FOR DELETE USING (EXISTS (SELECT 1 FROM host_profiles WHERE id = api_keys.host_id AND user_id = auth.uid()));
+
+-- RLS Policies for api_key_usage_logs
+CREATE POLICY "Hosts can view own api key usage logs" ON api_key_usage_logs
+  FOR SELECT USING (EXISTS (SELECT 1 FROM api_keys ak JOIN host_profiles hp ON ak.host_id = hp.id WHERE ak.id = api_key_usage_logs.api_key_id AND hp.user_id = auth.uid()));
+
+-- RLS Policies for webhook_endpoints
+CREATE POLICY "Hosts can manage own webhook endpoints" ON webhook_endpoints
+  FOR ALL USING (EXISTS (SELECT 1 FROM host_profiles WHERE id = webhook_endpoints.host_id AND user_id = auth.uid()));
+
+-- RLS Policies for webhook_delivery_logs
+CREATE POLICY "Hosts can view own webhook delivery logs" ON webhook_delivery_logs
+  FOR SELECT USING (EXISTS (SELECT 1 FROM webhook_endpoints we JOIN host_profiles hp ON we.host_id = hp.id WHERE we.id = webhook_delivery_logs.webhook_endpoint_id AND hp.user_id = auth.uid()));
+
+-- RLS Policies for external_platform_connections
+CREATE POLICY "Hosts can manage own external platform connections" ON external_platform_connections
+  FOR ALL USING (EXISTS (SELECT 1 FROM host_profiles WHERE id = external_platform_connections.host_id AND user_id = auth.uid()));
+
+-- Triggers for updated_at
+CREATE TRIGGER update_api_keys_updated_at BEFORE UPDATE ON api_keys
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_webhook_endpoints_updated_at BEFORE UPDATE ON webhook_endpoints
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_external_platform_connections_updated_at BEFORE UPDATE ON external_platform_connections
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to validate API key and return host_id
+CREATE OR REPLACE FUNCTION validate_api_key(p_key_hash TEXT)
+RETURNS UUID AS $$
+DECLARE
+  v_host_id UUID;
+  v_scopes api_key_scope[];
+  v_rate_limit_min INTEGER;
+  v_rate_limit_day INTEGER;
+BEGIN
+  SELECT host_id, scopes, rate_limit_per_minute, rate_limit_per_day
+  INTO v_host_id, v_scopes, v_rate_limit_min, v_rate_limit_day
+  FROM api_keys
+  WHERE key_hash = p_key_hash
+    AND is_active = TRUE
+    AND (expires_at IS NULL OR expires_at > NOW());
+  
+  IF v_host_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+  
+  -- Update last used timestamp
+  UPDATE api_keys SET last_used_at = NOW() WHERE key_hash = p_key_hash;
+  
+  RETURN v_host_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to check API key rate limits
+CREATE OR REPLACE FUNCTION check_api_key_rate_limit(p_api_key_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+  v_minute_count INTEGER;
+  v_day_count INTEGER;
+  v_limit_min INTEGER;
+  v_limit_day INTEGER;
+BEGIN
+  SELECT rate_limit_per_minute, rate_limit_per_day
+  INTO v_limit_min, v_limit_day
+  FROM api_keys WHERE id = p_api_key_id;
+  
+  SELECT COUNT(*) INTO v_minute_count
+  FROM api_key_usage_logs
+  WHERE api_key_id = p_api_key_id
+    AND created_at > NOW() - INTERVAL '1 minute';
+  
+  SELECT COUNT(*) INTO v_day_count
+  FROM api_key_usage_logs
+  WHERE api_key_id = p_api_key_id
+    AND created_at > NOW() - INTERVAL '1 day';
+  
+  RETURN v_minute_count < v_limit_min AND v_day_count < v_limit_day;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to log API key usage
+CREATE OR REPLACE FUNCTION log_api_key_usage(
+  p_api_key_id UUID,
+  p_endpoint TEXT,
+  p_method TEXT,
+  p_status_code INTEGER,
+  p_response_time_ms INTEGER,
+  p_ip_address INET,
+  p_user_agent TEXT,
+  p_request_id TEXT
+)
+RETURNS VOID AS $$
+BEGIN
+  INSERT INTO api_key_usage_logs (
+    api_key_id, endpoint, method, status_code, response_time_ms,
+    ip_address, user_agent, request_id
+  ) VALUES (
+    p_api_key_id, p_endpoint, p_method, p_status_code, p_response_time_ms,
+    p_ip_address, p_user_agent, p_request_id
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

@@ -9,12 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, Eye, Car, Calendar, DollarSign, Star, Shield, Loader2, Filter, ChevronDown, ChevronUp, Clock, AlertCircle, Ban, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Car, Calendar, DollarSign, Star, Shield, Loader2, Filter, ChevronDown, ChevronUp, Clock, AlertCircle, Ban, MoreHorizontal, Key, Zap, Globe } from 'lucide-react';
 import { getVehiclesByHost, getHostProfile, deleteVehicle, type Vehicle, type HostProfile } from '@/lib/vehicle-rental';
 import { useAuth } from '@/hooks/useAuth';
 import { formatVehiclePrice, getVehicleTypeLabel, getVehicleBookingStatusLabel } from '@/lib/vehicle-rental';
 import { toast } from '@/components/ui/use-toast';
 import { VehicleListingForm } from '@/components/vehicle-rental/VehicleListingForm';
+import { ApiKeyManagement } from '@/components/vehicle-rental/ApiKeyManagement';
 
 export function HostVehiclesPage() {
   const { user } = useAuth();
@@ -162,54 +163,68 @@ export function HostVehiclesPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
             <TabsTrigger value="active">Active ({stats.active})</TabsTrigger>
             <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
+            <TabsTrigger value="draft">Drafts</TabsTrigger>
+            <TabsTrigger value="api">
+              <Key className="mr-2 h-4 w-4" />
+              API & Integrations
+            </TabsTrigger>
           </TabsList>
         </Tabs>
 
-        {/* Vehicles List */}
-        {isLoading ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <VehicleCardSkeleton key={i} />
-            ))}
-          </div>
-        ) : filteredVehicles.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              {activeTab === 'all' ? (
-                <>
-                  <Car className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No vehicles yet</h3>
-                  <p className="text-muted-foreground mb-6">Get started by adding your first vehicle</p>
-                  <Button onClick={() => setShowCreateForm(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Your First Vehicle
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Car className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold mb-2">No {activeTab} vehicles</h3>
-                  <p className="text-muted-foreground">Try a different tab or add a new vehicle</p>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredVehicles.map(vehicle => (
-              <HostVehicleCard
-                key={vehicle.id}
-                vehicle={vehicle}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                isDeleting={deletingVehicleId === vehicle.id}
-              />
-            ))}
-          </div>
+        {/* API & Integrations Tab */}
+        {activeTab === 'api' && hostProfile && (
+          <ApiKeyManagement hostId={hostProfile.id} />
+        )}
+
+        {/* Vehicles List - only show when not on API tab */}
+        {activeTab !== 'api' && (
+          <>
+            {isLoading ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[...Array(6)].map((_, i) => (
+                  <VehicleCardSkeleton key={i} />
+                ))}
+              </div>
+            ) : filteredVehicles.length === 0 ? (
+              <Card className="text-center py-12">
+                <CardContent>
+                  {activeTab === 'all' ? (
+                    <>
+                      <Car className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">No vehicles yet</h3>
+                      <p className="text-muted-foreground mb-6">Get started by adding your first vehicle</p>
+                      <Button onClick={() => setShowCreateForm(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Your First Vehicle
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Car className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-xl font-semibold mb-2">No {activeTab} vehicles</h3>
+                      <p className="text-muted-foreground">Try a different tab or add a new vehicle</p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {filteredVehicles.map(vehicle => (
+                  <HostVehicleCard
+                    key={vehicle.id}
+                    vehicle={vehicle}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    isDeleting={deletingVehicleId === vehicle.id}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

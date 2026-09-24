@@ -16,6 +16,12 @@ import type {
   HostType,
   VehicleVerificationStatus,
   VehicleBookingStatus,
+  ApiKey,
+  ApiKeyScope,
+  ApiKeyUsageLog,
+  WebhookEndpoint,
+  WebhookDeliveryLog,
+  ExternalPlatformConnection,
 } from '@/types';
 
 export type {
@@ -35,6 +41,12 @@ export type {
   HostType,
   VehicleVerificationStatus,
   VehicleBookingStatus,
+  ApiKey,
+  ApiKeyScope,
+  ApiKeyUsageLog,
+  WebhookEndpoint,
+  WebhookDeliveryLog,
+  ExternalPlatformConnection,
 };
 
 const supabase = createClient();
@@ -1039,4 +1051,425 @@ export function getVehicleSpecs(vehicle: Vehicle): Array<{ label: string; value:
     { label: 'Color', value: vehicle.color },
     { label: 'Condition', value: vehicle.condition.charAt(0).toUpperCase() + vehicle.condition.slice(1) },
   ].filter(spec => spec.value);
+}
+
+// ─── API Key Management Functions ────────────────────────────────
+
+export async function createApiKey(apiKey: Omit<ApiKey, 'id' | 'createdAt' | 'updatedAt' | 'keyHash' | 'keyPrefix' | 'lastUsedAt' | 'lastUsedIp'> & { key: string }): Promise<{ apiKey: ApiKey; fullKey: string }> {
+  const { data: profile } = await qb
+    .from('host_profiles')
+    .select('id')
+    .eq('id', apiKey.hostId)
+    .single();
+
+  if (!profile) throw new Error('Host profile not found');
+
+  // Generate API key: afb_live_<random> or afb_test_<random>
+  const prefix = process.env.NODE_ENV === 'production' ? 'afb_live_' : 'afb_test_';
+  const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  const fullKey = prefix + randomPart;
+  
+  // Hash the key for storage (using a simple hash for demo - use bcrypt in production)
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(fullKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+  const keyHash = Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  
+  const keyPrefix = fullKey.slice(0, 12) + '...';
+
+  const { data, error } = await qb
+    .from('api_keys')
+    .insert({
+      host_id: apiKey.hostId,
+      name: apiKey.name,
+      key_prefix: keyPrefix,
+      key_hash: keyHash,
+      scopes: apiKey.scopes,
+      rate_limit_per_minute: apiKey.rateLimitPerMinute,
+      rate_limit_per_day: apiKey.rateLimitPerDay,
+      expires_at: apiKey.expiresAt,
+      is_active: apiKey.isActive,
+      created_by: apiKey.createdBy,
+    } as any)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { apiKey: toCamelCase<ApiKey>(data), fullKey };
+}
+
+export async function getApiKeys(hostId: string): Promise<ApiKey[]> {
+  const { data, error } = await qb
+    .from('api_keys')
+    .select('*')
+    .eq('host_id', hostId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((v: any) => toCamelCase<ApiKey>(v));
+}
+
+export async function getApiKey(apiKeyId: string): Promise<ApiKey | null> {
+  const { data, error } = await qb
+    .from('api_keys')
+    .select('*')
+    .eq('id', apiKeyId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return toCamelCase<ApiKey>(data);
+}
+
+export async function updateApiKey(apiKeyId: string, updates: Partial<ApiKey>): Promise<ApiKey> {
+  const { data, error } = await qb
+    .from('api_keys')
+    .update(updates as any)
+    .eq('id', apiKeyId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return toCamelCase<ApiKey>(data);
+}
+
+export async function deleteApiKey(apiKeyId: string): Promise<void> {
+  const { error } = await qb
+    .from('api_keys')
+    .delete()
+    .eq('id', apiKeyId);
+
+  if (error) throw error;
+}
+
+export async function regenerateApiKey(apiKeyId: string): Promise<{ apiKey: ApiKey; fullKey: string }> {
+  const prefix = process.env.NODE_ENV === 'production' ? 'afb_live_' : 'afb_test_';
+  const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  const fullKey = prefix + randomPart;
+  
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(fullKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+  const keyHash = Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+  
+  const keyPrefix = fullKey.slice(0, 12) + '...';
+
+  const { data, error } = await qb
+    .from('api_keys')
+    .update({
+      key_hash: keyHash,
+      key_prefix: keyPrefix,
+      last_used_at: null,
+      last_used_ip: null,
+    } as any)
+    .eq('id', apiKeyId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { apiKey: toCamelCase<ApiKey>(data), fullKey };
+}
+
+export async function getApiKeyUsageLogs(apiKeyId: string, limit = 100): Promise<ApiKeyUsageLog[]> {
+  const { data, error } = await qb
+    .from('api_key_usage_logs')
+    .select('*')
+    .eq('api_key_id', apiKeyId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []).map((v: any) => toCamelCase<ApiKeyUsageLog>(v));
+}
+
+// ─── Webhook Endpoint Management Functions ─────────────────────
+
+export async function createWebhookEndpoint(webhook: Omit<WebhookEndpoint, 'id' | 'createdAt' | 'updatedAt' | 'secret' | 'retryCount' | 'lastTriggeredAt' | 'lastSuccessAt' | 'lastFailureAt' | 'lastFailureReason'>): Promise<{ webhook: WebhookEndpoint; secret: string }> {
+  const secret = 'whsec_' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  const { data, error } = await qb
+    .from('webhook_endpoints')
+    .insert({
+      host_id: webhook.hostId,
+      api_key_id: webhook.apiKeyId,
+      url: webhook.url,
+      secret,
+      events: webhook.events,
+      is_active: webhook.isActive,
+    } as any)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return { webhook: toCamelCase<WebhookEndpoint>(data), secret };
+}
+
+export async function getWebhookEndpoints(hostId: string): Promise<WebhookEndpoint[]> {
+  const { data, error } = await qb
+    .from('webhook_endpoints')
+    .select('*')
+    .eq('host_id', hostId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((v: any) => toCamelCase<WebhookEndpoint>(v));
+}
+
+export async function getWebhookEndpoint(webhookId: string): Promise<WebhookEndpoint | null> {
+  const { data, error } = await qb
+    .from('webhook_endpoints')
+    .select('*')
+    .eq('id', webhookId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return toCamelCase<WebhookEndpoint>(data);
+}
+
+export async function updateWebhookEndpoint(webhookId: string, updates: Partial<WebhookEndpoint>): Promise<WebhookEndpoint> {
+  const { data, error } = await qb
+    .from('webhook_endpoints')
+    .update(updates as any)
+    .eq('id', webhookId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return toCamelCase<WebhookEndpoint>(data);
+}
+
+export async function deleteWebhookEndpoint(webhookId: string): Promise<void> {
+  const { error } = await qb
+    .from('webhook_endpoints')
+    .delete()
+    .eq('id', webhookId);
+
+  if (error) throw error;
+}
+
+export async function getWebhookDeliveryLogs(webhookEndpointId: string, limit = 100): Promise<WebhookDeliveryLog[]> {
+  const { data, error } = await qb
+    .from('webhook_delivery_logs')
+    .select('*')
+    .eq('webhook_endpoint_id', webhookEndpointId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+  return (data || []).map((v: any) => toCamelCase<WebhookDeliveryLog>(v));
+}
+
+// ─── External Platform Connection Functions ────────────────────
+
+export async function createExternalPlatformConnection(connection: Omit<ExternalPlatformConnection, 'id' | 'createdAt' | 'updatedAt' | 'lastSyncedAt' | 'syncStatus' | 'syncErrorMessage'>): Promise<ExternalPlatformConnection> {
+  const { data, error } = await qb
+    .from('external_platform_connections')
+    .insert(connection as any)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return toCamelCase<ExternalPlatformConnection>(data);
+}
+
+export async function getExternalPlatformConnections(hostId: string): Promise<ExternalPlatformConnection[]> {
+  const { data, error } = await qb
+    .from('external_platform_connections')
+    .select('*')
+    .eq('host_id', hostId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data || []).map((v: any) => toCamelCase<ExternalPlatformConnection>(v));
+}
+
+export async function getExternalPlatformConnection(connectionId: string): Promise<ExternalPlatformConnection | null> {
+  const { data, error } = await qb
+    .from('external_platform_connections')
+    .select('*')
+    .eq('id', connectionId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw error;
+  }
+  return toCamelCase<ExternalPlatformConnection>(data);
+}
+
+export async function updateExternalPlatformConnection(connectionId: string, updates: Partial<ExternalPlatformConnection>): Promise<ExternalPlatformConnection> {
+  const { data, error } = await qb
+    .from('external_platform_connections')
+    .update(updates as any)
+    .eq('id', connectionId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return toCamelCase<ExternalPlatformConnection>(data);
+}
+
+export async function deleteExternalPlatformConnection(connectionId: string): Promise<void> {
+  const { error } = await qb
+    .from('external_platform_connections')
+    .delete()
+    .eq('id', connectionId);
+
+  if (error) throw error;
+}
+
+// ─── Webhook Event Triggering ──────────────────────────────────
+
+export async function triggerWebhookEvent(
+  hostId: string,
+  eventType: string,
+  payload: Record<string, unknown>
+): Promise<void> {
+  const { data: webhooks } = await qb
+    .from('webhook_endpoints')
+    .select('*')
+    .eq('host_id', hostId)
+    .eq('is_active', true)
+    .contains('events', [eventType]);
+
+  if (!webhooks || webhooks.length === 0) return;
+
+  for (const webhook of webhooks) {
+    try {
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const signature = await generateWebhookSignature(webhook.secret, timestamp, payload);
+      
+      const response = await fetch(webhook.url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Webhook-Signature': signature,
+          'X-Webhook-Timestamp': timestamp,
+          'X-Webhook-Event': eventType,
+          'User-Agent': 'AfriBook-Webhooks/1.0',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      await qb
+        .from('webhook_delivery_logs')
+        .insert({
+          webhook_endpoint_id: webhook.id,
+          event_type: eventType,
+          payload,
+          response_status_code: response.status,
+          response_body: await response.text().catch(() => ''),
+          attempt_number: 1,
+          success: response.ok,
+          delivered_at: new Date().toISOString(),
+        } as any);
+
+      if (response.ok) {
+        await qb
+          .from('webhook_endpoints')
+          .update({ last_success_at: new Date().toISOString(), last_triggered_at: new Date().toISOString() })
+          .eq('id', webhook.id);
+      } else {
+        await qb
+          .from('webhook_endpoints')
+          .update({ 
+            last_failure_at: new Date().toISOString(),
+            last_failure_reason: `HTTP ${response.status}`,
+            retry_count: webhook.retry_count + 1,
+            last_triggered_at: new Date().toISOString()
+          })
+          .eq('id', webhook.id);
+      }
+    } catch (error) {
+      await qb
+        .from('webhook_delivery_logs')
+        .insert({
+          webhook_endpoint_id: webhook.id,
+          event_type: eventType,
+          payload,
+          attempt_number: 1,
+          success: false,
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          delivered_at: new Date().toISOString(),
+        } as any);
+    }
+  }
+}
+
+async function generateWebhookSignature(secret: string, timestamp: string, payload: Record<string, unknown>): Promise<string> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(`${timestamp}.${JSON.stringify(payload)}`);
+  const key = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = await crypto.subtle.sign('HMAC', key, messageData);
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// ─── Public API Key Validation (for external API endpoints) ─────
+
+export async function validateApiKeyFromRequest(request: Request): Promise<{ hostId: string; scopes: ApiKeyScope[] } | null> {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  
+  const providedKey = authHeader.slice(7); // Remove 'Bearer '
+  
+  // Hash the provided key
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(providedKey);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
+  const keyHash = Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  const { data, error } = await qb
+    .rpc('validate_api_key', { p_key_hash: keyHash });
+
+  if (error || !data) return null;
+
+  // Get scopes
+  const { data: apiKeyData } = await qb
+    .from('api_keys')
+    .select('scopes, rate_limit_per_minute, rate_limit_per_day')
+    .eq('key_hash', keyHash)
+    .single();
+
+  if (!apiKeyData) return null;
+
+  // Check rate limits
+  const { data: rateLimitOk } = await qb
+    .rpc('check_api_key_rate_limit', { p_api_key_id: apiKeyData.id });
+
+  if (!rateLimitOk) return null;
+
+  // Log usage
+  await qb
+    .rpc('log_api_key_usage', {
+      p_api_key_id: apiKeyData.id,
+      p_endpoint: new URL(request.url).pathname,
+      p_method: request.method,
+      p_status_code: 200,
+      p_response_time_ms: 0,
+      p_ip_address: request.headers.get('x-forwarded-for') || 'unknown',
+      p_user_agent: request.headers.get('user-agent') || 'unknown',
+      p_request_id: crypto.randomUUID(),
+    });
+
+  return { hostId: data, scopes: apiKeyData.scopes };
 }
