@@ -1,0 +1,15 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "afribook-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "C:\\Users\\harry\\AfriBook-fresh", "run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "afribook-mobile-web",
+      "url": "http://localhost:8081"
+    }
+  ]
+}

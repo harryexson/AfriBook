@@ -367,7 +367,7 @@ export interface Staff {
 
 // ─── Driver ──────────────────────────────────────────────────
 
-export interface Vehicle {
+export interface DriverVehicle {
   id: string;
   type: 'car' | 'motorcycle' | 'bicycle' | 'truck' | 'van';
   make: string;
@@ -414,7 +414,7 @@ export interface Driver {
   phone: string;
   email: string;
   avatarUrl?: string;
-  vehicle: Vehicle;
+  vehicle: DriverVehicle;
   status: DriverStatus;
   location: GeoPoint;
   earnings: number;
@@ -1081,6 +1081,321 @@ export interface EventTicketRow {
   created_at: string;
 }
 
+// ─── Vehicle Rental Marketplace ────────────────────────────────
+
+export type HostType = 'individual' | 'company' | 'dealership' | 'rental_company';
+export type VehicleType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'convertible' | 'hatchback' | 'wagon' | 'minivan' | 'pickup' | 'luxury' | 'electric' | 'hybrid' | 'motorcycle' | 'scooter' | 'rv' | 'trailer' | 'bus';
+export type VehicleTransmission = 'automatic' | 'manual' | 'cvt' | 'semi_automatic';
+export type VehicleFuelType = 'gasoline' | 'diesel' | 'electric' | 'hybrid' | 'plug_in_hybrid' | 'cng' | 'lpg' | 'hydrogen';
+export type VehicleCondition = 'new' | 'excellent' | 'good' | 'fair' | 'poor';
+export type VehicleVerificationStatus = 'pending' | 'approved' | 'rejected' | 'requires_update' | 'suspended';
+export type VehicleBookingStatus = 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled' | 'no_show' | 'disputed';
+export type VehicleImageType = 'exterior_front' | 'exterior_rear' | 'exterior_side' | 'interior_front' | 'interior_rear' | 'dashboard' | 'engine' | 'trunk' | 'wheels' | 'damage' | 'other';
+export type VehicleDocumentType = 'insurance' | 'registration' | 'inspection' | 'title' | 'other';
+
+export interface HostProfile {
+  id: string;
+  userId: string;
+  hostType: HostType;
+  companyName?: string;
+  companyRegistrationNumber?: string;
+  taxId?: string;
+  businessLicense?: string;
+  insurancePolicyNumber?: string;
+  insuranceProvider?: string;
+  insuranceExpiryDate?: string;
+  contactPersonName?: string;
+  contactPersonPhone?: string;
+  contactPersonEmail?: string;
+  addressStreet?: string;
+  addressCity?: string;
+  addressState?: string;
+  addressPostalCode?: string;
+  addressCountryCode: string;
+  stripeAccountId?: string;
+  commissionRate: number;
+  isVerified: boolean;
+  verificationDocuments: string[];
+  verificationStatus: VehicleVerificationStatus;
+  verificationNotes?: string;
+  totalVehicles: number;
+  totalBookings: number;
+  totalEarnings: number;
+  averageRating: number;
+  reviewCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VehicleImage {
+  id: string;
+  vehicleId: string;
+  url: string;
+  type: VehicleImageType;
+  isPrimary: boolean;
+  displayOrder: number;
+  caption?: string;
+  createdAt: string;
+}
+
+export interface VehicleDocument {
+  id: string;
+  vehicleId: string;
+  documentType: VehicleDocumentType;
+  fileUrl: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  expiryDate?: string;
+  verified: boolean;
+  verifiedAt?: string;
+  verifiedBy?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Vehicle {
+  id: string;
+  hostId: string;
+  title: string;
+  description?: string;
+  vehicleType: VehicleType;
+  make: string;
+  model: string;
+  year: number;
+  trim?: string;
+  color: string;
+  exteriorColorHex?: string;
+  interiorColor?: string;
+  interiorColorHex?: string;
+  transmission: VehicleTransmission;
+  fuelType: VehicleFuelType;
+  engineSize?: string;
+  horsepower?: number;
+  drivetrain?: string;
+  doors: number;
+  seats: number;
+  mileage: number;
+  condition: VehicleCondition;
+  vin?: string;
+  licensePlate: string;
+  licensePlateState?: string;
+  licensePlateCountry: string;
+  registrationExpiryDate?: string;
+  insurancePolicyNumber?: string;
+  insuranceProvider?: string;
+  insuranceExpiryDate?: string;
+  insuranceVerified: boolean;
+  registrationVerified: boolean;
+  inspectionVerified: boolean;
+  inspectionDate?: string;
+  inspectionNotes?: string;
+  features: string[];
+  amenities: string[];
+  rules: string[];
+  locationAddress: string;
+  locationCity: string;
+  locationState: string;
+  locationPostalCode: string;
+  locationCountryCode: string;
+  locationLatitude?: number;
+  locationLongitude?: number;
+  dailyRate: number;
+  weeklyDiscountPercent: number;
+  monthlyDiscountPercent: number;
+  minimumRentalDays: number;
+  maximumRentalDays: number;
+  securityDeposit: number;
+  cleaningFee: number;
+  deliveryAvailable: boolean;
+  deliveryRadiusKm: number;
+  deliveryFeePerKm: number;
+  pickupInstructions?: string;
+  dropoffInstructions?: string;
+  images: VehicleImage[];
+  verificationStatus: VehicleVerificationStatus;
+  verificationNotes?: string;
+  isActive: boolean;
+  isInstantBook: boolean;
+  requiresApproval: boolean;
+  totalBookings: number;
+  totalEarnings: number;
+  averageRating: number;
+  reviewCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VehicleAvailability {
+  id: string;
+  vehicleId: string;
+  date: string;
+  isAvailable: boolean;
+  priceOverride?: number;
+  minimumDays?: number;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VehicleBooking {
+  id: string;
+  vehicleId: string;
+  hostId: string;
+  renterId: string;
+  status: VehicleBookingStatus;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  pickupLocationAddress?: string;
+  pickupLocationCity?: string;
+  pickupLocationState?: string;
+  pickupLocationPostalCode?: string;
+  pickupLocationCountryCode: string;
+  pickupLatitude?: number;
+  pickupLongitude?: number;
+  dropoffLocationAddress?: string;
+  dropoffLocationCity?: string;
+  dropoffLocationState?: string;
+  dropoffLocationPostalCode?: string;
+  dropoffLocationCountryCode: string;
+  dropoffLatitude?: number;
+  dropoffLongitude?: number;
+  deliveryRequested: boolean;
+  deliveryFee: number;
+  dailyRate: number;
+  numberOfDays: number;
+  subtotal: number;
+  weeklyDiscount: number;
+  monthlyDiscount: number;
+  cleaningFee: number;
+  securityDeposit: number;
+  platformFeePercent: number;
+  platformFeeAmount: number;
+  hostEarnings: number;
+  totalAmount: number;
+  currencyCode: string;
+  paymentIntentId?: string;
+  paymentStatus: string;
+  escrowStatus: string;
+  renterInsuranceVerified: boolean;
+  renterLicenseVerified: boolean;
+  hostConfirmedAt?: string;
+  renterConfirmedAt?: string;
+  pickupConfirmedAt?: string;
+  dropoffConfirmedAt?: string;
+  cancellationReason?: string;
+  cancelledBy?: string;
+  cancelledAt?: string;
+  cancellationFee: number;
+  disputeReason?: string;
+  disputeResolvedAt?: string;
+  disputeResolution?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VehicleReview {
+  id: string;
+  vehicleId: string;
+  bookingId: string;
+  reviewerId: string;
+  hostId: string;
+  rating: number;
+  cleanlinessRating?: number;
+  conditionRating?: number;
+  communicationRating?: number;
+  valueRating?: number;
+  title?: string;
+  comment?: string;
+  images: string[];
+  isVerifiedBooking: boolean;
+  hostReply?: string;
+  hostRepliedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HostPayout {
+  id: string;
+  hostId: string;
+  bookingId?: string;
+  amount: number;
+  currencyCode: string;
+  status: string;
+  stripeTransferId?: string;
+  periodStart: string;
+  periodEnd: string;
+  processedAt?: string;
+  failedAt?: string;
+  failureReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VehicleFavorite {
+  id: string;
+  userId: string;
+  vehicleId: string;
+  createdAt: string;
+}
+
+export interface VehicleSearchFilters {
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
+  startDate?: string;
+  endDate?: string;
+  vehicleTypes?: VehicleType[];
+  makes?: string[];
+  priceMin?: number;
+  priceMax?: number;
+  transmission?: VehicleTransmission[];
+  fuelType?: VehicleFuelType[];
+  seats?: number;
+  doors?: number;
+  features?: string[];
+  amenities?: string[];
+  hostTypes?: HostType[];
+  instantBook?: boolean;
+  deliveryAvailable?: boolean;
+  minRating?: number;
+  sortBy?: 'price_asc' | 'price_desc' | 'rating' | 'newest' | 'distance' | 'popularity';
+}
+
+export interface VehicleSearchResult {
+  vehicles: Vehicle[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  hasMore: boolean;
+}
+
+export interface VehiclePricingBreakdown {
+  dailyRate: number;
+  numberOfDays: number;
+  subtotal: number;
+  weeklyDiscount: number;
+  monthlyDiscount: number;
+  cleaningFee: number;
+  securityDeposit: number;
+  deliveryFee: number;
+  platformFeePercent: number;
+  platformFeeAmount: number;
+  hostEarnings: number;
+  totalAmount: number;
+  currencyCode: string;
+}
+
+export interface VehiclePricingResult {
+  pricing: VehiclePricingBreakdown[];
+  total: number;
+  currencyCode: string;
+}
+
 // ─── Database row types (mirrors Supabase schema) ────────────
 
 export interface Database {
@@ -1255,6 +1570,15 @@ export interface Database {
       driver_safety_checklist: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       pickup_orders: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       safety_ratings: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
+      host_profiles: { Row: Omit<HostProfile, never>; Insert: Omit<HostProfile, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<HostProfile, 'id'>>; Relationships: never[] };
+      vehicles: { Row: Omit<Vehicle, never>; Insert: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Vehicle, 'id'>>; Relationships: never[] };
+      vehicle_availability: { Row: Omit<VehicleAvailability, never>; Insert: Omit<VehicleAvailability, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleAvailability, 'id'>>; Relationships: never[] };
+      vehicle_bookings: { Row: Omit<VehicleBooking, never>; Insert: Omit<VehicleBooking, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleBooking, 'id'>>; Relationships: never[] };
+      vehicle_images: { Row: Omit<VehicleImage, never>; Insert: Omit<VehicleImage, 'id' | 'createdAt'>; Update: Partial<Omit<VehicleImage, 'id'>>; Relationships: never[] };
+      vehicle_reviews: { Row: Omit<VehicleReview, never>; Insert: Omit<VehicleReview, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleReview, 'id'>>; Relationships: never[] };
+      vehicle_documents: { Row: Omit<VehicleDocument, never>; Insert: Omit<VehicleDocument, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleDocument, 'id'>>; Relationships: never[] };
+      host_payouts: { Row: Omit<HostPayout, never>; Insert: Omit<HostPayout, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<HostPayout, 'id'>>; Relationships: never[] };
+      vehicle_favorites: { Row: Omit<VehicleFavorite, never>; Insert: Omit<VehicleFavorite, 'id' | 'createdAt'>; Update: Partial<Omit<VehicleFavorite, 'id'>>; Relationships: never[] };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
