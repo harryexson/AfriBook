@@ -51,6 +51,25 @@ const MOCK_TRIPS: Trip[] = [
 
 export default function DriverDashboardPage() {
   const [isOnline, setIsOnline] = useState(false)
+  const [statusPending, setStatusPending] = useState(false)
+
+  const toggleOnline = async () => {
+    setStatusPending(true)
+    const nextOnline = !isOnline
+    setIsOnline(nextOnline)
+    try {
+      await fetch('/api/driver/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: nextOnline ? 'online' : 'offline' }),
+      })
+    } catch {
+      // Best-effort: local toggle already reflects intent; a background
+      // resync (see GET /api/driver/status) will correct drift.
+    } finally {
+      setStatusPending(false)
+    }
+  }
   const [tripRequest, setTripRequest] = useState<any>({
     id: 'req-1',
     customerName: 'Chioma Okafor',
@@ -101,9 +120,10 @@ export default function DriverDashboardPage() {
                 )}
               </div>
               <button
-                onClick={() => setIsOnline(!isOnline)}
+                onClick={toggleOnline}
+                disabled={statusPending}
                 className={cn(
-                  'flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all',
+                  'flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all disabled:opacity-60',
                   isOnline
                     ? 'bg-white/20 text-white hover:bg-white/30'
                     : 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-lg shadow-amber-500/25 hover:from-amber-600 hover:to-amber-700'

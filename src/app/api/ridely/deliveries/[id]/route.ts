@@ -4,6 +4,7 @@ import {
   DELIVERY_STATUS_TRANSITIONS,
   type DeliveryStatus,
 } from '@/types/ridely';
+import { releaseDriverAfterTrip } from '@/lib/ridely/driver-availability';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -124,23 +125,16 @@ export async function PATCH(
 
     if (status === 'delivered') {
       updateData.delivered_at = new Date().toISOString();
+      if (existing.driver_id) {
+        await releaseDriverAfterTrip(supabase, existing.driver_id as string);
+      }
     }
 
     if (status === 'cancelled') {
       updateData.cancelled_at = new Date().toISOString();
       if (existing.driver_id) {
-        await supabase
-          .from('drivers')
-          .update({ status: 'available', current_trip_id: null })
-          .eq('id', existing.driver_id);
+        await releaseDriverAfterTrip(supabase, existing.driver_id as string);
       }
-    }
-
-    if (status === 'in_transit' && existing.driver_id) {
-      await supabase
-        .from('drivers')
-        .update({ status: 'on_trip' })
-        .eq('id', existing.driver_id);
     }
 
     const { data: delivery, error } = await supabase
@@ -227,10 +221,7 @@ export async function DELETE(
     }
 
     if (existing.driver_id) {
-      await supabase
-        .from('drivers')
-        .update({ status: 'available', current_trip_id: null })
-        .eq('id', existing.driver_id);
+      await releaseDriverAfterTrip(supabase, existing.driver_id as string);
 
       await supabase.from('notifications').insert({
         user_id: existing.driver_id,

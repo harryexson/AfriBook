@@ -23,6 +23,9 @@ export interface DriverEarning {
   surgeBonus: number;
   tips: number;
   platformFee: number;
+  waitTimePay: number;
+  cancellationFee: number;
+  insurancePremium: number;
   totalAmount: number;
   currencyCode: string;
   status: 'pending' | 'available' | 'paid_out' | 'disputed';
@@ -167,6 +170,9 @@ export async function getEarningsSummary(
   surgeEarnings: number;
   platformFees: number;
   promotionEarnings: number;
+  waitTimePay: number;
+  cancellationFees: number;
+  insurancePremiums: number;
   byDay: Array<{
     date: string;
     earnings: number;
@@ -210,6 +216,9 @@ export async function getEarningsSummary(
       surgeEarnings: 0,
       platformFees: 0,
       promotionEarnings: 0,
+      waitTimePay: 0,
+      cancellationFees: 0,
+      insurancePremiums: 0,
       byDay: [],
     };
   }
@@ -218,14 +227,21 @@ export async function getEarningsSummary(
   let tips = 0;
   let surgeEarnings = 0;
   let platformFees = 0;
+  let waitTimePay = 0;
+  let cancellationFees = 0;
+  let insurancePremiums = 0;
   const byDayMap = new Map<string, { earnings: number; trips: number; tips: number; surge: number }>();
 
   for (const e of earnings) {
     const amount = Number(e.total_earnings ?? 0);
+    const metadata = (e.metadata as Record<string, unknown> | null) ?? {};
     totalEarnings += amount;
     tips += Number(e.tip ?? 0);
     surgeEarnings += Number(e.surge_bonus ?? 0);
     platformFees += Number(e.platform_fee ?? 0);
+    waitTimePay += Number(metadata.waitTimePay ?? 0);
+    cancellationFees += Number(metadata.cancellationFee ?? 0);
+    insurancePremiums += Number(metadata.insurancePremium ?? 0);
 
     const date = (e.created_at as string).slice(0, 10);
     const dayData = byDayMap.get(date) ?? { earnings: 0, trips: 0, tips: 0, surge: 0 };
@@ -248,6 +264,9 @@ export async function getEarningsSummary(
     surgeEarnings: Math.round(surgeEarnings),
     platformFees: Math.round(platformFees),
     promotionEarnings: 0,
+    waitTimePay: Math.round(waitTimePay),
+    cancellationFees: Math.round(cancellationFees),
+    insurancePremiums: Math.round(insurancePremiums),
     byDay,
   };
 }
@@ -309,6 +328,12 @@ export async function recordEarning(
     surgeBonus?: number;
     tip?: number;
     platformFee?: number;
+    /** Paid to the driver for waiting past the free grace period (driver-policies.ts). */
+    waitTimePay?: number;
+    /** Paid to the driver when a rider cancels after the grace period (driver-policies.ts). */
+    cancellationFee?: number;
+    /** Optional insurance add-on premium, deducted from this trip's payout. */
+    insurancePremium?: number;
   } = {},
 ): Promise<DriverEarning | null> {
   const supabase = await createClient();
@@ -320,7 +345,12 @@ export async function recordEarning(
   const surgeBonus = options.surgeBonus ?? 0;
   const tip = options.tip ?? 0;
   const platformFee = options.platformFee ?? 0;
-  const totalAmount = baseFare + distanceFare + timeFare + surgeBonus + tip - platformFee;
+  const waitTimePay = options.waitTimePay ?? 0;
+  const cancellationFee = options.cancellationFee ?? 0;
+  const insurancePremium = options.insurancePremium ?? 0;
+  const totalAmount =
+    baseFare + distanceFare + timeFare + surgeBonus + tip +
+    waitTimePay + cancellationFee - platformFee - insurancePremium;
 
   const { data, error } = await (supabase.from('driver_earnings') as any)
     .insert({
@@ -336,6 +366,7 @@ export async function recordEarning(
       total_earnings: totalAmount,
       currency: currencyCode,
       status: 'pending',
+      metadata: { waitTimePay, cancellationFee, insurancePremium },
     })
     .select()
     .single();
@@ -390,6 +421,7 @@ export async function getDriverPayouts(
 
 function rowToDriverEarning(row: Record<string, unknown>): DriverEarning {
   const status = row.status as string;
+  const metadata = (row.metadata as Record<string, unknown> | null) ?? {};
   return {
     id: row.id as string,
     driverId: row.driver_id as string,
@@ -400,6 +432,9 @@ function rowToDriverEarning(row: Record<string, unknown>): DriverEarning {
     surgeBonus: Number(row.surge_bonus ?? 0),
     tips: Number(row.tip ?? 0),
     platformFee: Number(row.platform_fee ?? 0),
+    waitTimePay: Number(metadata.waitTimePay ?? 0),
+    cancellationFee: Number(metadata.cancellationFee ?? 0),
+    insurancePremium: Number(metadata.insurancePremium ?? 0),
     totalAmount: Number(row.total_earnings ?? 0),
     currencyCode: (row.currency as string) ?? 'USD',
     status: (status as DriverEarning['status']) ?? 'pending',

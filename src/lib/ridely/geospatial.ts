@@ -141,7 +141,10 @@ async function findNearbyDriversFallback(
       .from('drivers')
       .select('*')
       .in('id', driverIds)
-      .eq('status', 'available'),
+      // driver_status is offline|online|busy|on_trip — 'available' was
+      // never a valid value here, so this filter previously matched no
+      // rows and silently broke the RPC fallback path.
+      .eq('status', 'online'),
     (supabase.rpc as any)('get_driver_stats_batch', {
       p_driver_ids: driverIds,
     }) as { data: any[]; error: any },

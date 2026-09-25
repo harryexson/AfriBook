@@ -4,11 +4,62 @@ import {
   RIDE_STATUS_TRANSITIONS,
   type RideStatus,
 } from '@/types/ridely';
+import { releaseDriverAfterTrip } from '@/lib/ridely/driver-availability';
+import { calculateRiderCancellationFee, calculateWaitTimePay } from '@/lib/ridely/driver-policies';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
+
+/**
+ * Credits a driver for wait-time pay or a rider cancellation fee.
+ * Uses the service-role client already held by this route (bypasses
+ * RLS, same as every other write below) rather than driver-payouts.ts's
+ * recordEarning(), which opens its own cookie-bound client.
+ */
+async function creditDriverExtra(
+  driverId: string,
+  rideId: string,
+  extra: { waitTimePay?: number; cancellationFee?: number },
+): Promise<void> {
+  const { data: driver } = await supabase
+    .from('drivers')
+    .select('profile_id')
+    .eq('id', driverId)
+    .maybeSingle();
+
+  let currency = 'USD';
+  if (driver?.profile_id) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('country_code')
+      .eq('id', driver.profile_id)
+      .maybeSingle();
+    if (profile?.country_code) {
+      const { getCurrencyForCountry } = await import('@/lib/money');
+      currency = getCurrencyForCountry(profile.country_code);
+    }
+  }
+
+  const waitTimePay = extra.waitTimePay ?? 0;
+  const cancellationFee = extra.cancellationFee ?? 0;
+
+  await supabase.from('driver_earnings').insert({
+    driver_id: driverId,
+    ride_id: rideId,
+    base_fare: 0,
+    distance_fare: 0,
+    time_fare: 0,
+    surge_bonus: 0,
+    tip: 0,
+    platform_fee: 0,
+    total_earnings: waitTimePay + cancellationFee,
+    currency,
+    status: 'pending',
+    metadata: { waitTimePay, cancellationFee, insurancePremium: 0 },
+  });
+}
 
 export async function GET(
   _req: NextRequest,
@@ -94,7 +145,7 @@ export async function PATCH(
 
     const { data: existing, error: fetchError } = await supabase
       .from('ridely_rides')
-      .select('status, driver_id, pricing, rider_id')
+      .select('status, driver_id, pricing, rider_id, ride_type, estimated_fare, accepted_at, arrived_at')
       .eq('id', id)
       .single();
 
@@ -122,25 +173,55 @@ export async function PATCH(
       updateData.metadata = metadata;
     }
 
-    if (status === 'completed') {
+    if (status === 'accepted') {
+      updateData.accepted_at = new Date().toISOString();
+    }
+
+    if (status === 'arrived') {
+      updateData.arrived_at = new Date().toISOString();
+    }
+
+    if (status === 'in_progress') {
+      updateData.started_at = new Date().toISOString();
+
+      // Wait-time pay: the first 5 minutes at pickup are free to the
+      // rider; anything past that is paid to the driver at their normal
+      // per-minute rate (driver-policies.ts).
+      if (existing.driver_id && existing.arrived_at) {
+        const wait = calculateWaitTimePay(
+          (existing.ride_type as any) ?? 'economy',
+          existing.arrived_at as string,
+        );
+        if (wait.pay > 0) {
+          await creditDriverExtra(existing.driver_id as string, id, { waitTimePay: wait.pay });
+        }
+      }
+    }
+
+    if (status === 'completed' && existing.driver_id) {
       updateData.completed_at = new Date().toISOString();
+      await releaseDriverAfterTrip(supabase, existing.driver_id as string);
     }
 
     if (status === 'cancelled') {
       updateData.cancelled_at = new Date().toISOString();
       if (existing.driver_id) {
-        await supabase
-          .from('drivers')
-          .update({ status: 'available', current_trip_id: null })
-          .eq('id', existing.driver_id);
+        // Rider cancellation fee: free within the grace period, then a
+        // percentage of the fare once the driver has committed 5+
+        // minutes to the pickup (or already arrived).
+        const cancellation = calculateRiderCancellationFee({
+          hasDriver: true,
+          status: existing.status as string,
+          acceptedAt: existing.accepted_at as string | null,
+          arrivedAt: existing.arrived_at as string | null,
+          estimatedFare: Number(existing.estimated_fare ?? 0),
+        });
+        if (cancellation.fee > 0) {
+          updateData.metadata = { ...(metadata ?? {}), cancellationFee: cancellation.fee };
+          await creditDriverExtra(existing.driver_id as string, id, { cancellationFee: cancellation.fee });
+        }
+        await releaseDriverAfterTrip(supabase, existing.driver_id as string);
       }
-    }
-
-    if (status === 'in_progress' && existing.driver_id) {
-      await supabase
-        .from('drivers')
-        .update({ status: 'on_trip' })
-        .eq('id', existing.driver_id);
     }
 
     const { data: ride, error } = await supabase
@@ -190,7 +271,7 @@ export async function DELETE(
 
     const { data: existing, error: fetchError } = await supabase
       .from('ridely_rides')
-      .select('status, driver_id, rider_id')
+      .select('status, driver_id, rider_id, ride_type, estimated_fare, accepted_at, arrived_at')
       .eq('id', id)
       .single();
 
@@ -208,14 +289,26 @@ export async function DELETE(
       );
     }
 
+    const actor = cancelledBy ?? 'rider';
+    const cancellation = actor === 'rider'
+      ? calculateRiderCancellationFee({
+          hasDriver: !!existing.driver_id,
+          status: existing.status as string,
+          acceptedAt: existing.accepted_at as string | null,
+          arrivedAt: existing.arrived_at as string | null,
+          estimatedFare: Number(existing.estimated_fare ?? 0),
+        })
+      : { fee: 0, reason: 'no_driver' as const, minutesSinceAccepted: 0 };
+
     const { error } = await supabase
       .from('ridely_rides')
       .update({
         status: 'cancelled',
-        cancelled_by: cancelledBy ?? 'rider',
+        cancelled_by: actor,
         cancel_reason: reason ?? null,
         cancelled_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        metadata: cancellation.fee > 0 ? { cancellationFee: cancellation.fee } : undefined,
       })
       .eq('id', id);
 
@@ -227,10 +320,10 @@ export async function DELETE(
     }
 
     if (existing.driver_id) {
-      await supabase
-        .from('drivers')
-        .update({ status: 'available', current_trip_id: null })
-        .eq('id', existing.driver_id);
+      if (cancellation.fee > 0) {
+        await creditDriverExtra(existing.driver_id as string, id, { cancellationFee: cancellation.fee });
+      }
+      await releaseDriverAfterTrip(supabase, existing.driver_id as string);
 
       await supabase.from('notifications').insert({
         user_id: existing.driver_id,
@@ -241,7 +334,10 @@ export async function DELETE(
       });
     }
 
-    return NextResponse.json({ success: true, data: { id, status: 'cancelled' } });
+    return NextResponse.json({
+      success: true,
+      data: { id, status: 'cancelled', cancellationFee: cancellation.fee, cancellationFeeReason: cancellation.reason },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ success: false, error: message }, { status: 500 });

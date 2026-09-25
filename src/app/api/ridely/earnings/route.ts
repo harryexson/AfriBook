@@ -7,6 +7,7 @@ import {
   getDriverPayouts,
   requestInstantPayout,
 } from '@/lib/ridely/driver-payouts';
+import { getDetailedEarningsStatement } from '@/lib/ridely/earnings-report';
 
 type Period = 'day' | 'week' | 'month' | 'all';
 
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
 
     const period = parsePeriod(req.nextUrl.searchParams.get('period'));
 
-    const [balance, weekSummary, monthSummary, allSummary, recentEarnings, payouts] =
+    const [balance, weekSummary, monthSummary, allSummary, recentEarnings, payouts, statement] =
       await Promise.all([
         getDriverBalance(driverId),
         getEarningsSummary(driverId, 'week'),
@@ -46,6 +47,7 @@ export async function GET(req: NextRequest) {
         getEarningsSummary(driverId, 'all'),
         getDriverEarnings(driverId, { limit: 10 }),
         getDriverPayouts(driverId, { limit: 10 }),
+        getDetailedEarningsStatement(driverId, period),
       ]);
 
     return NextResponse.json({
@@ -60,6 +62,7 @@ export async function GET(req: NextRequest) {
       },
       recentEarnings,
       payouts,
+      statement: { ...statement, currencyCode: balance.currencyCode },
     });
   } catch (err: any) {
     const status = Number(err?.status) === 401 ? 401 : 500;
