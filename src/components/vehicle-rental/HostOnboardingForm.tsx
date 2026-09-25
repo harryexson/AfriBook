@@ -273,7 +273,15 @@ export function HostOnboardingForm({ onSuccess, userId }: { onSuccess?: (profile
             </p>
           </div>
 
-          <div className="flex justify-end gap-4 pt-4 border-t">
+          <p className="text-xs text-muted-foreground pt-4 border-t">
+            By creating a Host profile, you agree to the{' '}
+            <a href="/legal/vehicle-host-agreement" className="underline hover:text-foreground" target="_blank" rel="noopener noreferrer">
+              Vehicle Host Agreement
+            </a>
+            , including the deposit, insurance and fulfilment terms it sets out.
+          </p>
+
+          <div className="flex justify-end gap-4">
             <Button type="button" variant="outline" onClick={() => form.reset()}>
               Reset
             </Button>

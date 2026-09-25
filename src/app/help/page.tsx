@@ -20,6 +20,7 @@ import {
   BookOpen,
   LifeBuoy,
   ExternalLink,
+  KeyRound,
 } from 'lucide-react'
 
 const categories = [
@@ -50,6 +51,13 @@ const categories = [
     icon: Car,
     href: '#',
     color: 'bg-purple-500/10 text-purple-500',
+  },
+  {
+    title: 'Vehicle Rentals',
+    description: 'Security deposits, documents, insurance, and pickup issues',
+    icon: KeyRound,
+    href: '/help/vehicle-rentals',
+    color: 'bg-teal-500/10 text-teal-500',
   },
   {
     title: 'Vendor Support',
@@ -107,6 +115,16 @@ const faqs = [
     question: 'How do I track my order or delivery?',
     answer:
       'Open the app and go to "My Orders" to see real-time tracking for active orders. You\'ll receive push notifications at key milestones. For rides, you can track your driver on the live map.',
+  },
+  {
+    question: 'What is the security deposit on a vehicle rental?',
+    answer:
+      'Most vehicle rentals include a refundable security deposit set by the Host and shown on the listing before you book. It\'s authorised at pickup and released within 5 business days of a clean return. See our Vehicle Rental Help page for full details.',
+  },
+  {
+    question: 'What if my rented vehicle is unsafe or unavailable at pickup?',
+    answer:
+      'Contact the Host in-app first — most issues are resolved on the spot. If the Host is unresponsive or the vehicle isn\'t available, contact AfriBook support with your booking reference for a full refund. See our Vehicle Rental Help page for step-by-step guidance.',
   },
 ]
 

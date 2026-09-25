@@ -664,6 +664,14 @@ export function VehicleDetailPage({ vehicle }: VehicleDetailPageProps) {
               </div>
             )}
 
+            <p className="text-xs text-muted-foreground">
+              By confirming, you agree to the{' '}
+              <Link href="/legal/vehicle-renter-agreement" className="underline hover:text-foreground">
+                Vehicle Renter Agreement
+              </Link>
+              , including the security deposit and cancellation terms above.
+            </p>
+
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowBookingDialog(false)}>
                 Cancel

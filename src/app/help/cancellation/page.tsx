@@ -83,12 +83,20 @@ const vendorCancellationRules = [
 
 const rideCancellationRules = [
   {
-    rule: 'Free cancellation within 2 minutes',
-    detail: 'Cancel your ride within 2 minutes of booking for free. The driver has not yet started moving towards you.',
+    rule: 'Free cancellation before a driver is assigned, or within 5 minutes of acceptance',
+    detail: 'Cancel any time before a driver is matched, or within 5 minutes of a driver accepting and heading to your pickup, at no charge.',
   },
   {
-    rule: 'Cancellation after 2 minutes',
-    detail: 'A small cancellation fee applies after 2 minutes to compensate the driver for the time and distance traveled.',
+    rule: 'Cancellation after 5 minutes of driving',
+    detail: 'Once your driver has been driving toward your pickup for 5 minutes or more, a cancellation fee applies — a percentage of the estimated fare — to fairly compensate the time and distance already committed to your trip.',
+  },
+  {
+    rule: 'Cancellation after the driver has arrived',
+    detail: 'If your driver has already arrived at the pickup point, a higher cancellation fee applies, reflecting that the full drive to you is complete.',
+  },
+  {
+    rule: 'Wait time is billed separately, not as a cancellation fee',
+    detail: 'If you don’t cancel, the first 5 minutes your driver waits at pickup are free. After that, wait-time charges accrue per minute until you board or the trip is cancelled.',
   },
   {
     rule: 'Driver no-show',
@@ -97,6 +105,29 @@ const rideCancellationRules = [
   {
     rule: 'Peak hours',
     detail: 'During peak hours, cancellation fees may be slightly higher to account for increased demand.',
+  },
+]
+
+const vehicleRentalCancellationRules = [
+  {
+    rule: 'Free cancellation 48+ hours before pickup',
+    detail: 'Cancel a vehicle rental booking more than 48 hours before the scheduled pickup time for a full refund, including your security deposit authorization release.',
+  },
+  {
+    rule: '24–48 hours before pickup',
+    detail: 'Cancel between 24 and 48 hours before pickup for a 75% refund of the rental price. Any security deposit authorization is released in full either way.',
+  },
+  {
+    rule: 'Less than 24 hours before pickup',
+    detail: 'Cancellations inside 24 hours of pickup are refunded 50% of the rental price, since the Host has held the vehicle for you.',
+  },
+  {
+    rule: 'Host cancels, or the vehicle isn’t available at pickup',
+    detail: 'You receive a full refund regardless of timing, and AfriBook will help you find a comparable replacement vehicle where one is available.',
+  },
+  {
+    rule: 'Security deposits are never forfeited on cancellation',
+    detail: 'A security deposit is only ever deducted from after a completed rental, for documented damage, missing fuel, or unpaid tolls/fines — never as a cancellation penalty.',
   },
 ]
 
@@ -338,6 +369,57 @@ export default function CancellationPolicyPage() {
               </motion.div>
             ))}
           </motion.div>
+        </div>
+      </section>
+
+      {/* Vehicle Rental Cancellation Rules */}
+      <section className="py-12 sm:py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-8"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <Car className="w-6 h-6 text-amber-500" />
+              <h2 className="text-2xl sm:text-3xl font-bold font-heading text-text-primary">
+                Vehicle Rental Cancellation & Deposit Rules
+              </h2>
+            </div>
+            <p className="text-text-secondary">
+              Policies for cancelling a vehicle rental booking, and how security deposits work
+            </p>
+          </motion.div>
+
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="space-y-4"
+          >
+            {vehicleRentalCancellationRules.map((rule) => (
+              <motion.div
+                key={rule.rule}
+                variants={fadeInUp}
+                className="p-5 rounded-2xl bg-surface border border-border"
+              >
+                <h3 className="font-semibold text-text-primary mb-2">{rule.rule}</h3>
+                <p className="text-sm text-text-secondary leading-relaxed">{rule.detail}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <div className="mt-6">
+            <Link
+              href="/help/vehicle-rentals"
+              className="inline-flex items-center gap-2 text-sm font-medium text-amber-600 hover:text-amber-700"
+            >
+              More on vehicle rentals — deposits, documents, insurance & pickup issues
+              <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
+            </Link>
+          </div>
         </div>
       </section>
 
