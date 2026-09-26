@@ -204,7 +204,13 @@ export function CountryProvider({ children }: { children: ReactNode }) {
   // from the URL (no browser storage) so SSR and first hydration paint are
   // identical. After mount, initializeMarket() swaps in the authoritative
   // value (saved preference first).
-  const getUrlSnapshot = useCallback(
+  //
+  // Memoized (not just useCallback-wrapped) so repeated calls for the same
+  // pathname return the exact same object reference — useSyncExternalStore
+  // requires that of a server snapshot getter, and warns "should be cached
+  // to avoid an infinite loop" whenever it instead sees a fresh object each
+  // call, even though nothing was actually looping here.
+  const urlSnapshot = useMemo<MarketState>(
     () => ({
       ...storeState,
       countryCode: countryFromPathname(pathname) || 'NG',
@@ -213,6 +219,7 @@ export function CountryProvider({ children }: { children: ReactNode }) {
     }),
     [pathname],
   )
+  const getUrlSnapshot = useCallback(() => urlSnapshot, [urlSnapshot])
   const getSnapshot = useCallback(
     () => (storeState.initialized ? storeState : getUrlSnapshot()),
     [getUrlSnapshot],
