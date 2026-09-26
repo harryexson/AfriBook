@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { confirmPayment } from '@/lib/payments';
 
 export async function POST(req: NextRequest) {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

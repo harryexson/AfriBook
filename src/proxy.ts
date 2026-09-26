@@ -205,26 +205,10 @@ export async function proxy(req: NextRequest) {
 
   // ─── Auth Protection ───────────────────────────────────────
   if (!isPublicPath && !isStaticPath && !isApiPath) {
-    const { createServerClient } = await import('@supabase/ssr');
-    const { cookies } = await import('next/headers');
-    const cookieStore = await cookies();
+    const { createClient } = await import('@/lib/neon/server');
+    const neon = await createClient();
 
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll(); },
-          setAll(cookiesToSet) {
-            for (const { name, value, options } of cookiesToSet) {
-              cookieStore.set(name, value, options);
-            }
-          },
-        },
-      },
-    );
-
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await neon.auth.getUser();
     const needsAuth = AUTH_PROTECTED_ROUTES.some((r) => pathname.startsWith(r));
 
     if (needsAuth && !user) {
@@ -243,7 +227,7 @@ export async function proxy(req: NextRequest) {
       // away from their own dashboards by this exact check. This is the
       // most severe bug found in this whole audit — it would have made
       // every dashboard built this session inaccessible in production.
-      const { data: profile } = await supabase
+      const { data: profile } = await neon
         .from('profiles')
         .select('role')
         .eq('id', user.id)

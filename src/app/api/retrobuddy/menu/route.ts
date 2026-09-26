@@ -1,19 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 
+// Real `menu_items` schema (verified against Neon): id, category_id (uuid
+// FK, NOT a free-text category name), restaurant_id, name, description,
+// price, currency, image (not image_url), ingredients, allergens,
+// preparation_time (not prep_time_min), is_available (not available),
+// modifiers, metadata. There is no `complexity`, `created_at`, or
+// `updated_at` column on this table — those fields from the original
+// Supabase code were being silently dropped/erroring.
 interface MenuItemRow {
   id: string;
   restaurant_id: string;
+  category_id: string | null;
   name: string;
   description: string | null;
   price: number;
-  category: string;
-  image_url: string | null;
-  available: boolean;
-  prep_time_min: number;
-  complexity: string;
-  created_at: string;
-  updated_at: string;
+  currency: string | null;
+  image: string | null;
+  is_available: boolean;
+  preparation_time: number | null;
+  modifiers: unknown;
+  metadata: unknown;
+}
+
+async function ownsRestaurant(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  restaurantId: string,
+  userId: string,
+): Promise<boolean> {
+  // NOTE: original code checked a nonexistent `restaurant_configs` table
+  // filtered by `business_id = user.id` — a pre-existing bug that made
+  // ownership checks fail (403) for every non-admin caller. Real ownership
+  // chain is restaurants.business_id -> businesses.owner_id.
+  const { data: restaurant } = await supabase
+    .from('restaurants')
+    .select('business_id')
+    .eq('id', restaurantId)
+    .single() as unknown as { data: { business_id: string } | null };
+
+  if (!restaurant?.business_id) return false;
+
+  const { data: owns } = await supabase
+    .from('businesses')
+    .select('id')
+    .eq('id', restaurant.business_id)
+    .eq('owner_id', userId)
+    .single() as unknown as { data: { id: string } | null };
+
+  return !!owns;
 }
 
 export async function GET(req: NextRequest) {
@@ -25,6 +59,9 @@ export async function GET(req: NextRequest) {
 
   const { searchParams } = new URL(req.url);
   const restaurantId = searchParams.get('restaurantId');
+  // NOTE: `category` here is treated as a category_id (uuid) — the real
+  // column is a FK, not a free-text name. Pre-existing mismatch, flagged
+  // rather than resolved (would need a category-name lookup).
   const category = searchParams.get('category');
   const availableOnly = searchParams.get('available') === 'true';
 
@@ -36,14 +73,14 @@ export async function GET(req: NextRequest) {
     .from('menu_items' as never)
     .select('*')
     .eq('restaurant_id', restaurantId)
-    .order('category', { ascending: true })
+    .order('category_id', { ascending: true })
     .order('name', { ascending: true });
 
   if (category) {
-    query = query.eq('category', category);
+    query = query.eq('category_id', category);
   }
   if (availableOnly) {
-    query = query.eq('available', true);
+    query = query.eq('is_available', true);
   }
 
   const { data, error } = await query as unknown as {
@@ -91,7 +128,6 @@ export async function POST(req: NextRequest) {
     imageUrl,
     available,
     prepTimeMin,
-    complexity,
   } = body;
 
   if (!restaurantId || !name || price === undefined || !category) {
@@ -106,25 +142,21 @@ export async function POST(req: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single() as unknown as { data: { role: string } | null };
 
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
-    const { data: owns } = await supabase
-      .from('restaurant_configs' as never)
-      .select('id')
-      .eq('id', restaurantId)
-      .eq('business_id', user.id)
-      .single() as unknown as { data: { id: string } | null };
-
-    if (!owns) {
+    if (!(await ownsRestaurant(supabase, restaurantId, user.id))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }
 
-  const now = new Date().toISOString();
+  // `complexity` has no backing column on menu_items — dropped (was being
+  // silently rejected/erroring before too). `category` maps to category_id
+  // (uuid FK) — see GET's note; the caller is expected to already pass a
+  // valid category_id.
   const { data, error } = await supabase
     .from('menu_items' as never)
     .insert({
@@ -132,13 +164,10 @@ export async function POST(req: NextRequest) {
       name,
       description: description ?? null,
       price,
-      category,
-      image_url: imageUrl ?? null,
-      available: available ?? true,
-      prep_time_min: prepTimeMin ?? 10,
-      complexity: complexity ?? 'moderate',
-      created_at: now,
-      updated_at: now,
+      category_id: category,
+      image: imageUrl ?? null,
+      is_available: available ?? true,
+      preparation_time: prepTimeMin ?? 10,
     } as never)
     .select()
     .single() as unknown as {
@@ -188,27 +217,18 @@ export async function PATCH(req: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single() as unknown as { data: { role: string } | null };
 
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
-    const { data: owns } = await supabase
-      .from('restaurant_configs' as never)
-      .select('id')
-      .eq('id', restaurantId)
-      .eq('business_id', user.id)
-      .single() as unknown as { data: { id: string } | null };
-
-    if (!owns) {
+    if (!(await ownsRestaurant(supabase, restaurantId, user.id))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }
 
-  const updateData: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
+  const updateData: Record<string, unknown> = {};
 
   if (updates.name !== undefined) updateData.name = updates.name;
   if (updates.description !== undefined) updateData.description = updates.description;
@@ -218,11 +238,11 @@ export async function PATCH(req: NextRequest) {
     }
     updateData.price = updates.price;
   }
-  if (updates.category !== undefined) updateData.category = updates.category;
-  if (updates.imageUrl !== undefined) updateData.image_url = updates.imageUrl;
-  if (updates.available !== undefined) updateData.available = updates.available;
-  if (updates.prepTimeMin !== undefined) updateData.prep_time_min = updates.prepTimeMin;
-  if (updates.complexity !== undefined) updateData.complexity = updates.complexity;
+  if (updates.category !== undefined) updateData.category_id = updates.category;
+  if (updates.imageUrl !== undefined) updateData.image = updates.imageUrl;
+  if (updates.available !== undefined) updateData.is_available = updates.available;
+  if (updates.prepTimeMin !== undefined) updateData.preparation_time = updates.prepTimeMin;
+  // `complexity` has no backing column — dropped.
 
   const { data, error } = await supabase
     .from('menu_items' as never)
@@ -265,20 +285,13 @@ export async function DELETE(req: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single() as unknown as { data: { role: string } | null };
 
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
-    const { data: owns } = await supabase
-      .from('restaurant_configs' as never)
-      .select('id')
-      .eq('id', restaurantId)
-      .eq('business_id', user.id)
-      .single() as unknown as { data: { id: string } | null };
-
-    if (!owns) {
+    if (!(await ownsRestaurant(supabase, restaurantId, user.id))) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
   }

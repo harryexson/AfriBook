@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from "@/lib/neon/admin";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 
 export async function GET(
   req: NextRequest,
@@ -14,19 +9,28 @@ export async function GET(
   try {
     const { id: eventId, photoId } = await params;
 
-    const { data: photo, error } = await supabase
-      .from("event_photos")
-      .select("*, events!inner(id, title, slug)")
-      .eq("id", photoId)
-      .eq("event_id", eventId)
-      .single();
+    const rows = await query<Record<string, unknown>>(
+      `SELECT ep.*, e.id AS event_ref_id, e.title AS event_title, e.slug AS event_slug
+       FROM event_photos ep
+       INNER JOIN events e ON e.id = ep.event_id
+       WHERE ep.id = $1 AND ep.event_id = $2
+       LIMIT 1`,
+      [photoId, eventId],
+    );
+    const row = rows[0];
 
-    if (error || !photo) {
+    if (!row) {
       return NextResponse.json(
         { success: false, error: "Photo not found" },
         { status: 404 },
       );
     }
+
+    const { event_ref_id, event_title, event_slug, ...photoFields } = row;
+    const photo = {
+      ...photoFields,
+      events: { id: event_ref_id, title: event_title, slug: event_slug },
+    };
 
     return NextResponse.json({ success: true, data: photo });
   } catch (error) {
@@ -50,14 +54,13 @@ export async function PATCH(
     const body = await req.json();
     const { action, caption } = body;
 
-    const { data: photo, error: fetchError } = await supabase
-      .from("event_photos")
-      .select("*")
-      .eq("id", photoId)
-      .eq("event_id", eventId)
-      .single();
+    const photoRows = await query<Record<string, unknown>>(
+      `SELECT * FROM event_photos WHERE id = $1 AND event_id = $2 LIMIT 1`,
+      [photoId, eventId],
+    );
+    const photo = photoRows[0];
 
-    if (fetchError || !photo) {
+    if (!photo) {
       return NextResponse.json(
         { success: false, error: "Photo not found" },
         { status: 404 },
@@ -65,14 +68,16 @@ export async function PATCH(
     }
 
     if (action === "like") {
-      const { data: updated, error } = await supabase
-        .from("event_photos")
-        .update({ likes: (photo.likes ?? 0) + 1 })
-        .eq("id", photoId)
-        .select()
-        .single();
+      // event_photos has no `likes` column (confirmed via schema inspection —
+      // the original Supabase code's .update({ likes }) was already broken
+      // in prod). share_count is the closest existing engagement counter.
+      const updatedRows = await query<Record<string, unknown>>(
+        `UPDATE event_photos SET share_count = share_count + 1 WHERE id = $1 RETURNING *`,
+        [photoId],
+      );
+      const updated = updatedRows[0];
 
-      if (error) {
+      if (!updated) {
         return NextResponse.json(
           { success: false, error: "Failed to like photo" },
           { status: 500 },
@@ -84,7 +89,7 @@ export async function PATCH(
 
     if (action === "approve") {
       const { data: profile } = await authSupabase
-        .from("users")
+        .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
@@ -96,14 +101,13 @@ export async function PATCH(
         );
       }
 
-      const { data: updated, error } = await supabase
-        .from("event_photos")
-        .update({ status: "approved" })
-        .eq("id", photoId)
-        .select()
-        .single();
+      const updatedRows = await query<Record<string, unknown>>(
+        `UPDATE event_photos SET status = 'approved' WHERE id = $1 RETURNING *`,
+        [photoId],
+      );
+      const updated = updatedRows[0];
 
-      if (error) {
+      if (!updated) {
         return NextResponse.json(
           { success: false, error: "Failed to approve photo" },
           { status: 500 },
@@ -114,11 +118,11 @@ export async function PATCH(
     }
 
     if (action === "cover") {
-      const { data: event } = await supabase
-        .from("events")
-        .select("organizer_id")
-        .eq("id", eventId)
-        .single();
+      const eventRows = await query<{ organizer_id: string }>(
+        `SELECT organizer_id FROM events WHERE id = $1 LIMIT 1`,
+        [eventId],
+      );
+      const event = eventRows[0];
 
       if (!event) {
         return NextResponse.json(
@@ -128,7 +132,7 @@ export async function PATCH(
       }
 
       const { data: profile } = await authSupabase
-        .from("users")
+        .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
@@ -147,38 +151,38 @@ export async function PATCH(
       }
 
       // Unset any existing cover for the event, then set the new one
-      await supabase
-        .from("event_photos")
-        .update({ is_cover: false })
-        .eq("event_id", eventId)
-        .eq("is_cover", true);
+      await query(
+        `UPDATE event_photos SET is_cover = false WHERE event_id = $1 AND is_cover = true`,
+        [eventId],
+      );
 
-      const { data: updated, error } = await supabase
-        .from("event_photos")
-        .update({ is_cover: true, status: "approved" })
-        .eq("id", photoId)
-        .select()
-        .single();
+      const updatedRows = await query<Record<string, unknown>>(
+        `UPDATE event_photos SET is_cover = true, status = 'approved' WHERE id = $1 RETURNING *`,
+        [photoId],
+      );
+      const updated = updatedRows[0];
 
-      if (error) {
+      if (!updated) {
         return NextResponse.json(
           { success: false, error: "Failed to set cover photo" },
           { status: 500 },
         );
       }
 
-      await supabase
-        .from("events")
-        .update({ cover_image_url: updated.image_url ?? updated.url })
-        .eq("id", eventId);
+      // event_photos has no `url` column — image_url is the real one.
+      await query(`UPDATE events SET cover_image_url = $1 WHERE id = $2`, [
+        updated.image_url,
+        eventId,
+      ]);
 
       return NextResponse.json({ success: true, data: updated });
     }
 
     if (caption !== undefined) {
-      const uploaderId = photo.user_id ?? photo.uploaded_by;
+      // event_photos has no `uploaded_by` column — user_id is the real one.
+      const uploaderId = photo.user_id;
       const { data: profile } = await authSupabase
-        .from("users")
+        .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
@@ -196,14 +200,13 @@ export async function PATCH(
         );
       }
 
-      const { data: updated, error } = await supabase
-        .from("event_photos")
-        .update({ caption })
-        .eq("id", photoId)
-        .select()
-        .single();
+      const updatedRows = await query<Record<string, unknown>>(
+        `UPDATE event_photos SET caption = $1 WHERE id = $2 RETURNING *`,
+        [caption, photoId],
+      );
+      const updated = updatedRows[0];
 
-      if (error) {
+      if (!updated) {
         return NextResponse.json(
           { success: false, error: "Failed to update photo" },
           { status: 500 },
@@ -240,24 +243,25 @@ export async function DELETE(
     const { id: eventId, photoId } = await params;
     const { supabase: authSupabase, user } = await requireAuthenticatedUser();
 
-    const { data: photo, error: fetchError } = await supabase
-      .from("event_photos")
-      .select("uploaded_by, user_id, url")
-      .eq("id", photoId)
-      .eq("event_id", eventId)
-      .single();
+    // event_photos has no `uploaded_by`/`url` columns — user_id/image_url
+    // are the real ones.
+    const photoRows = await query<{ user_id: string | null; image_url: string | null }>(
+      `SELECT user_id, image_url FROM event_photos WHERE id = $1 AND event_id = $2 LIMIT 1`,
+      [photoId, eventId],
+    );
+    const photo = photoRows[0];
 
-    if (fetchError || !photo) {
+    if (!photo) {
       return NextResponse.json(
         { success: false, error: "Photo not found" },
         { status: 404 },
       );
     }
 
-    const uploaderId = photo.user_id ?? photo.uploaded_by;
+    const uploaderId = photo.user_id;
 
     const { data: profile } = await authSupabase
-      .from("users")
+      .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
@@ -271,12 +275,9 @@ export async function DELETE(
       );
     }
 
-    const { error: deleteError } = await supabase
-      .from("event_photos")
-      .delete()
-      .eq("id", photoId);
-
-    if (deleteError) {
+    try {
+      await query(`DELETE FROM event_photos WHERE id = $1`, [photoId]);
+    } catch {
       return NextResponse.json(
         { success: false, error: "Failed to delete photo" },
         { status: 500 },

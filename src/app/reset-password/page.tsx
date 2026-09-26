@@ -2,9 +2,16 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createClient } from '@/lib/supabase/client'
 import { Globe, ArrowLeft, Eye, EyeOff, CheckCircle2, AlertCircle, Lock } from 'lucide-react'
 import Link from 'next/link'
+
+// No client import here — see handleSubmit. Managed Better Auth's SDK
+// updateUser() explicitly does not accept a `password` field (confirmed in
+// Neon's own migration/password-reset docs), so completing a reset goes
+// straight to the auth service's reset-password endpoint with the token
+// from the emailed link, rather than through the Supabase-compatible
+// client used everywhere else in the app.
+const NEON_AUTH_BASE_URL = process.env.NEXT_PUBLIC_NEON_AUTH_BASE_URL!
 
 type Status = 'form' | 'loading' | 'success' | 'error'
 
@@ -23,24 +30,30 @@ function getPasswordStrength(password: string): { label: string; score: number; 
 }
 
 export default function ResetPasswordPage() {
-  const supabase = createClient()
-
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [status, setStatus] = useState<Status>('form')
   const [error, setError] = useState('')
-  const [hasToken, setHasToken] = useState(false)
+  const [resetToken, setResetToken] = useState<string | null>(null)
 
   useEffect(() => {
+    // Managed Better Auth's reset link carries the token as a `token` query
+    // param (?token=...), not the `#access_token=...` hash fragment
+    // Supabase's older implicit-grant flow used — read both so a stale
+    // bookmarked/cached link from before this migration doesn't just show
+    // "no reset token detected" with no explanation.
+    const url = new URL(window.location.href)
+    const queryToken = url.searchParams.get('token')
+    if (queryToken) {
+      setResetToken(queryToken)
+      return
+    }
     const hash = window.location.hash
     if (hash) {
-      const params = new URLSearchParams(hash.substring(1))
-      const accessToken = params.get('access_token')
-      if (accessToken) {
-        setHasToken(true)
-      }
+      const legacyToken = new URLSearchParams(hash.substring(1)).get('access_token')
+      if (legacyToken) setResetToken(legacyToken)
     }
   }, [])
 
@@ -60,26 +73,34 @@ export default function ResetPasswordPage() {
       return
     }
 
+    if (!resetToken) {
+      setError('No reset token detected. Please use the link from your email.')
+      return
+    }
+
     setStatus('loading')
     setError('')
 
     try {
-      const { error: updateError } = await supabase.auth.updateUser({
-        password,
+      const res = await fetch(`${NEON_AUTH_BASE_URL}/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPassword: password, token: resetToken }),
       })
 
-      if (updateError) {
-        setError(updateError.message)
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.message || "That reset link didn't work — it may have expired (links last 15 minutes). Request a new one.")
         setStatus('error')
         return
       }
 
       setStatus('success')
     } catch {
-      setError('Something went wrong. Please try again.')
+      setError("We couldn't reach AfriBook's servers. Check your connection and try again.")
       setStatus('error')
     }
-  }, [password, confirmPassword, supabase])
+  }, [password, confirmPassword, resetToken])
 
   return (
     <div className="min-h-screen flex">
@@ -215,7 +236,7 @@ export default function ResetPasswordPage() {
                     </motion.div>
                   )}
 
-                  {!hasToken && (
+                  {!resetToken && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}

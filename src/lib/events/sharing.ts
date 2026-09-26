@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { query } from '@/lib/neon/admin';
 import type { ShareChannel, EventInvitation } from '@/types/events';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -87,7 +87,6 @@ export function generateShareLinks(
 // ─── Track Share ──────────────────────────────────────────────
 
 export async function trackShare(
-  sb: SupabaseClient,
   eventId: string,
   platform: ShareChannel,
   userId?: string,
@@ -95,25 +94,35 @@ export async function trackShare(
   const now = new Date().toISOString();
 
   // Log the share event
-  await sb.from('event_shares').insert({
-    event_id: eventId,
-    user_id: userId ?? null,
-    channel: platform,
-    url: '',
-    metadata: {},
-    created_at: now,
-  });
+  await query(
+    `INSERT INTO event_shares (event_id, user_id, platform, share_url, clicked, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [eventId, userId ?? null, platform, '', false, now],
+  );
 
-  // Increment share count on event
-  await sb.rpc('increment_event_share_count', {
-    p_event_id: eventId,
-  });
+  // Increment share count on event (replaces the non-existent
+  // increment_event_share_count RPC)
+  await query(`UPDATE events SET share_count = COALESCE(share_count, 0) + 1 WHERE id = $1`, [eventId]);
 }
 
 // ─── Create Invitation ────────────────────────────────────────
 
+interface InvitationRow {
+  id: string;
+  event_id: string;
+  inviter_id: string;
+  inviter_name: string;
+  recipient_email: string;
+  recipient_phone: string | null;
+  platform: ShareChannel;
+  status: string;
+  custom_message: string | null;
+  clicked_at: string | null;
+  registered_at: string | null;
+  created_at: string;
+}
+
 export async function createInvitation(
-  sb: SupabaseClient,
   params: {
     eventId: string;
     inviterId: string;
@@ -126,52 +135,49 @@ export async function createInvitation(
 ): Promise<EventInvitation> {
   const now = new Date().toISOString();
 
-  const invitation = {
-    event_id: params.eventId,
-    inviter_id: params.inviterId,
-    inviter_name: params.inviterName,
-    invitee_email: params.inviteeEmail,
-    invitee_phone: params.inviteePhone ?? null,
-    channel: params.channel,
-    status: 'pending' as const,
-    personal_message: params.personalMessage ?? null,
-    sent_at: null,
-    delivered_at: null,
-    opened_at: null,
-    accepted_at: null,
-    created_at: now,
-  };
+  const rows = await query<InvitationRow>(
+    `INSERT INTO event_invitations (
+       event_id, inviter_id, inviter_name, recipient_email, recipient_phone,
+       platform, status, custom_message, created_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     RETURNING *`,
+    [
+      params.eventId,
+      params.inviterId,
+      params.inviterName,
+      params.inviteeEmail,
+      params.inviteePhone ?? null,
+      params.channel,
+      'sent',
+      params.personalMessage ?? null,
+      now,
+    ],
+  );
 
-  const { data, error } = await sb
-    .from('event_invitations')
-    .insert(invitation)
-    .select()
-    .single();
-
-  if (error) throw new Error(`Failed to create invitation: ${error.message}`);
+  const data = rows[0];
+  if (!data) throw new Error('Failed to create invitation');
 
   return {
     id: data.id,
     eventId: data.event_id,
     inviterId: data.inviter_id,
     inviterName: data.inviter_name,
-    inviteeEmail: data.invitee_email,
-    inviteePhone: data.invitee_phone,
-    channel: data.channel,
+    inviteeEmail: data.recipient_email,
+    inviteePhone: data.recipient_phone ?? undefined,
+    channel: data.platform,
     status: data.status,
-    personalMessage: data.personal_message,
-    sentAt: data.sent_at,
-    deliveredAt: data.delivered_at,
-    openedAt: data.opened_at,
-    acceptedAt: data.accepted_at,
+    personalMessage: data.custom_message ?? undefined,
+    sentAt: data.created_at,
+    deliveredAt: undefined,
+    openedAt: data.clicked_at ?? undefined,
+    acceptedAt: data.registered_at ?? undefined,
     createdAt: data.created_at,
-  };
+  } as EventInvitation;
 }
 
 // ─── Send Bulk Invitations ────────────────────────────────────
 
 export async function sendBulkInvitations(
-  sb: SupabaseClient,
   eventId: string,
   inviterId: string,
   recipients: {
@@ -186,17 +192,17 @@ export async function sendBulkInvitations(
   const errors: string[] = [];
 
   // Get inviter info
-  const { data: inviter } = await sb
-    .from('profiles')
-    .select('full_name, email')
-    .eq('id', inviterId)
-    .single();
+  const inviterRows = await query<{ full_name: string | null; email: string | null }>(
+    `SELECT full_name, email FROM profiles WHERE id = $1 LIMIT 1`,
+    [inviterId],
+  );
+  const inviter = inviterRows[0];
 
   const inviterName = inviter?.full_name ?? inviter?.email ?? 'Someone';
 
   for (const recipient of recipients) {
     try {
-      await createInvitation(sb, {
+      await createInvitation({
         eventId,
         inviterId,
         inviterName,
@@ -219,36 +225,31 @@ export async function sendBulkInvitations(
 
 // ─── Get Invitation Stats ─────────────────────────────────────
 
-export async function getInvitationStats(
-  sb: SupabaseClient,
-  eventId: string,
-): Promise<InvitationStats> {
-  const { data: invitations, error } = await sb
-    .from('event_invitations')
-    .select('channel, status')
-    .eq('event_id', eventId);
+export async function getInvitationStats(eventId: string): Promise<InvitationStats> {
+  const invitations = await query<{ platform: ShareChannel; status: string }>(
+    `SELECT platform, status FROM event_invitations WHERE event_id = $1`,
+    [eventId],
+  );
 
-  if (error) throw new Error(`Failed to get invitation stats: ${error.message}`);
-
-  const all = invitations ?? [];
-  const totalSent = all.filter((i) => ['sent', 'delivered', 'opened', 'accepted', 'declined'].includes(i.status)).length;
-  const totalDelivered = all.filter((i) => ['delivered', 'opened', 'accepted', 'declined'].includes(i.status)).length;
-  const totalOpened = all.filter((i) => ['opened', 'accepted', 'declined'].includes(i.status)).length;
-  const totalAccepted = all.filter((i) => i.status === 'accepted').length;
-  const totalDeclined = all.filter((i) => i.status === 'declined').length;
+  const all = invitations;
+  const totalSent = all.filter((i) => ['sent', 'delivered', 'opened', 'registered'].includes(i.status)).length;
+  const totalDelivered = all.filter((i) => ['delivered', 'opened', 'registered'].includes(i.status)).length;
+  const totalOpened = all.filter((i) => ['opened', 'registered'].includes(i.status)).length;
+  const totalAccepted = all.filter((i) => i.status === 'registered').length;
+  const totalDeclined = 0; // invitation_delivery_status has no 'declined' state
 
   const conversionRate = totalSent > 0 ? (totalAccepted / totalSent) * 100 : 0;
 
   const channels: ShareChannel[] = ['email', 'whatsapp', 'sms', 'facebook', 'twitter', 'linkedin'];
   const byChannel = channels
     .map((channel) => {
-      const channelInvites = all.filter((i) => i.channel === channel);
+      const channelInvites = all.filter((i) => i.platform === channel);
       return {
         channel,
         sent: channelInvites.filter((i) =>
-          ['sent', 'delivered', 'opened', 'accepted', 'declined'].includes(i.status),
+          ['sent', 'delivered', 'opened', 'registered'].includes(i.status),
         ).length,
-        accepted: channelInvites.filter((i) => i.status === 'accepted').length,
+        accepted: channelInvites.filter((i) => i.status === 'registered').length,
       };
     })
     .filter((c) => c.sent > 0);
@@ -266,62 +267,75 @@ export async function getInvitationStats(
 
 // ─── Referral Code ────────────────────────────────────────────
 
-export async function getReferralCode(
-  sb: SupabaseClient,
-  userId: string,
-  eventId: string,
-): Promise<string> {
-  // Check if user already has a referral code for this event
-  const { data: existing } = await sb
-    .from('event_referrals')
-    .select('code')
-    .eq('user_id', userId)
-    .eq('event_id', eventId)
-    .single();
+// `event_referrals` does not exist. The closest real equivalent is
+// `event_invitations`, which carries referral_code/referral_discount
+// columns — a referral "code" here is represented as a self-invitation
+// row keyed by (event_id, inviter_id) holding the user's referral_code.
 
-  if (existing) return existing.code;
+interface ReferralInvitationRow {
+  id: string;
+  referral_code: string | null;
+  referral_discount: number | null;
+}
+
+export async function getReferralCode(userId: string, eventId: string): Promise<string> {
+  // Check if user already has a referral code for this event
+  const existingRows = await query<ReferralInvitationRow>(
+    `SELECT id, referral_code, referral_discount FROM event_invitations
+     WHERE inviter_id = $1 AND event_id = $2 AND referral_code IS NOT NULL LIMIT 1`,
+    [userId, eventId],
+  );
+  const existing = existingRows[0];
+
+  if (existing?.referral_code) return existing.referral_code;
 
   // Generate new referral code
   const code = `${userId.slice(0, 4)}${Math.random().toString(36).slice(2, 8)}`.toUpperCase();
 
-  const { error } = await sb.from('event_referrals').insert({
-    user_id: userId,
-    event_id: eventId,
-    code,
-    uses: 0,
-    created_at: new Date().toISOString(),
-  });
+  await query(
+    `INSERT INTO event_invitations (
+       event_id, inviter_id, inviter_name, recipient_email, platform, status,
+       referral_code, referral_discount, created_at
+     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [eventId, userId, '', '', 'copy_link', 'sent', code, 0, new Date().toISOString()],
+  );
 
-  if (error) throw new Error(`Failed to create referral code: ${error.message}`);
   return code;
 }
 
 // ─── Apply Referral Discount ──────────────────────────────────
 
 export async function applyReferralDiscount(
-  sb: SupabaseClient,
   referralCode: string,
   originalPrice: number,
 ): Promise<{ valid: boolean; discount: number; newPrice: number; error?: string }> {
-  const { data: referral, error } = await sb
-    .from('event_referrals')
-    .select('*, events!inner(referral_discount_percent)')
-    .eq('code', referralCode)
-    .single();
+  const rows = await query<{ id: string; event_id: string }>(
+    `SELECT id, event_id FROM event_invitations WHERE referral_code = $1 LIMIT 1`,
+    [referralCode],
+  );
+  const referral = rows[0];
 
-  if (error || !referral) {
+  if (!referral) {
     return { valid: false, discount: 0, newPrice: originalPrice, error: 'Invalid referral code' };
   }
 
-  const discountPercent = referral.events.referral_discount_percent ?? 10;
+  const eventRows = await query<{ referral_discount_percent: number | null }>(
+    // `events` has no referral_discount_percent column directly; it is
+    // stored in metadata by event-manager.ts's createEvent/updateEvent.
+    `SELECT (metadata->>'referralDiscountPercent')::numeric AS referral_discount_percent
+     FROM events WHERE id = $1 LIMIT 1`,
+    [referral.event_id],
+  );
+
+  const discountPercent = eventRows[0]?.referral_discount_percent ?? 10;
   const discount = Math.round(originalPrice * (discountPercent / 100) * 100) / 100;
   const newPrice = Math.max(0, originalPrice - discount);
 
   // Track the referral use
-  await sb
-    .from('event_referrals')
-    .update({ uses: referral.uses + 1 })
-    .eq('id', referral.id);
+  await query(
+    `UPDATE event_invitations SET referral_discount = COALESCE(referral_discount, 0) + $1 WHERE id = $2`,
+    [discount, referral.id],
+  );
 
   return { valid: true, discount, newPrice };
 }

@@ -1,14 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
+import { query } from "@/lib/neon/admin";
 import {
   createClient as createAuthClient,
   requireAuthenticatedUser,
-} from "@/lib/supabase/server";
-
-const supabase = createServiceRoleClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+} from "@/lib/neon/server";
 
 export async function POST(
   req: NextRequest,
@@ -45,11 +40,11 @@ export async function POST(
       );
     }
 
-    const { data: event } = await supabase
-      .from("events")
-      .select("id, organizer_id")
-      .eq("id", eventId)
-      .single();
+    const eventRows = await query<{ id: string; organizer_id: string }>(
+      `SELECT id, organizer_id FROM events WHERE id = $1`,
+      [eventId],
+    );
+    const event = eventRows[0];
 
     if (!event) {
       return NextResponse.json(
@@ -59,7 +54,7 @@ export async function POST(
     }
 
     const profileResponse = await authSupabase
-      .from("users")
+      .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
@@ -112,14 +107,12 @@ export async function POST(
 
     const normalizedCode = code.toUpperCase().trim();
 
-    const { data: existingPromo } = await supabase
-      .from("event_promo_codes")
-      .select("id")
-      .eq("event_id", eventId)
-      .eq("code", normalizedCode)
-      .single();
+    const existingPromoRows = await query<{ id: string }>(
+      `SELECT id FROM event_promo_codes WHERE event_id = $1 AND code = $2`,
+      [eventId, normalizedCode],
+    );
 
-    if (existingPromo) {
+    if (existingPromoRows[0]) {
       return NextResponse.json(
         {
           success: false,
@@ -144,13 +137,18 @@ export async function POST(
       created_at: new Date().toISOString(),
     };
 
-    const { data: promo, error: promoError } = await supabase
-      .from("event_promo_codes")
-      .insert(promoData)
-      .select()
-      .single();
+    const columns = Object.keys(promoData);
+    const values = Object.values(promoData);
+    const placeholders = columns.map((_, i) => `$${i + 1}`);
 
-    if (promoError) {
+    let promo: Record<string, unknown> | undefined;
+    try {
+      const rows = await query<Record<string, unknown>>(
+        `INSERT INTO event_promo_codes (${columns.join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING *`,
+        values,
+      );
+      promo = rows[0];
+    } catch {
       return NextResponse.json(
         { success: false, error: "Failed to create promo code" },
         { status: 500 },
@@ -188,7 +186,7 @@ export async function GET(
     } = await authSupabase.auth.getUser();
     const profileResponse = user
       ? await authSupabase
-          .from("users")
+          .from("profiles")
           .select("role")
           .eq("id", user.id)
           .single()
@@ -207,11 +205,15 @@ export async function GET(
       );
     }
 
-    const { data: event } = await supabase
-      .from("events")
-      .select("id, status, organizer_id")
-      .eq("id", eventId)
-      .single();
+    const eventRows = await query<{
+      id: string;
+      status: string;
+      organizer_id: string;
+    }>(
+      `SELECT id, status, organizer_id FROM events WHERE id = $1`,
+      [eventId],
+    );
+    const event = eventRows[0];
 
     if (!event) {
       return NextResponse.json(
@@ -220,14 +222,24 @@ export async function GET(
       );
     }
 
-    const { data: promo, error: promoError } = await supabase
-      .from("event_promo_codes")
-      .select("*")
-      .eq("event_id", eventId)
-      .eq("code", code.toUpperCase().trim())
-      .single();
+    const promoRows = await query<{
+      id: string;
+      code: string;
+      discount_type: string;
+      discount_value: number;
+      max_uses: number;
+      used_count: number;
+      min_order_amount: number;
+      valid_from: string;
+      valid_until: string;
+      is_active: boolean;
+    }>(
+      `SELECT * FROM event_promo_codes WHERE event_id = $1 AND code = $2`,
+      [eventId, code.toUpperCase().trim()],
+    );
+    const promo = promoRows[0];
 
-    if (promoError || !promo) {
+    if (!promo) {
       return NextResponse.json(
         { success: false, error: "Promo code not found" },
         { status: 404 },

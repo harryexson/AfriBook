@@ -1,4 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+// NOTE: intentionally still on @/lib/supabase/server, not @/lib/neon/server.
+// This route depends on `supabase.storage` (bucket upload + public URL),
+// which the Neon client (src/lib/neon/server.ts) does not implement — Neon's
+// object storage story wasn't part of this migration pass. Migrating this
+// file requires either standing up a Neon-side storage client (or an
+// S3/R2-compatible bucket) and wiring it in here, which is a real follow-up,
+// not a mechanical import swap. Left on Supabase for now — flagged for the
+// migration owner.
 import { createClient } from '@/lib/supabase/server';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];

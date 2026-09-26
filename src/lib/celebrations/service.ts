@@ -11,12 +11,14 @@
 // used everywhere else in AfriBook (`usdToLocal`), and every amount returned
 // to the client carries an explicit `currencyCode`.
 //
-// The supabase client is loosely typed (`any`) because these tables are newer
-// than the generated `Database` type; callers pass the service-role client
-// from `@/lib/supabase/admin` or the SSR client from `@/lib/supabase/server`
-// — RLS policies do the authorization, never this module.
+// This module talks to Postgres directly via `@/lib/neon/admin`'s `query()`/
+// `withTransaction()` (the service-role-equivalent path — see admin.ts for
+// why there's no `.from()` builder to fake here). Authorization for these
+// operations is enforced by the calling API routes (organizer/staff checks),
+// not by this module.
 // ───────────────────────────────────────────────────────────────
 
+import { query, withTransaction } from '@/lib/neon/admin';
 import { getCurrencyConfig, getCurrencyForCountry } from '@/lib/money';
 import { usdToLocal } from '@/lib/localization/ppp';
 import { generateTicketCode } from '@/lib/events/qr-generator';
@@ -47,17 +49,13 @@ export interface PlannerMarket {
  * Resolve a planner's market for price localization. Reads the profile's
  * country, falls back to USD when no market can be determined. Never throws.
  */
-export async function resolvePlannerMarket(
-  db: any,
-  userId: string,
-): Promise<PlannerMarket> {
-  const { data: profile } = await db
-    .from('profiles')
-    .select('country_code')
-    .eq('id', userId)
-    .single();
+export async function resolvePlannerMarket(userId: string): Promise<PlannerMarket> {
+  const rows = await query<{ country_code: string | null }>(
+    `SELECT country_code FROM profiles WHERE id = $1 LIMIT 1`,
+    [userId],
+  );
 
-  const countryCode = (profile?.country_code ?? 'NG').toUpperCase();
+  const countryCode = (rows[0]?.country_code ?? 'NG').toUpperCase();
   const currencyCode = getCurrencyForCountry(countryCode);
   const config = getCurrencyConfig(currencyCode);
   const exchangeRate = config?.exchangeRate ?? 1;
@@ -123,29 +121,20 @@ export function localizeCelebrationPlan(
 }
 
 /** List all active plans localized to the given market. */
-export async function getCelebrationPlans(
-  db: any,
-  market: PlannerMarket,
-): Promise<LocalizedCelebrationPlan[]> {
-  const { data: rows } = await db
-    .from('celebration_plans')
-    .select('*')
-    .eq('is_active', true)
-    .order('sort_order', { ascending: true });
+export async function getCelebrationPlans(market: PlannerMarket): Promise<LocalizedCelebrationPlan[]> {
+  const rows = await query<CelebrationPlanRow>(
+    `SELECT * FROM celebration_plans WHERE is_active = true ORDER BY sort_order ASC`,
+  );
 
-  return (rows ?? []).map((plan: CelebrationPlanRow) => localizeCelebrationPlan(plan, market));
+  return rows.map((plan) => localizeCelebrationPlan(plan, market));
 }
 
-export async function getCelebrationPlan(
-  db: any,
-  planCode: string,
-): Promise<CelebrationPlanRow | null> {
-  const { data } = await db
-    .from('celebration_plans')
-    .select('*')
-    .eq('code', planCode)
-    .maybeSingle();
-  return data ?? null;
+export async function getCelebrationPlan(planCode: string): Promise<CelebrationPlanRow | null> {
+  const rows = await query<CelebrationPlanRow>(
+    `SELECT * FROM celebration_plans WHERE code = $1 LIMIT 1`,
+    [planCode],
+  );
+  return rows[0] ?? null;
 }
 
 // ─── Subscriptions ─────────────────────────────────────────────
@@ -168,39 +157,30 @@ interface CelebrationSubscriptionRow {
  * subscription is expected per user.
  */
 export async function getActiveCelebrationSubscription(
-  db: any,
   userId: string,
 ): Promise<CelebrationSubscriptionRow | null> {
-  const { data } = await db
-    .from('celebration_subscriptions')
-    .select('*')
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .maybeSingle();
-  return data ?? null;
+  const rows = await query<CelebrationSubscriptionRow>(
+    `SELECT * FROM celebration_subscriptions WHERE user_id = $1 AND status = 'active' LIMIT 1`,
+    [userId],
+  );
+  return rows[0] ?? null;
 }
 
 /**
  * Effective plan code for a celebration. Uses the planner's active
  * celebration subscription; defaults to the free plan when none exists.
  */
-export async function resolveEventPlanCode(
-  db: any,
-  userId: string,
-): Promise<string> {
-  const sub = await getActiveCelebrationSubscription(db, userId);
+export async function resolveEventPlanCode(userId: string): Promise<string> {
+  const sub = await getActiveCelebrationSubscription(userId);
   if (sub) return sub.plan_code;
   return 'free';
 }
 
-export async function getEventPlan(
-  db: any,
-  event: { organizer_id: string },
-): Promise<CelebrationPlanRow> {
-  const planCode = await resolveEventPlanCode(db, event.organizer_id);
-  const plan = await getCelebrationPlan(db, planCode);
+export async function getEventPlan(event: { organizer_id: string }): Promise<CelebrationPlanRow> {
+  const planCode = await resolveEventPlanCode(event.organizer_id);
+  const plan = await getCelebrationPlan(planCode);
   if (plan) return plan;
-  return (await getCelebrationPlan(db, 'free')) as CelebrationPlanRow;
+  return (await getCelebrationPlan('free')) as CelebrationPlanRow;
 }
 
 // ─── Capacity ──────────────────────────────────────────────────
@@ -209,25 +189,24 @@ export async function getEventPlan(
  * Guests currently counted against a celebration's capacity.
  * Counts invited/confirmed/attended guests (declined releases a slot).
  */
-export async function countCelebrationGuests(db: any, eventId: string): Promise<number> {
-  const { count } = await db
-    .from('event_guests')
-    .select('id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .in('rsvp_status', ['invited', 'confirmed', 'attended']);
-  return count ?? 0;
+export async function countCelebrationGuests(eventId: string): Promise<number> {
+  const rows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM event_guests
+     WHERE event_id = $1 AND rsvp_status IN ('invited', 'confirmed', 'attended')`,
+    [eventId],
+  );
+  return Number(rows[0]?.count ?? 0);
 }
 
 /** Throws a descriptive Error when the plan's guest capacity is exceeded. */
 export async function assertEventCapacity(
-  db: any,
   event: { organizer_id: string },
   eventId: string,
   extra: number = 0,
 ): Promise<void> {
-  const plan = await getEventPlan(db, event);
+  const plan = await getEventPlan(event);
   if (plan.guest_capacity == null) return; // unlimited
-  const current = await countCelebrationGuests(db, eventId);
+  const current = await countCelebrationGuests(eventId);
   if (current + extra > plan.guest_capacity) {
     throw new Error(
       `Guest capacity exceeded: this celebration allows ${plan.guest_capacity} guests (currently ${current}).`,
@@ -270,13 +249,21 @@ export interface CreatedCelebrationGuest {
   ticketCode: string;
 }
 
+interface InsertedGuestRow {
+  id: string;
+  guest_name: string;
+  guest_email: string | null;
+  guest_phone: string | null;
+  rsvp_token: string;
+  ticket_code: string;
+}
+
 /**
  * Invite one or more guests to a celebration. Each guest gets a unique RSVP
  * token (the capability to respond) and a QR ticket code for check-in.
  * Emails/SMS are sent best-effort and never fail the invite.
  */
 export async function createCelebrationGuests(
-  db: any,
   event: {
     id: string;
     organizer_id: string;
@@ -290,9 +277,10 @@ export async function createCelebrationGuests(
 ): Promise<CreatedCelebrationGuest[]> {
   if (inputs.length === 0) return [];
 
-  await assertEventCapacity(db, event, event.id, inputs.length);
+  await assertEventCapacity(event, event.id, inputs.length);
 
   const pageUrl = celebrationPageUrl(event);
+  const now = new Date().toISOString();
   const rows = inputs.map((input) => ({
     event_id: event.id,
     guest_name: input.name,
@@ -303,20 +291,42 @@ export async function createCelebrationGuests(
     rsvp_token: generateGuestRsvpToken(),
     attending_count: input.attendingCount ?? 1,
     ticket_code: generateTicketCode(),
-    created_at: new Date().toISOString(),
+    created_at: now,
   }));
 
-  const { data: created, error } = await db.from('event_guests').insert(rows).select();
+  const columns = [
+    'event_id',
+    'guest_name',
+    'guest_email',
+    'guest_phone',
+    'relationship',
+    'rsvp_status',
+    'rsvp_token',
+    'attending_count',
+    'ticket_code',
+    'created_at',
+  ];
+  const values: unknown[] = [];
+  const valuePlaceholders = rows.map((row, rowIndex) => {
+    const placeholders = columns.map((col, colIndex) => {
+      values.push((row as Record<string, unknown>)[col]);
+      return `$${rowIndex * columns.length + colIndex + 1}`;
+    });
+    return `(${placeholders.join(', ')})`;
+  });
 
-  if (error || !created) {
-    throw new Error(error?.message ?? 'Failed to create guest invitations');
-  }
+  const created = await query<InsertedGuestRow>(
+    `INSERT INTO event_guests (${columns.join(', ')})
+     VALUES ${valuePlaceholders.join(', ')}
+     RETURNING id, guest_name, guest_email, guest_phone, rsvp_token, ticket_code`,
+    values,
+  );
 
-  const createdGuests: CreatedCelebrationGuest[] = created.map((g: any) => ({
+  const createdGuests: CreatedCelebrationGuest[] = created.map((g) => ({
     id: g.id,
     name: g.guest_name,
-    email: g.guest_email,
-    phone: g.guest_phone,
+    email: g.guest_email ?? undefined,
+    phone: g.guest_phone ?? undefined,
     rsvpToken: g.rsvp_token,
     rsvpUrl: `${pageUrl}?rsvp=${g.rsvp_token}`,
     ticketCode: g.ticket_code,
@@ -356,7 +366,6 @@ export async function createCelebrationGuests(
 
 /** Apply an RSVP decision from the guest's unique token (the capability). */
 export async function respondToCelebrationRsvp(
-  db: any,
   rsvpToken: string,
   decision: {
     attending: boolean;
@@ -366,77 +375,90 @@ export async function respondToCelebrationRsvp(
     menuChoiceItemIds?: string[];
   },
 ): Promise<{ ok: boolean; error?: string }> {
-  const { data: guest, error } = await db
-    .from('event_guests')
-    .select('id, event_id, rsvp_status')
-    .eq('rsvp_token', rsvpToken)
-    .maybeSingle();
+  return withTransaction(async (txQuery) => {
+    const guestRows = await txQuery<{ id: string; event_id: string; rsvp_status: string }>(
+      `SELECT id, event_id, rsvp_status FROM event_guests WHERE rsvp_token = $1 LIMIT 1`,
+      [rsvpToken],
+    );
+    const guest = guestRows[0];
 
-  if (error || !guest) {
-    return { ok: false, error: 'Invalid or expired RSVP link' };
-  }
-  if (guest.rsvp_status === 'attended') {
-    return { ok: false, error: 'This guest has already attended the celebration' };
-  }
-
-  const attendingCount =
-    decision.attendingCount && decision.attendingCount >= 1 ? decision.attendingCount : 1;
-
-  const { error: updateError } = await db
-    .from('event_guests')
-    .update({
-      rsvp_status: decision.attending ? 'confirmed' : 'declined',
-      rsvp_response_date: new Date().toISOString(),
-      attending_count: decision.attending ? attendingCount : 0,
-      dietary_notes: decision.dietaryNotes ?? null,
-      notes: decision.notes ?? null,
-    })
-    .eq('id', guest.id);
-
-  if (updateError) return { ok: false, error: updateError.message };
-
-  if (decision.attending && decision.menuChoiceItemIds?.length) {
-    const { data: evt } = await db
-      .from('events')
-      .select('allow_menu_choice, menu_deadline')
-      .eq('id', guest.event_id)
-      .single();
-
-    const menuOpen =
-      evt?.allow_menu_choice &&
-      (!evt.menu_deadline || new Date(evt.menu_deadline).getTime() >= Date.now());
-
-    if (menuOpen) {
-      const { data: validItems } = await db
-        .from('celebration_menu_items')
-        .select('id')
-        .eq('event_id', guest.event_id)
-        .eq('is_active', true)
-        .in('id', decision.menuChoiceItemIds);
-
-      const validIds = new Set((validItems ?? []).map((i: { id: string }) => i.id));
-      const choices = decision.menuChoiceItemIds
-        .filter((id) => validIds.has(id))
-        .map((menu_item_id) => ({
-          guest_id: guest.id,
-          menu_item_id,
-          quantity: 1,
-          created_at: new Date().toISOString(),
-        }));
-
-      if (choices.length) {
-        await db.from('celebration_guest_choices').delete().eq('guest_id', guest.id);
-        const { error: choiceError } = await db
-          .from('celebration_guest_choices')
-          .insert(choices);
-        if (choiceError) return { ok: false, error: choiceError.message };
-      }
+    if (!guest) {
+      return { ok: false, error: 'Invalid or expired RSVP link' };
     }
-  } else if (!decision.attending) {
-    await db.from('celebration_guest_choices').delete().eq('guest_id', guest.id);
-  }
+    if (guest.rsvp_status === 'attended') {
+      return { ok: false, error: 'This guest has already attended the celebration' };
+    }
 
-  return { ok: true };
+    const attendingCount =
+      decision.attendingCount && decision.attendingCount >= 1 ? decision.attendingCount : 1;
+
+    await txQuery(
+      `UPDATE event_guests
+       SET rsvp_status = $1, rsvp_response_date = $2, attending_count = $3, dietary_notes = $4, notes = $5
+       WHERE id = $6`,
+      [
+        decision.attending ? 'confirmed' : 'declined',
+        new Date().toISOString(),
+        decision.attending ? attendingCount : 0,
+        decision.dietaryNotes ?? null,
+        decision.notes ?? null,
+        guest.id,
+      ],
+    );
+
+    if (decision.attending && decision.menuChoiceItemIds?.length) {
+      const evtRows = await txQuery<{ allow_menu_choice: boolean | null; menu_deadline: string | null }>(
+        `SELECT allow_menu_choice, menu_deadline FROM events WHERE id = $1 LIMIT 1`,
+        [guest.event_id],
+      );
+      const evt = evtRows[0];
+
+      const menuOpen =
+        evt?.allow_menu_choice &&
+        (!evt.menu_deadline || new Date(evt.menu_deadline).getTime() >= Date.now());
+
+      if (menuOpen) {
+        const validItems = await txQuery<{ id: string }>(
+          `SELECT id FROM celebration_menu_items
+           WHERE event_id = $1 AND is_active = true AND id = ANY($2::uuid[])`,
+          [guest.event_id, decision.menuChoiceItemIds],
+        );
+
+        const validIds = new Set(validItems.map((i) => i.id));
+        const choices = decision.menuChoiceItemIds
+          .filter((id) => validIds.has(id))
+          .map((menu_item_id) => ({
+            guest_id: guest.id,
+            menu_item_id,
+            quantity: 1,
+            created_at: new Date().toISOString(),
+          }));
+
+        if (choices.length) {
+          await txQuery(`DELETE FROM celebration_guest_choices WHERE guest_id = $1`, [guest.id]);
+
+          const columns = ['guest_id', 'menu_item_id', 'quantity', 'created_at'];
+          const values: unknown[] = [];
+          const valuePlaceholders = choices.map((choice, rowIndex) => {
+            const placeholders = columns.map((col, colIndex) => {
+              values.push((choice as Record<string, unknown>)[col]);
+              return `$${rowIndex * columns.length + colIndex + 1}`;
+            });
+            return `(${placeholders.join(', ')})`;
+          });
+
+          await txQuery(
+            `INSERT INTO celebration_guest_choices (${columns.join(', ')}) VALUES ${valuePlaceholders.join(', ')}`,
+            values,
+          );
+        }
+      }
+    } else if (!decision.attending) {
+      await txQuery(`DELETE FROM celebration_guest_choices WHERE guest_id = $1`, [guest.id]);
+    }
+
+    return { ok: true };
+  });
 }
 
 // ─── Reminders (SMS) ───────────────────────────────────────────
@@ -449,17 +471,15 @@ export interface ReminderQuota {
 }
 
 export async function getCelebrationReminderQuota(
-  db: any,
   event: { organizer_id: string },
   eventId: string,
 ): Promise<ReminderQuota> {
-  const plan = await getEventPlan(db, event);
-  const { count } = await db
-    .from('sms_logs')
-    .select('id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('template_key', 'celebration_reminder');
-  const used = count ?? 0;
+  const plan = await getEventPlan(event);
+  const rows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM sms_logs WHERE event_id = $1 AND template_key = 'celebration_reminder'`,
+    [eventId],
+  );
+  const used = Number(rows[0]?.count ?? 0);
   const max = plan.max_reminders_per_event;
   return {
     maxReminders: max,
@@ -474,17 +494,14 @@ export async function getCelebrationReminderQuota(
  * (sms_enabled) and the per-event reminder quota. Returns a per-phone result
  * so callers can surface partial failures without a hard error.
  */
-export async function sendCelebrationReminders(
-  db: any,
-  event: {
-    id: string;
-    organizer_id: string;
-    title: string;
-    slug?: string | null;
-    custom_domain?: string | null;
-  },
-): Promise<{ sent: number; failed: number; quota: ReminderQuota }> {
-  const quota = await getCelebrationReminderQuota(db, event, event.id);
+export async function sendCelebrationReminders(event: {
+  id: string;
+  organizer_id: string;
+  title: string;
+  slug?: string | null;
+  custom_domain?: string | null;
+}): Promise<{ sent: number; failed: number; quota: ReminderQuota }> {
+  const quota = await getCelebrationReminderQuota(event, event.id);
   if (!quota.smsEnabled) {
     throw new Error('SMS reminders are not enabled on your celebration plan');
   }
@@ -492,19 +509,18 @@ export async function sendCelebrationReminders(
     throw new Error(`Reminder quota exhausted (${quota.maxReminders} per event)`);
   }
 
-  const { data: guests } = await db
-    .from('event_guests')
-    .select('guest_name, guest_phone')
-    .eq('event_id', event.id)
-    .eq('rsvp_status', 'confirmed')
-    .not('guest_phone', 'is', null);
+  const guests = await query<{ guest_name: string; guest_phone: string }>(
+    `SELECT guest_name, guest_phone FROM event_guests
+     WHERE event_id = $1 AND rsvp_status = 'confirmed' AND guest_phone IS NOT NULL`,
+    [event.id],
+  );
 
   const pageUrl = celebrationPageUrl(event);
   let sent = 0;
   let failed = 0;
 
   await Promise.all(
-    (guests ?? []).map(async (guest: { guest_name: string; guest_phone: string }) => {
+    guests.map(async (guest) => {
       const result = await sendSms({
         to: guest.guest_phone,
         body: `Reminder: ${event.title} is coming up. Details: ${pageUrl}`,
@@ -534,15 +550,14 @@ export interface DonationFeeBreakdown {
  * configured `donation_fee_percent` (seeded from the planner's plan).
  */
 export async function calculateDonationFee(
-  db: any,
   event: { id: string; currency_code?: string | null },
   amount: number,
 ): Promise<DonationFeeBreakdown> {
-  const { data: evt } = await db
-    .from('events')
-    .select('currency_code, donation_fee_percent')
-    .eq('id', event.id)
-    .single();
+  const rows = await query<{ currency_code: string | null; donation_fee_percent: number | null }>(
+    `SELECT currency_code, donation_fee_percent FROM events WHERE id = $1 LIMIT 1`,
+    [event.id],
+  );
+  const evt = rows[0];
 
   const currencyCode = evt?.currency_code ?? event.currency_code ?? 'USD';
   const feePercent = Number(evt?.donation_fee_percent ?? 8);
@@ -553,13 +568,15 @@ export async function calculateDonationFee(
 }
 
 export async function getCelebrationDonationTotals(
-  db: any,
   eventId: string,
 ): Promise<{ totalAmount: number; donorCount: number }> {
-  const { data } = await db.rpc('get_celebration_donation_totals', { p_event_id: eventId });
+  const rows = await query<{ total_amount: number; donor_count: number }>(
+    `SELECT * FROM get_celebration_donation_totals($1)`,
+    [eventId],
+  );
   return {
-    totalAmount: Number(data?.total_amount ?? 0),
-    donorCount: Number(data?.donor_count ?? 0),
+    totalAmount: Number(rows[0]?.total_amount ?? 0),
+    donorCount: Number(rows[0]?.donor_count ?? 0),
   };
 }
 
@@ -572,7 +589,6 @@ export async function getCelebrationDonationTotals(
  * (a manual/background job can complete verification later).
  */
 export async function verifyCelebrationDomain(
-  db: any,
   eventId: string,
   domain: string,
 ): Promise<'verified' | 'pending' | 'failed'> {
@@ -589,14 +605,10 @@ export async function verifyCelebrationDomain(
     status = 'pending';
   }
 
-  await db
-    .from('events')
-    .update({
-      custom_domain: normalized,
-      custom_domain_status: status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', eventId);
+  await query(
+    `UPDATE events SET custom_domain = $1, custom_domain_status = $2, updated_at = $3 WHERE id = $4`,
+    [normalized, status, new Date().toISOString(), eventId],
+  );
 
   return status;
 }
@@ -619,7 +631,6 @@ async function resolveTxtRecords(domain: string): Promise<string[] | null> {
 
 /** Build the public payload shared by the RSVP and `[slug]` page routes. */
 export async function getCelebrationPublicPayload(
-  db: any,
   eventId: string,
   evt: {
     id: string;
@@ -650,26 +661,37 @@ export async function getCelebrationPublicPayload(
 ): Promise<any> {
   const pageUrl = celebrationPageUrl(evt);
 
-  const [menu, donationTotals, confirmedCount] = await Promise.all([
+  const [menuItems, donationTotals, confirmedRows] = await Promise.all([
     evt.allow_menu_choice
-      ? db
-          .from('celebration_menu_items')
-          .select('id, name, category, description, is_vegetarian, is_vegan, is_halal, is_kosher, allergens, sort_order')
-          .eq('event_id', eventId)
-          .eq('is_active', true)
-          .order('sort_order', { ascending: true })
-      : Promise.resolve({ data: [] }),
+      ? query<{
+          id: string;
+          name: string;
+          category: string;
+          description: string | null;
+          is_vegetarian: boolean;
+          is_vegan: boolean;
+          is_halal: boolean;
+          is_kosher: boolean;
+          allergens: unknown;
+          sort_order: number;
+        }>(
+          `SELECT id, name, category, description, is_vegetarian, is_vegan, is_halal, is_kosher, allergens, sort_order
+           FROM celebration_menu_items
+           WHERE event_id = $1 AND is_active = true
+           ORDER BY sort_order ASC`,
+          [eventId],
+        )
+      : Promise.resolve([]),
     evt.allow_donations
-      ? getCelebrationDonationTotals(db, eventId)
+      ? getCelebrationDonationTotals(eventId)
       : Promise.resolve({ totalAmount: 0, donorCount: 0 }),
-    db
-      .from('event_guests')
-      .select('id', { count: 'exact', head: true })
-      .eq('event_id', eventId)
-      .eq('rsvp_status', 'confirmed'),
+    query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM event_guests WHERE event_id = $1 AND rsvp_status = 'confirmed'`,
+      [eventId],
+    ),
   ]);
 
-  const confirmed = confirmedCount.count ?? 0;
+  const confirmed = Number(confirmedRows[0]?.count ?? 0);
 
   return {
     event: {
@@ -697,7 +719,7 @@ export async function getCelebrationPublicPayload(
     allowDonations: evt.allow_donations,
     donationGoal: Number(evt.donation_goal),
     currencyCode: evt.currency_code,
-    menu: menu.data ?? [],
+    menu: menuItems,
     donations: {
       totalAmount: Number(donationTotals.totalAmount ?? 0),
       donorCount: Number(donationTotals.donorCount ?? 0),

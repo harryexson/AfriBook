@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, borderRadius, spacing, typography } from "../theme";
 import PressableScale from "./ui/PressableScale";
 import { imageSourceFor } from "../lib/images";
+import { openingStatus } from "../lib/opening-hours";
+import { COUNTRIES } from "../constants/countries";
 import type { Business } from "../types";
 
 interface BusinessCardProps {
@@ -23,11 +25,20 @@ export default function BusinessCard({ business }: BusinessCardProps) {
   const router = useRouter();
   const [isFav, setIsFav] = useState(false);
 
+  // Evaluated in the venue's own timezone, so a Lagos shop browsed from
+  // Nairobi reads "open in Lagos" rather than against the viewer's clock.
+  const status = openingStatus(
+    business.hours,
+    COUNTRIES[business.countryCode]?.timezone,
+  );
+
   const image = imageSourceFor(
     business.id,
     business.category,
     business.media?.coverUrl ?? business.media?.galleryUrls?.[0],
-    { width: 400, ratio: 0.62 },
+    // The name is where the specific trade shows up — "Victory Barbers"
+    // under a generic "Beauty & Wellness" category.
+    { width: 400, ratio: 0.62, subject: business.name },
   );
 
   return (
@@ -84,6 +95,22 @@ export default function BusinessCard({ business }: BusinessCardProps) {
           {business.address?.city ?? "Nearby"}
           <Text style={styles.metaDim}>{`  ·  ${business.reviewCount} reviews`}</Text>
         </Text>
+
+        <View style={styles.hoursRow}>
+          <View style={[styles.statusPill, status.isOpen && styles.statusPillOpen]}>
+            <Text style={[styles.statusLabel, status.isOpen && styles.statusLabelOpen]}>
+              {status.todayLabel ? (status.isOpen ? "Open" : "Closed") : "Closed today"}
+            </Text>
+          </View>
+          {status.todayLabel ? (
+            <Text style={styles.hoursLabel}>
+              {status.todayLabel}
+              {status.zoneLabel ? (
+                <Text style={styles.metaDim}>{` ${status.zoneLabel}`}</Text>
+              ) : null}
+            </Text>
+          ) : null}
+        </View>
       </View>
     </PressableScale>
   );
@@ -182,5 +209,33 @@ const styles = StyleSheet.create({
   },
   metaDim: {
     color: colors.textTertiary,
+  },
+  hoursRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: 5,
+  },
+  statusPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceTertiary,
+  },
+  statusPillOpen: {
+    backgroundColor: colors.successLight,
+  },
+  statusLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textSecondary,
+  },
+  statusLabelOpen: {
+    color: colors.successDark,
+  },
+  hoursLabel: {
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
   },
 });

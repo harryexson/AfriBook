@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/neon/client';
 import { useAuthStore } from '@/stores/auth-store';
 import type { User } from '@/types';
 
@@ -84,7 +84,7 @@ export function useAuth() {
 
   /** Listen to auth state changes */
   useEffect(() => {
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange(async (event: string, session: { user?: { id: string } } | null) => {
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);
         store.setUser(profile);
@@ -114,11 +114,16 @@ export function useAuth() {
   };
 }
 
-/** Fetch a user profile row from the public.users table */
+/** Fetch a user profile row from the public.profiles table */
 async function fetchProfile(userId: string): Promise<User> {
+  // Was querying a `users` table, which doesn't exist anywhere in the schema
+  // — every migration defines this as `profiles` (same bug already found in
+  // proxy.ts and login/page.tsx). This ran on every sign-in, sign-up, auth
+  // state change, and refreshProfile() call, so it always threw and the
+  // resulting user profile was never actually set.
   const supabase = createClient();
   const { data, error } = await supabase
-    .from('users')
+    .from('profiles')
     .select('*')
     .eq('id', userId)
     .single();

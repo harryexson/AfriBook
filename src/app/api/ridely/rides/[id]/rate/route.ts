@@ -5,7 +5,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { createClient } = await import('@/lib/supabase/server');
+    const { createClient } = await import('@/lib/neon/server');
     const supabase = await createClient() as any;
 
     const {

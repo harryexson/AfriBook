@@ -13,7 +13,7 @@
 // mislabeled.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { getCurrencyForCountry, convertCurrency } from '@/lib/money';
 
 export interface CountryVolumeRow {

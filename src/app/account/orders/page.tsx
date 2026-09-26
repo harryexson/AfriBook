@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Search,
@@ -9,7 +9,9 @@ import {
   XCircle,
   ChevronRight,
   ShoppingBag,
+  Loader2,
 } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -23,104 +25,84 @@ const staggerContainer = {
 
 const statuses = ['All', 'Active', 'Completed', 'Cancelled'];
 
-const orders = [
-  {
-    id: 'AFB-2025-001',
-    vendor: 'Mama Nkechi\'s Kitchen',
-    items: 'Jollof Rice, Chicken Wings, Plantain',
-    total: '$15.50',
-    status: 'Delivered',
-    date: 'January 10, 2025',
-    image: 'MN',
-  },
-  {
-    id: 'AFB-2025-002',
-    vendor: 'Glamour Salon',
-    items: 'Hair Styling Service',
-    total: '$25.00',
-    status: 'Confirmed',
-    date: 'January 15, 2025',
-    image: 'GS',
-  },
-  {
-    id: 'AFB-2025-003',
-    vendor: 'TechFix Hub',
-    items: 'iPhone Screen Repair',
-    total: '$45.00',
-    status: 'In Progress',
-    date: 'January 11, 2025',
-    image: 'TF',
-  },
-  {
-    id: 'AFB-2025-004',
-    vendor: 'Adunni Fashion House',
-    items: 'Ankara Print Dress',
-    total: '$32.00',
-    status: 'Delivered',
-    date: 'January 8, 2025',
-    image: 'AF',
-  },
-  {
-    id: 'AFB-2025-005',
-    vendor: 'Kwame Tech',
-    items: 'Wireless Bluetooth Speaker',
-    total: '$35.00',
-    status: 'Delivered',
-    date: 'January 5, 2025',
-    image: 'KT',
-  },
-  {
-    id: 'AFB-2025-006',
-    vendor: 'QuickBite Lagos',
-    items: 'Suya & Fries, Coke',
-    total: '$9.50',
-    status: 'Cancelled',
-    date: 'January 3, 2025',
-    image: 'QB',
-  },
-  {
-    id: 'AFB-2025-007',
-    vendor: 'Nairobi Fresh Market',
-    items: 'Fresh Vegetables Bundle',
-    total: '$18.00',
-    status: 'Delivered',
-    date: 'December 28, 2024',
-    image: 'NF',
-  },
-  {
-    id: 'AFB-2025-008',
-    vendor: 'EduConnect',
-    items: 'Math Tutoring (5 sessions)',
-    total: '$50.00',
-    status: 'Delivered',
-    date: 'December 20, 2024',
-    image: 'EC',
-  },
-];
+interface OrderItem {
+  name?: string;
+  quantity?: number;
+}
 
-const statusConfig: Record<string, { color: string; icon: typeof CheckCircle }> = {
-  Delivered: { color: 'text-green-500 bg-green-500/10', icon: CheckCircle },
-  'In Progress': { color: 'text-blue-500 bg-blue-500/10', icon: Clock },
-  Confirmed: { color: 'text-amber-500 bg-amber-500/10', icon: Clock },
-  Cancelled: { color: 'text-red-500 bg-red-500/10', icon: XCircle },
+interface Order {
+  id: string;
+  businessName: string;
+  type: string;
+  status: string;
+  items: OrderItem[];
+  total: number;
+  currency: string;
+  created_at: string;
+}
+
+const ACTIVE_STATUSES = new Set(['pending', 'confirmed', 'preparing', 'ready', 'out_for_delivery']);
+const COMPLETED_STATUSES = new Set(['delivered', 'completed']);
+
+const statusConfig: Record<string, { color: string; icon: typeof CheckCircle; label: string }> = {
+  delivered: { color: 'text-green-500 bg-green-500/10', icon: CheckCircle, label: 'Delivered' },
+  completed: { color: 'text-green-500 bg-green-500/10', icon: CheckCircle, label: 'Completed' },
+  preparing: { color: 'text-blue-500 bg-blue-500/10', icon: Clock, label: 'Preparing' },
+  ready: { color: 'text-blue-500 bg-blue-500/10', icon: Clock, label: 'Ready' },
+  out_for_delivery: { color: 'text-blue-500 bg-blue-500/10', icon: Clock, label: 'Out for delivery' },
+  pending: { color: 'text-amber-500 bg-amber-500/10', icon: Clock, label: 'Pending' },
+  confirmed: { color: 'text-amber-500 bg-amber-500/10', icon: Clock, label: 'Confirmed' },
+  cancelled: { color: 'text-red-500 bg-red-500/10', icon: XCircle, label: 'Cancelled' },
+  refunded: { color: 'text-red-500 bg-red-500/10', icon: XCircle, label: 'Refunded' },
 };
 
+function itemsSummary(items: OrderItem[]): string {
+  if (!Array.isArray(items) || items.length === 0) return 'Order items';
+  return items.map((i) => i.name ?? 'Item').join(', ');
+}
+
 export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeStatus, setActiveStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredOrders = orders.filter((order) => {
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/order?limit=50')
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled) return;
+        if (!body.success) {
+          setError(body.error ?? 'Failed to load orders');
+          return;
+        }
+        setOrders(body.orders);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load orders');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const filteredOrders = useMemo(() => orders.filter((order) => {
     const matchesStatus =
       activeStatus === 'All' ||
-      (activeStatus === 'Active' && ['Confirmed', 'In Progress'].includes(order.status)) ||
-      (activeStatus === 'Completed' && order.status === 'Delivered') ||
-      (activeStatus === 'Cancelled' && order.status === 'Cancelled');
+      (activeStatus === 'Active' && ACTIVE_STATUSES.has(order.status)) ||
+      (activeStatus === 'Completed' && COMPLETED_STATUSES.has(order.status)) ||
+      (activeStatus === 'Cancelled' && (order.status === 'cancelled' || order.status === 'refunded'));
     const matchesSearch =
       searchQuery === '' ||
-      order.vendor.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      order.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.id.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
-  });
+  }), [orders, activeStatus, searchQuery]);
 
   return (
     <div>
@@ -131,7 +113,6 @@ export default function OrdersPage() {
         <p className="text-text-secondary">Track and manage your orders</p>
       </motion.div>
 
-      {/* Search & Filters */}
       <motion.div
         initial="hidden"
         animate="visible"
@@ -165,8 +146,17 @@ export default function OrdersPage() {
         </div>
       </motion.div>
 
-      {/* Orders List */}
-      {filteredOrders.length > 0 ? (
+      {loading && (
+        <div className="flex items-center justify-center gap-2 py-20 text-text-secondary">
+          <Loader2 className="w-5 h-5 animate-spin" /> Loading orders…
+        </div>
+      )}
+
+      {!loading && error && (
+        <p className="text-sm text-red-600 text-center py-8">{error}</p>
+      )}
+
+      {!loading && !error && filteredOrders.length > 0 && (
         <motion.div
           initial="hidden"
           animate="visible"
@@ -174,8 +164,9 @@ export default function OrdersPage() {
           className="space-y-3"
         >
           {filteredOrders.map((order) => {
-            const statusInfo = statusConfig[order.status];
+            const statusInfo = statusConfig[order.status] ?? statusConfig.pending;
             const StatusIcon = statusInfo.icon;
+            const initials = order.businessName.slice(0, 2).toUpperCase();
             return (
               <motion.div
                 key={order.id}
@@ -185,26 +176,28 @@ export default function OrdersPage() {
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shrink-0">
                     <span className="text-white font-heading font-bold text-sm">
-                      {order.image}
+                      {initials}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-heading font-bold text-text-primary text-sm truncate">
-                        {order.vendor}
+                        {order.businessName}
                       </h3>
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${statusInfo.color}`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${statusInfo.color}`}>
                         <StatusIcon className="w-3 h-3" />
-                        {order.status}
+                        {statusInfo.label}
                       </span>
                     </div>
-                    <p className="text-text-tertiary text-xs truncate">{order.items}</p>
-                    <p className="text-text-tertiary text-xs mt-1">{order.date}</p>
+                    <p className="text-text-tertiary text-xs truncate">{itemsSummary(order.items)}</p>
+                    <p className="text-text-tertiary text-xs mt-1">
+                      {new Date(order.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                    </p>
                   </div>
                   <div className="text-right shrink-0 flex items-center gap-3">
                     <div>
-                      <p className="font-heading font-bold text-text-primary">{order.total}</p>
-                      <p className="text-text-tertiary text-xs">{order.id}</p>
+                      <p className="font-heading font-bold text-text-primary">{formatCurrency(order.total, order.currency)}</p>
+                      <p className="text-text-tertiary text-xs">#{order.id.slice(-8)}</p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-text-tertiary" />
                   </div>
@@ -213,7 +206,9 @@ export default function OrdersPage() {
             );
           })}
         </motion.div>
-      ) : (
+      )}
+
+      {!loading && !error && filteredOrders.length === 0 && (
         <motion.div
           initial="hidden"
           animate="visible"

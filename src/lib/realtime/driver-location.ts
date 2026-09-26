@@ -3,8 +3,7 @@
 // Broadcasts GPS updates to riders during active trips.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
-import { createClient as createBrowserClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/neon/server';
 import type { GeoLocation, LocationUpdateEvent } from '@/types/ridely';
 
 // ─── Server: Record Driver Location ──────────────────────────
@@ -58,17 +57,23 @@ export async function startDriverOnlineSession(
 ): Promise<void> {
   const supabase = await createClient();
 
+  // NOTE: `start_driver_session(p_driver_id uuid)` only accepts the driver
+  // id (verified via pg_get_function_identity_arguments) — the original
+  // code also passed `p_location`, an argument the function doesn't
+  // declare, which would fail the RPC call. Dropped here; if the initial
+  // location needs to reach the function it needs its own signature change
+  // (out of scope for this migration).
   await supabase.rpc('start_driver_session' as any, {
     p_driver_id: driverId,
-    p_location: {
-      type: 'Point',
-      coordinates: [initialLocation.lng, initialLocation.lat],
-    },
   } as any);
 
+  // `driver_status` enum has no `'available'` value (only offline, online,
+  // busy, on_trip, pending_review) — the original code's `'available'` was
+  // an invalid enum value that would error. Using `'online'`, the closest
+  // valid value.
   await supabase
     .from('drivers')
-    .update({ status: 'available' } as any)
+    .update({ status: 'online' } as any)
     .eq('id', driverId);
 }
 
@@ -89,83 +94,52 @@ export async function endDriverOnlineSession(driverId: string): Promise<void> {
 
 // ─── Client: Subscribe to Driver Location Updates ────────────
 // Returns an unsubscribe function.
+//
+// NOTE (Neon migration gap): the original implementation subscribed to
+// Supabase Realtime (`.channel().on('postgres_changes', ...)`) for live
+// INSERT notifications on `driver_locations`. `@/lib/neon/client` (the
+// Neon-backed browser client, via SupabaseAuthAdapter + Data API) has no
+// realtime/channel primitive — confirmed during the ridely migration
+// (see src/lib/ridely/dispatch-engine.ts) and true here too. There is no
+// documented Neon equivalent as of this migration.
+//
+// Unlike dispatch-engine.ts's blocking waits (which had a natural
+// polling substitution), this is a push-style UI subscription with no
+// deadline to poll against, so it is left broken rather than silently
+// turned into an unbounded polling loop from client code. Callers of
+// `subscribeToDriverLocation`/`subscribeToNearbyDrivers` currently
+// receive no updates — flagged as a follow-up (e.g. a polling hook on an
+// interval, or a real realtime channel once Neon exposes one).
 
 export function subscribeToDriverLocation(
   driverId: string,
   onUpdate: (event: LocationUpdateEvent) => void,
 ): () => void {
-  const supabase = createBrowserClient();
-
-  const channel = supabase
-    .channel(`driver-location:${driverId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'driver_locations',
-        filter: `driver_id=eq.${driverId}`,
-      },
-      (payload: { new: Record<string, any> }) => {
-        const row = payload.new as any;
-        const coordinates = row.location?.coordinates;
-        if (!coordinates) return;
-
-        onUpdate({
-          driverId: row.driver_id,
-          location: { lat: coordinates[1], lng: coordinates[0] },
-          heading: row.heading,
-          speed: row.speed,
-          accuracy: row.accuracy,
-          timestamp: row.timestamp,
-        });
-      },
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  void driverId;
+  void onUpdate;
+  console.warn(
+    '[realtime:driver-location] subscribeToDriverLocation is a no-op: ' +
+      'Neon has no Supabase-Realtime equivalent (no channel()/postgres_changes). ' +
+      'See NOTE above driver-location.ts subscribe functions.',
+  );
+  return () => {};
 }
 
 // ─── Client: Subscribe to Multiple Drivers ───────────────────
 // For rider view showing multiple nearby drivers on the map.
+//
+// Same Neon Realtime gap as subscribeToDriverLocation above — no-op.
 
 export function subscribeToNearbyDrivers(
   driverIds: string[],
   onUpdate: (event: LocationUpdateEvent) => void,
 ): () => void {
-  const supabase = createBrowserClient();
-
-  const channel = supabase
-    .channel('nearby-drivers')
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'driver_locations',
-      },
-      (payload: { new: Record<string, any> }) => {
-        const row = payload.new as any;
-        if (!driverIds.includes(row.driver_id)) return;
-
-        const coordinates = row.location?.coordinates;
-        if (!coordinates) return;
-
-        onUpdate({
-          driverId: row.driver_id,
-          location: { lat: coordinates[1], lng: coordinates[0] },
-          heading: row.heading,
-          speed: row.speed,
-          accuracy: row.accuracy,
-          timestamp: row.timestamp,
-        });
-      },
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  void driverIds;
+  void onUpdate;
+  console.warn(
+    '[realtime:driver-location] subscribeToNearbyDrivers is a no-op: ' +
+      'Neon has no Supabase-Realtime equivalent (no channel()/postgres_changes). ' +
+      'See NOTE above driver-location.ts subscribe functions.',
+  );
+  return () => {};
 }

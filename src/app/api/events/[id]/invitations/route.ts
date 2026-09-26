@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 import { sendEmail } from '@/lib/email';
 import { sendSms } from '@/lib/sms';
 
@@ -56,7 +56,7 @@ export async function POST(
     }
 
     const profileResponse = await supabase
-      .from('users')
+      .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();
@@ -187,7 +187,7 @@ export async function GET(
     const { id: eventId } = await params;
     const { supabase, user } = await requireAuthenticatedUser();
     const profileResponse = await supabase
-      .from('users')
+      .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single();

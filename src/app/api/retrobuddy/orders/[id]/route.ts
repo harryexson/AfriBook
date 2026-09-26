@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import {
   getOrderById,
   updateOrderStatus,
@@ -66,19 +66,29 @@ export async function PATCH(
   }
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single() as unknown as { data: { role: string } | null };
 
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
     const order = await getOrderById(id);
-    const { data: owns } = await supabase
-      .from('restaurant_configs' as never)
-      .select('id')
+    // NOTE: see comment in ../route.ts — `restaurant_configs` doesn't exist;
+    // real ownership chain is restaurants.business_id -> businesses.owner_id.
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('business_id')
       .eq('id', order.restaurantId)
-      .eq('business_id', user.id)
-      .single() as unknown as { data: { id: string } | null };
+      .single() as unknown as { data: { business_id: string } | null };
+
+    const { data: owns } = restaurant?.business_id
+      ? await supabase
+          .from('businesses')
+          .select('id')
+          .eq('id', restaurant.business_id)
+          .eq('owner_id', user.id)
+          .single() as unknown as { data: { id: string } | null }
+      : { data: null };
 
     if (!owns) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -125,7 +135,7 @@ export async function DELETE(
 
   try {
     const { data: profile } = await supabase
-      .from('users')
+      .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single() as unknown as { data: { role: string } | null };

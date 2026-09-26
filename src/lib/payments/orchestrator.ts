@@ -78,28 +78,66 @@ export class PaymentOrchestrator {
     // 1. Validate the request
     this.validatePaymentRequest(request);
 
-    // 2. Resolve provider
-    const provider = this.getProvider(request.countryCode, request.method);
+    // 2. Walk this country's provider preference list in order, trying each
+    //    one that's actually registered and supports the requested method.
+    //    Previously this picked exactly one provider (the first registered)
+    //    and gave up if it failed — three retries against the same rail, no
+    //    fallback. That's the gap every payment-orchestration platform exists
+    //    to close (dLocal, dedicated orchestrators like Gr4vy/Primer): a
+    //    processor having a bad day in one country shouldn't take checkout
+    //    down when the country config lists a second and third option for
+    //    exactly this reason. COUNTRY_PROVIDER_MAP's ordering already
+    //    encodes "best rails first" per country (e.g. NG: paystack, then
+    //    flutterwave, then pawapay) — this just makes that ordering mean
+    //    something beyond "which one gets picked".
+    const candidates = getProvidersForCountry(request.countryCode)
+      .map((code) => this.providers.get(code))
+      .filter((p): p is PaymentProvider => Boolean(p) && p!.supportedMethods.includes(request.method));
 
-    // 3. Ensure provider supports the method
-    if (!provider.supportedMethods.includes(request.method)) {
+    if (!candidates.length) {
       throw new Error(
-        `Provider "${provider.code}" does not support method "${request.method}". ` +
-          `Supported: ${provider.supportedMethods.join(', ')}`,
+        `No registered payment provider supports method "${request.method}" in ${request.countryCode}. ` +
+          `Configured providers: [${getProvidersForCountry(request.countryCode).join(', ')}].`,
       );
     }
 
-    // 4. Process with retry logic
-    const result = await this.executeWithRetry(
-      () => provider.processPayment(request),
-      3,
-      1000,
+    let lastResult: PaymentResult | null = null;
+    let lastError: Error | null = null;
+
+    for (const provider of candidates) {
+      try {
+        const result = await this.executeWithRetry(
+          () => provider.processPayment(request),
+          3,
+          1000,
+        );
+
+        // Save every attempt that got far enough to produce a transaction id
+        // — saveTransactionRecord no-ops otherwise, so a provider that fails
+        // before creating anything provider-side leaves no orphan row.
+        await this.saveTransactionRecord(request, result, provider.code);
+
+        if (result.success) return result;
+
+        // A structured (non-throwing) failure here means the provider
+        // couldn't even process the request — not that the customer's card
+        // was declined, which for every provider in this codebase surfaces
+        // later via webhook, long after processPayment has already
+        // returned. So falling through to the next provider is safe: it
+        // can't double-charge a customer whose payment method was already
+        // declined, because that outcome never reaches this branch.
+        lastResult = result;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        // Move on to the next candidate provider for this country.
+      }
+    }
+
+    if (lastResult) return lastResult;
+    throw (
+      lastError ??
+      new Error(`All payment providers failed for ${request.countryCode}.`)
     );
-
-    // 5. Save transaction to DB (idempotent via provider_transaction_id)
-    await this.saveTransactionRecord(request, result, provider.code);
-
-    return result;
   }
 
   // ─── Refunds ─────────────────────────────────────────────────

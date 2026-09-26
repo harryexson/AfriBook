@@ -18,6 +18,7 @@ import { moderateRegistration, getBlockMessage } from '@/lib/moderation'
 import PhoneVerification from '@/components/shared/PhoneVerification'
 import ConsentSection from '@/components/account/ConsentSection'
 import type { ConsentType } from '@/types'
+import { describeAuthError } from '@/lib/auth-error'
 
 type AccountType = 'customer' | 'vendor' | 'driver' | 'restaurant'
 type Step = 1 | 2 | 3 | 4 | 5
@@ -62,6 +63,7 @@ export default function RegisterPage() {
   const [serverError, setServerError] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [city, setCity] = useState('')
+  const [pendingSignup, setPendingSignup] = useState<{ userId: string; data: Step2Form } | null>(null)
 
   const {
     register,
@@ -85,7 +87,7 @@ export default function RegisterPage() {
   const isVendorType = accountType === 'vendor'
   const isRestaurantType = accountType === 'restaurant'
   const showBusinessFields = isVendorType || isRestaurantType
-  const watchedPhone = watch('phone')
+  const watchedEmail = watch('email')
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -122,67 +124,104 @@ export default function RegisterPage() {
         return
       }
 
-      const supabase = (await import('@/lib/supabase/client')).createClient()
-      const { data: authData, error } = await supabase.auth.signUp({
+      const client = (await import('@/lib/neon/client')).createClient()
+      // Only `name` here — everything else (role, phone, country, business
+      // info) goes straight into `profiles` below instead of auth metadata.
+      // Two reasons: (1) Better Auth rejects `role` in signup metadata
+      // outright ("role is not allowed to be set" — a real, sensible
+      // security default against self-assigning a privileged role at
+      // signup), and (2) even before that, NOTHING in this codebase ever
+      // read auth metadata back into `profiles` — no DB trigger, no other
+      // call site. `profiles` rows were never actually being created at
+      // all, which means login's `.from('profiles')...single()` lookup
+      // would always have come back empty for every real signup, migration
+      // or not. This explicit insert is the missing piece.
+      const { data: authData, error } = await client.auth.signUp({
         email: data.email,
         password: data.password,
-        options: {
-          data: {
-            full_name: data.name,
-            phone: data.phone,
-            country_code: selectedCountry.code,
-            role: accountType,
-            ...(showBusinessFields ? {
-              business_name: data.businessName,
-              business_category: data.businessCategory,
-            } : {}),
-          },
-        },
+        options: { data: { name: data.name } },
       })
       if (error) throw error
       if (authData.user) {
-        localStorage.setItem('afribook-register-role', accountType || 'customer')
-        localStorage.setItem('afribook-register-user-id', authData.user.id)
+        // The `profiles` row can't be created here yet — signUp() doesn't
+        // establish a session while email verification is pending, and the
+        // Data API's RLS insert policy requires an authenticated session
+        // (id = auth.uid()). Defer the insert to handleVerifyCode, which
+        // runs right after verifyOtp() actually signs the user in.
+        setPendingSignup({ userId: authData.user.id, data })
 
-        // Record sign-up disclosures/consents (best-effort; non-blocking).
-        try {
-          await fetch('/api/consents', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              context: 'signup',
-              consents: grantedConsents.map((consentType) => ({
-                consentType,
-                context: 'signup',
-                consentVersion: '2025-06-01',
-              })),
-            }),
-          })
-        } catch {
-          // Consent recording is best-effort and must not block registration.
-        }
+        // Managed Better Auth doesn't support phone verification (SMS/WhatsApp)
+        // — this used to send a phone OTP here. Switched to email OTP, which
+        // is fully supported and already configured. Sent explicitly because
+        // sign-up itself doesn't auto-send a verification email on this
+        // project (verify_email_on_sign_up is off).
+        await client.auth.signInWithOtp({ email: data.email })
       }
       setStep(3)
     } catch (err: any) {
-      if (err.message?.includes('already registered') || err.message?.includes('already been registered')) {
-        setServerError('An account with this email already exists. Try signing in instead.')
-      } else if (err.message?.includes('Password should')) {
-        setServerError('Password is too weak. Use at least 6 characters with a mix of letters and numbers.')
-      } else {
-        setServerError(err.message || 'Something went wrong. Please try again.')
-      }
+      setServerError(describeAuthError(err))
     } finally {
       setSubmitLoading(false)
     }
   }
 
-  const handleVerifyCode = async (_code: string) => {
+  const handleVerifyCode = async (code: string) => {
+    const client = (await import('@/lib/neon/client')).createClient()
+    // Previously this advanced the wizard regardless of what was typed —
+    // any 6 digits "verified". Now it's checked for real.
+    const { error } = await client.auth.verifyOtp({
+      email: watchedEmail,
+      token: code,
+      type: 'email',
+    })
+    if (error) throw new Error(describeAuthError(error))
+
+    // verifyOtp() is the point a session actually exists, so the `profiles`
+    // insert (deferred from handleStep2Submit — see comment there) happens
+    // here, once auth.uid() will resolve to the signed-in user.
+    if (pendingSignup) {
+      const { userId, data } = pendingSignup
+      const { error: profileError } = await client.from('profiles').insert({
+        id: userId,
+        email: data.email,
+        full_name: data.name,
+        phone: data.phone,
+        country_code: selectedCountry.code,
+        role: accountType || 'customer',
+        metadata: showBusinessFields
+          ? { business_name: data.businessName, business_category: data.businessCategory }
+          : {},
+      })
+      if (profileError) throw new Error(describeAuthError(profileError))
+
+      localStorage.setItem('afribook-register-role', accountType || 'customer')
+      localStorage.setItem('afribook-register-user-id', userId)
+
+      // Record sign-up disclosures/consents (best-effort; non-blocking).
+      try {
+        await fetch('/api/consents', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            context: 'signup',
+            consents: grantedConsents.map((consentType) => ({
+              consentType,
+              context: 'signup',
+              consentVersion: '2025-06-01',
+            })),
+          }),
+        })
+      } catch {
+        // Consent recording is best-effort and must not block registration.
+      }
+    }
+
     setStep(4)
   }
 
   const handleResendCode = async () => {
-    const supabase = (await import('@/lib/supabase/client')).createClient()
-    await supabase.auth.signInWithOtp({ phone: watchedPhone })
+    const client = (await import('@/lib/neon/client')).createClient()
+    await client.auth.signInWithOtp({ email: watchedEmail })
   }
 
   const handleLocationSubmit = () => {
@@ -255,6 +294,18 @@ export default function RegisterPage() {
         )}
       </AnimatePresence>
 
+      {/* This wizard's steps never carried an `exit` animation prop that
+         actually completed — reproduced consistently as account creation
+         getting stuck forever on whichever step you left (no console error,
+         no visual sign anything was wrong; framer-motion just never reported
+         the outgoing step's exit as done). With mode="wait" that blocks the
+         incoming step from ever mounting; without it, the outgoing step
+         instead never unmounts and both steps render stacked on top of each
+         other. Either way the actual bug was the exit animation itself, so
+         it's dropped from every step below — an instant swap, entrance-only
+         fade still plays via `initial`/`animate`. Sibling multi-step flows
+         (onboarding, rides/book, etc.) did NOT reproduce this in spot checks,
+         so they weren't touched — just documenting the trap since it's real. */}
       <AnimatePresence mode="wait">
         {/* Step 1: Account Type */}
         {step === 1 && (
@@ -262,7 +313,6 @@ export default function RegisterPage() {
             key="step1"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
             className="space-y-4"
           >
             <p className="text-sm text-text-secondary">Choose how you want to use AfriBook</p>
@@ -312,7 +362,6 @@ export default function RegisterPage() {
             key="step2"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
           >
             <form onSubmit={handleSubmit(handleStep2Submit)} className="space-y-4">
               {/* Full name */}
@@ -565,16 +614,16 @@ export default function RegisterPage() {
           </motion.div>
         )}
 
-        {/* Step 3: Phone Verification */}
+        {/* Step 3: Email Verification (was phone — see handleStep2Submit) */}
         {step === 3 && (
           <motion.div
             key="step3"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
           >
             <PhoneVerification
-              phoneNumber={watchedPhone || 'your phone'}
+              destination={watchedEmail || 'your email'}
+              channel="email"
               onVerify={handleVerifyCode}
               onResend={handleResendCode}
               onBack={() => setStep(2)}
@@ -588,7 +637,6 @@ export default function RegisterPage() {
             key="step4"
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
             className="space-y-5"
           >
             <div className="text-center">
@@ -669,7 +717,6 @@ export default function RegisterPage() {
             key="step5"
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
             className="space-y-6 text-center"
           >
             <motion.div

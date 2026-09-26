@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 
 // ─── Payment Database Helper ──────────────────────────────────
 // The Database type in @/types may not include payment tables yet

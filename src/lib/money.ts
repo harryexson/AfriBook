@@ -331,7 +331,20 @@ export function getExchangeRate(from: string, to: string): ExchangeRate | null {
   const fromCfg = CURRENCIES[from.toUpperCase()];
   const toCfg = CURRENCIES[to.toUpperCase()];
   if (!fromCfg || !toCfg || fromCfg.exchangeRate <= 0 || toCfg.exchangeRate <= 0) return null;
-  return { from: from.toUpperCase(), to: to.toUpperCase(), rate: fromCfg.exchangeRate / toCfg.exchangeRate };
+
+  // `exchangeRate` is units of that currency per 1 USD (USD 1, NGN 1550,
+  // KES 145). Converting A -> B is therefore (amount / rateA) * rateB, i.e. a
+  // multiplier of rateB / rateA.
+  //
+  // This read from/to, which inverts the conversion: ₦15,500 -> KES returned
+  // 165,690 instead of 1,450, roughly 114x too high. It went unnoticed
+  // because nothing in the app called it. The moment a converted price is put
+  // in front of someone deciding whether to book, the direction has to be right.
+  return {
+    from: from.toUpperCase(),
+    to: to.toUpperCase(),
+    rate: toCfg.exchangeRate / fromCfg.exchangeRate,
+  };
 }
 
 /** Convert an amount from one currency to another using the baseline rate. */

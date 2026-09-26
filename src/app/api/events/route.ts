@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from "@/lib/neon/admin";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 
 function slugify(text: string): string {
   return (
@@ -108,21 +103,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: subscription } = await supabase
-      .from("organizer_subscriptions")
-      .select("plan, max_events")
-      .eq("organizer_id", user.id)
-      .eq("status", "active")
-      .single();
+    const subscriptionRows = await query<{ plan: string; max_events: number }>(
+      `SELECT plan, max_events FROM organizer_subscriptions
+       WHERE organizer_id = $1 AND status = 'active' LIMIT 1`,
+      [user.id],
+    );
+    const subscription = subscriptionRows[0] ?? null;
 
     const plan = (subscription?.plan ?? "free") as string;
     if (subscription && subscription.max_events !== -1) {
-      const { count } = await supabase
-        .from("events")
-        .select("id", { count: "exact", head: true })
-        .eq("organizer_id", user.id)
-        .neq("status", "cancelled");
-      if ((count ?? 0) >= subscription.max_events) {
+      const countRows = await query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM events WHERE organizer_id = $1 AND status <> 'cancelled'`,
+        [user.id],
+      );
+      const count = Number(countRows[0]?.count ?? 0);
+      if (count >= subscription.max_events) {
         return NextResponse.json(
           {
             success: false,
@@ -184,7 +179,7 @@ export async function POST(req: NextRequest) {
       is_virtual: isVirtual ?? false,
       virtual_link: virtualLink ?? null,
       cover_image_url: coverImageUrl ?? null,
-      gallery_images: [],
+      gallery_images: JSON.stringify([]),
       ticket_type: ticketType ?? (isFree ? "free" : "paid"),
       min_price: minPrice,
       max_price: maxPrice,
@@ -200,7 +195,7 @@ export async function POST(req: NextRequest) {
       require_approval: requireApproval ?? false,
       allow_guest_registration: allowGuestRegistration ?? true,
       max_guests_per_registration: maxGuestsPerRegistration ?? 0,
-      tags: tags ?? [],
+      tags: JSON.stringify(tags ?? []),
       meta_description: metaDescription ?? null,
       view_count: 0,
       share_count: 0,
@@ -209,13 +204,25 @@ export async function POST(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    const { data: event, error: eventError } = await supabase
-      .from("events")
-      .insert(eventData)
-      .select()
-      .single();
+    const columns = Object.keys(eventData);
+    const values = Object.values(eventData);
+    const placeholders = columns.map((_, i) => `$${i + 1}`);
 
-    if (eventError) {
+    let event: Record<string, unknown> | undefined;
+    try {
+      const rows = await query<Record<string, unknown>>(
+        `INSERT INTO events (${columns.join(", ")}) VALUES (${placeholders.join(", ")}) RETURNING *`,
+        values,
+      );
+      event = rows[0];
+    } catch {
+      return NextResponse.json(
+        { success: false, error: "Failed to create event" },
+        { status: 500 },
+      );
+    }
+
+    if (!event) {
       return NextResponse.json(
         { success: false, error: "Failed to create event" },
         { status: 500 },
@@ -225,7 +232,7 @@ export async function POST(req: NextRequest) {
     if (ticketTiers && ticketTiers.length > 0) {
       const tierRows = ticketTiers.map(
         (tier: Record<string, unknown>, index: number) => ({
-          event_id: event.id,
+          event_id: event!.id,
           name: tier.name,
           tier: tier.tier ?? "general",
           type: tier.type ?? "paid",
@@ -241,17 +248,28 @@ export async function POST(req: NextRequest) {
           sale_ends_at: tier.saleEndsAt ?? endDate,
           includes_guest_registration: tier.includesGuestRegistration ?? false,
           max_guests_per_ticket: tier.maxGuestsPerTicket ?? 0,
-          benefits: tier.includesPerks ?? tier.benefits ?? [],
+          benefits: JSON.stringify(tier.includesPerks ?? tier.benefits ?? []),
           is_active: true,
           sort_order: tier.sortOrder ?? index,
         }),
       );
 
-      const { error: ttError } = await supabase
-        .from("event_ticket_types")
-        .insert(tierRows);
+      const tierColumns = Object.keys(tierRows[0]);
+      const tierValues: unknown[] = [];
+      const tierPlaceholders = tierRows.map((row: Record<string, unknown>, rowIndex: number) => {
+        const placeholders = tierColumns.map((col, colIndex) => {
+          tierValues.push(row[col]);
+          return `$${rowIndex * tierColumns.length + colIndex + 1}`;
+        });
+        return `(${placeholders.join(", ")})`;
+      });
 
-      if (ttError) {
+      try {
+        await query(
+          `INSERT INTO event_ticket_types (${tierColumns.join(", ")}) VALUES ${tierPlaceholders.join(", ")}`,
+          tierValues,
+        );
+      } catch {
         return NextResponse.json(
           {
             success: false,
@@ -262,11 +280,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { data: fullEvent } = await supabase
-      .from("events")
-      .select("*, event_ticket_types(*)")
-      .eq("id", event.id)
-      .single();
+    const ticketTypeRows = await query<Record<string, unknown>>(
+      `SELECT * FROM event_ticket_types WHERE event_id = $1`,
+      [event.id],
+    );
+    const fullEvent = { ...event, event_ticket_types: ticketTypeRows };
 
     return NextResponse.json(
       {
@@ -298,7 +316,7 @@ export async function GET(req: NextRequest) {
     const endDate = searchParams.get("endDate");
     const status = searchParams.get("status") ?? "published";
     const isVirtual = searchParams.get("isVirtual");
-    const sortBy = searchParams.get("sort") ?? "start_date";
+    const sortByRaw = searchParams.get("sort") ?? "start_date";
     const sortOrder = searchParams.get("sortOrder") ?? "asc";
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
     const limit = Math.min(
@@ -307,64 +325,92 @@ export async function GET(req: NextRequest) {
     );
     const offset = (page - 1) * limit;
 
-    let query = supabase
-      .from("events")
-      .select("*, event_ticket_types(*)", { count: "exact" });
+    // Guard against SQL injection via the sort column — only allow known columns.
+    const sortableColumns = new Set([
+      "start_date", "end_date", "created_at", "updated_at", "title", "view_count", "tickets_sold",
+    ]);
+    const sortBy = sortableColumns.has(sortByRaw) ? sortByRaw : "start_date";
+    const sortDirection = sortOrder === "asc" ? "ASC" : "DESC";
+
+    const conditions: string[] = [];
+    const params: unknown[] = [];
 
     if (status !== "all") {
-      query = query.eq("status", status);
+      params.push(status);
+      conditions.push(`status = $${params.length}`);
     }
-
     if (category) {
-      query = query.eq("category", category);
+      params.push(category);
+      conditions.push(`category = $${params.length}`);
     }
-
     if (city) {
-      query = query.ilike("venue_city", `%${city}%`);
+      params.push(`%${city}%`);
+      conditions.push(`venue_city ILIKE $${params.length}`);
     }
-
     if (country) {
-      query = query.ilike("venue_country", `%${country}%`);
+      params.push(`%${country}%`);
+      conditions.push(`venue_country ILIKE $${params.length}`);
     }
-
     if (startDate) {
-      query = query.gte("start_date", startDate);
+      params.push(startDate);
+      conditions.push(`start_date >= $${params.length}`);
     }
-
     if (endDate) {
-      query = query.lte("start_date", endDate);
+      params.push(endDate);
+      conditions.push(`start_date <= $${params.length}`);
     }
-
     if (isVirtual !== null && isVirtual !== undefined) {
-      query = query.eq("is_virtual", isVirtual === "true");
+      params.push(isVirtual === "true");
+      conditions.push(`is_virtual = $${params.length}`);
     }
-
     if (search) {
-      query = query.or(
-        `title.ilike.%${search}%,description.ilike.%${search}%,organizer_name.ilike.%${search}%`,
-      );
+      params.push(`%${search}%`);
+      const idx = params.length;
+      conditions.push(`(title ILIKE $${idx} OR description ILIKE $${idx} OR organizer_name ILIKE $${idx})`);
     }
 
-    query = query.order(sortBy, { ascending: sortOrder === "asc" });
-    query = query.range(offset, offset + limit - 1);
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    const { data, count, error } = await query;
+    const countRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM events ${whereClause}`,
+      params,
+    );
+    const count = Number(countRows[0]?.count ?? 0);
 
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: "Failed to fetch events" },
-        { status: 500 },
-      );
+    const dataParams = [...params, limit, offset];
+    const events = await query<Record<string, unknown>>(
+      `SELECT * FROM events ${whereClause}
+       ORDER BY ${sortBy} ${sortDirection}
+       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams,
+    );
+
+    const eventIds = events.map((e) => e.id as string);
+    const tierRows = eventIds.length
+      ? await query<Record<string, unknown>>(
+          `SELECT * FROM event_ticket_types WHERE event_id = ANY($1::uuid[])`,
+          [eventIds],
+        )
+      : [];
+    const tiersByEvent = new Map<string, Record<string, unknown>[]>();
+    for (const tier of tierRows) {
+      const key = tier.event_id as string;
+      if (!tiersByEvent.has(key)) tiersByEvent.set(key, []);
+      tiersByEvent.get(key)!.push(tier);
     }
+    const data = events.map((e) => ({
+      ...e,
+      event_ticket_types: tiersByEvent.get(e.id as string) ?? [],
+    }));
 
     return NextResponse.json({
       success: true,
-      data: data ?? [],
+      data,
       pagination: {
         page,
         limit,
-        total: count ?? 0,
-        totalPages: Math.ceil((count ?? 0) / limit),
+        total: count,
+        totalPages: Math.ceil(count / limit),
       },
     });
   } catch (error) {

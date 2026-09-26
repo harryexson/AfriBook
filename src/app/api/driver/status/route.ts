@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 import { resolveDriverId } from '@/lib/ridely/driver-auth';
 
 // Reads/writes `drivers.status` (the driver_status enum: offline/online/
@@ -22,7 +22,7 @@ export async function GET() {
 
     const { data: driver, error } = await supabase
       .from('drivers')
-      .select('status')
+      .select('status, rating')
       .eq('id', driverId)
       .single();
 
@@ -34,6 +34,7 @@ export async function GET() {
       success: true,
       driverId,
       isOnline: (driver as any).status === 'online',
+      rating: (driver as any).rating ?? null,
     });
   } catch (err: any) {
     const status = Number(err?.status) === 401 ? 401 : 500;

@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
+
+type QueryFn = Awaited<ReturnType<typeof getAdminDb>>;
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_EVENTS ?? process.env.STRIPE_WEBHOOK_SECRET!;
@@ -12,76 +14,69 @@ const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_EVENTS ?? process.env.ST
 // Find-or-create the organizer's wallet (event organizers have no business,
 // so business_id is NULL) and credit it with the net amount after fees.
 async function creditOrganizerWallet(
-  supabase: any,
+  query: QueryFn,
   organizerId: string,
   netAmount: number,
   eventId: string,
 ): Promise<void> {
-  const { data: existing } = await supabase
-    .from('vendor_wallets')
-    .select('id, balance, available_balance, currency')
-    .eq('vendor_id', organizerId)
-    .is('business_id', null)
-    .maybeSingle();
+  const existingRows = await query<{
+    id: string; balance: string | number; available_balance: string | number; currency: string;
+  }>(
+    `SELECT id, balance, available_balance, currency FROM vendor_wallets
+     WHERE vendor_id = $1 AND business_id IS NULL`,
+    [organizerId],
+  );
+  const existing = existingRows[0] ?? null;
 
-  const { data: evt } = await supabase
-    .from('events')
-    .select('currency_code')
-    .eq('id', eventId)
-    .single();
+  const evtRows = await query<{ currency_code: string | null }>(
+    `SELECT currency_code FROM events WHERE id = $1`,
+    [eventId],
+  );
 
-  const currency = evt?.currency_code ?? 'USD';
+  const currency = evtRows[0]?.currency_code ?? 'USD';
 
   if (existing) {
-    await supabase
-      .from('vendor_wallets')
-      .update({
-        balance: Number(existing.balance ?? 0) + netAmount,
-        available_balance: Number(existing.available_balance ?? 0) + netAmount,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id);
+    await query(
+      `UPDATE vendor_wallets SET balance = $2, available_balance = $3, updated_at = now() WHERE id = $1`,
+      [
+        existing.id,
+        Number(existing.balance ?? 0) + netAmount,
+        Number(existing.available_balance ?? 0) + netAmount,
+      ],
+    );
   } else {
-    await supabase.from('vendor_wallets').insert({
-      vendor_id: organizerId,
-      business_id: null,
-      balance: netAmount,
-      available_balance: netAmount,
-      currency,
-    });
+    await query(
+      `INSERT INTO vendor_wallets (vendor_id, business_id, balance, available_balance, currency)
+       VALUES ($1, NULL, $2, $2, $3)`,
+      [organizerId, netAmount, currency],
+    );
   }
 }
 
 // Debit the organizer's wallet ledger by the net amount (full-refund reverse).
 async function debitOrganizerWallet(
-  supabase: any,
+  query: QueryFn,
   organizerId: string,
   netAmount: number,
 ): Promise<void> {
-  const { data: existing } = await supabase
-    .from('vendor_wallets')
-    .select('id, balance, available_balance')
-    .eq('vendor_id', organizerId)
-    .is('business_id', null)
-    .maybeSingle();
-
+  const existingRows = await query<{ id: string; balance: string | number; available_balance: string | number }>(
+    `SELECT id, balance, available_balance FROM vendor_wallets WHERE vendor_id = $1 AND business_id IS NULL`,
+    [organizerId],
+  );
+  const existing = existingRows[0] ?? null;
   if (!existing) return;
 
   const balance = Number(existing.balance ?? 0);
   const available = Number(existing.available_balance ?? 0);
 
-  await supabase
-    .from('vendor_wallets')
-    .update({
-      balance: Math.max(balance - netAmount, 0),
-      available_balance: Math.max(available - netAmount, 0),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', existing.id);
+  await query(
+    `UPDATE vendor_wallets SET balance = $2, available_balance = $3, updated_at = now() WHERE id = $1`,
+    [existing.id, Math.max(balance - netAmount, 0), Math.max(available - netAmount, 0)],
+  );
 }
 
 async function handlePaymentSucceeded(
-  supabase: any,
+  query: QueryFn,
   paymentIntent: Stripe.PaymentIntent,
 ) {
   const { type } = paymentIntent.metadata;
@@ -90,14 +85,10 @@ async function handlePaymentSucceeded(
   if (type === 'celebration_per_event') {
     const { event_id } = paymentIntent.metadata;
     if (event_id) {
-      await supabase
-        .from('events')
-        .update({
-          billing_status: 'paid',
-          billing_paid_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', event_id);
+      await query(
+        `UPDATE events SET billing_status = 'paid', billing_paid_at = now(), updated_at = now() WHERE id = $1`,
+        [event_id],
+      );
     }
     return;
   }
@@ -108,53 +99,60 @@ async function handlePaymentSucceeded(
 
     if (!donation_id) return;
 
-    const { data: donation } = await supabase
-      .from('celebration_donations')
-      .select('id, event_id, donor_name, status, net_amount')
-      .eq('id', donation_id)
-      .single();
+    const donationRows = await query<{
+      id: string; event_id: string; donor_name: string | null; status: string; net_amount: string | number | null;
+    }>(
+      `SELECT id, event_id, donor_name, status, net_amount FROM celebration_donations WHERE id = $1`,
+      [donation_id],
+    );
+    const donation = donationRows[0];
 
     if (!donation) return;
     if (donation.status === 'completed') return;
 
-    await supabase
-      .from('celebration_donations')
-      .update({
-        status: 'completed',
-        paid_at: new Date().toISOString(),
-        stripe_payment_intent_id: paymentIntent.id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', donation.id);
+    await query(
+      `UPDATE celebration_donations SET status = 'completed', paid_at = now(), stripe_payment_intent_id = $2, updated_at = now()
+       WHERE id = $1`,
+      [donation.id, paymentIntent.id],
+    );
 
     const net = Number(net_amount ?? donation.net_amount ?? 0);
     if (organizer_id && net > 0) {
-      await creditOrganizerWallet(supabase, organizer_id, net, event_id ?? donation.event_id);
+      await creditOrganizerWallet(query, organizer_id, net, event_id ?? donation.event_id);
     }
 
-    await supabase.from('notifications').insert({
-      user_id: organizer_id,
-      type: 'payment',
-      title: 'Donation Received',
-      body: `${donation.donor_name ?? 'A guest'} donated to your celebration.`,
-      data: {
-        event_id: event_id ?? donation.event_id,
-        donation_id: donation.id,
-        net_amount: net,
-        payment_intent_id: paymentIntent.id,
-      },
-    });
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Donation Received', $2, $3)`,
+      [
+        organizer_id,
+        `${donation.donor_name ?? 'A guest'} donated to your celebration.`,
+        JSON.stringify({
+          event_id: event_id ?? donation.event_id,
+          donation_id: donation.id,
+          net_amount: net,
+          payment_intent_id: paymentIntent.id,
+        }),
+      ],
+    );
     return;
   }
 
   const { registration_id } = paymentIntent.metadata;
   if (!registration_id) return;
 
-  const { data: registration } = await supabase
-    .from('event_registrations')
-    .select('id, event_id, user_id, user_name, user_email, quantity, ticket_tier_id, ticket_tier_name, subtotal, platform_fee, processing_fee, total, status, payment_status')
-    .eq('id', registration_id)
-    .single();
+  const registrationRows = await query<{
+    id: string; event_id: string; user_id: string | null; user_name: string | null; user_email: string | null;
+    quantity: number; ticket_tier_id: string; ticket_tier_name: string; subtotal: string | number;
+    platform_fee: string | number; processing_fee: string | number; total: string | number;
+    status: string; payment_status: string;
+  }>(
+    `SELECT id, event_id, user_id, user_name, user_email, quantity, ticket_tier_id, ticket_tier_name,
+            subtotal, platform_fee, processing_fee, total, status, payment_status
+     FROM event_registrations WHERE id = $1`,
+    [registration_id],
+  );
+  const registration = registrationRows[0];
 
   if (!registration) return;
 
@@ -163,68 +161,68 @@ async function handlePaymentSucceeded(
     return;
   }
 
-  await supabase
-    .from('event_registrations')
-    .update({
-      payment_status: 'completed',
-      status: 'confirmed',
-      payment_method: 'card',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', registration_id);
+  await query(
+    `UPDATE event_registrations SET payment_status = 'completed', status = 'confirmed', payment_method = 'card', updated_at = now()
+     WHERE id = $1`,
+    [registration_id],
+  );
 
   // 003's counter trigger only handles confirmed<->cancelled transitions, so
   // a pending->confirmed flip must increment counters explicitly.
-  const { data: tier } = await supabase
-    .from('event_ticket_tiers')
-    .select('sold')
-    .eq('id', registration.ticket_tier_id)
-    .single();
+  const tierRows = await query<{ sold: number | null }>(
+    `SELECT sold FROM event_ticket_tiers WHERE id = $1`,
+    [registration.ticket_tier_id],
+  );
+  const tier = tierRows[0];
 
   if (tier) {
-    await supabase
-      .from('event_ticket_tiers')
-      .update({ sold: (tier.sold ?? 0) + registration.quantity })
-      .eq('id', registration.ticket_tier_id);
+    await query(
+      `UPDATE event_ticket_tiers SET sold = $2 WHERE id = $1`,
+      [registration.ticket_tier_id, (tier.sold ?? 0) + registration.quantity],
+    );
   }
 
-  const { data: eventCount } = await supabase
-    .from('events')
-    .select('tickets_sold')
-    .eq('id', registration.event_id)
-    .single();
+  const eventCountRows = await query<{ tickets_sold: number | null }>(
+    `SELECT tickets_sold FROM events WHERE id = $1`,
+    [registration.event_id],
+  );
+  const eventCount = eventCountRows[0];
 
   if (eventCount) {
-    await supabase
-      .from('events')
-      .update({ tickets_sold: (eventCount.tickets_sold ?? 0) + registration.quantity })
-      .eq('id', registration.event_id);
+    await query(
+      `UPDATE events SET tickets_sold = $2 WHERE id = $1`,
+      [registration.event_id, (eventCount.tickets_sold ?? 0) + registration.quantity],
+    );
   }
 
   // Create individual tickets (QR codes auto-generated by DB trigger).
-  const { data: evt } = await supabase
-    .from('events')
-    .select('title, start_date, end_date')
-    .eq('id', registration.event_id)
-    .single();
+  const evtRows = await query<{ title: string | null; start_date: string | null; end_date: string | null }>(
+    `SELECT title, start_date, end_date FROM events WHERE id = $1`,
+    [registration.event_id],
+  );
+  const evt = evtRows[0];
 
-  const ticketRows = Array.from({ length: registration.quantity }).map(() => ({
-    registration_id: registration.id,
-    event_id: registration.event_id,
-    user_id: registration.user_id,
-    tier_name: registration.ticket_tier_name,
-    attendee_name: registration.user_name,
-    attendee_email: registration.user_email,
-    status: 'active',
-    qr_code_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${registration.event_id}/ticket/${registration.id}`,
-    valid_from: evt?.start_date ?? null,
-    valid_until: evt?.end_date ?? null,
-  }));
-
-  const { data: createdTickets } = await supabase
-    .from('event_tickets')
-    .insert(ticketRows)
-    .select('ticket_code');
+  const createdTickets: { ticket_code: string }[] = [];
+  for (let i = 0; i < registration.quantity; i++) {
+    const rows = await query<{ ticket_code: string }>(
+      `INSERT INTO event_tickets
+         (registration_id, event_id, user_id, tier_name, attendee_name, attendee_email, status, qr_code_url, valid_from, valid_until)
+       VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $8, $9)
+       RETURNING ticket_code`,
+      [
+        registration.id,
+        registration.event_id,
+        registration.user_id,
+        registration.ticket_tier_name,
+        registration.user_name,
+        registration.user_email,
+        `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${registration.event_id}/ticket/${registration.id}`,
+        evt?.start_date ?? null,
+        evt?.end_date ?? null,
+      ],
+    );
+    createdTickets.push(rows[0]);
+  }
 
   // Credit the organizer's wallet ledger with the net amount after the
   // platform fee deduction (funds themselves are transferred via Stripe
@@ -233,28 +231,30 @@ async function handlePaymentSucceeded(
   const netAmount = Number(paymentIntent.metadata.afribook_net_to_organizer ?? 0);
 
   if (organizerId && netAmount > 0) {
-    await creditOrganizerWallet(supabase, organizerId, netAmount, registration.event_id);
+    await creditOrganizerWallet(query, organizerId, netAmount, registration.event_id);
   }
 
   if (registration.user_id) {
-    const ticketCodes = (createdTickets ?? []).map((t: { ticket_code: string }) => t.ticket_code);
-    await supabase.from('notifications').insert({
-      user_id: registration.user_id,
-      type: 'payment',
-      title: 'Payment Confirmed',
-      body: `Your payment for ${evt?.title ?? 'the event'} has been confirmed.`,
-      data: {
-        event_id: registration.event_id,
-        registration_id: registration.id,
-        ticket_codes: ticketCodes,
-        payment_intent_id: paymentIntent.id,
-      },
-    });
+    const ticketCodes = createdTickets.map((t) => t.ticket_code);
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Payment Confirmed', $2, $3)`,
+      [
+        registration.user_id,
+        `Your payment for ${evt?.title ?? 'the event'} has been confirmed.`,
+        JSON.stringify({
+          event_id: registration.event_id,
+          registration_id: registration.id,
+          ticket_codes: ticketCodes,
+          payment_intent_id: paymentIntent.id,
+        }),
+      ],
+    );
   }
 }
 
 async function handlePaymentFailed(
-  supabase: any,
+  query: QueryFn,
   paymentIntent: Stripe.PaymentIntent,
 ) {
   const failureMessage = paymentIntent.last_payment_error?.message ?? 'Payment failed';
@@ -262,13 +262,10 @@ async function handlePaymentFailed(
   const { type, donation_id } = paymentIntent.metadata;
 
   if (type === 'celebration_donation' && donation_id) {
-    await supabase
-      .from('celebration_donations')
-      .update({
-        status: 'failed',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', donation_id);
+    await query(
+      `UPDATE celebration_donations SET status = 'failed', updated_at = now() WHERE id = $1`,
+      [donation_id],
+    );
     return;
   }
 
@@ -276,123 +273,126 @@ async function handlePaymentFailed(
 
   if (!registration_id) return;
 
-  const { data: registration } = await supabase
-    .from('event_registrations')
-    .select('user_id')
-    .eq('id', registration_id)
-    .single();
+  const registrationRows = await query<{ user_id: string | null }>(
+    `SELECT user_id FROM event_registrations WHERE id = $1`,
+    [registration_id],
+  );
+  const registration = registrationRows[0];
 
-  await supabase
-    .from('event_registrations')
-    .update({
-      payment_status: 'failed',
-      payment_method: 'card',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', registration_id);
+  await query(
+    `UPDATE event_registrations SET payment_status = 'failed', payment_method = 'card', updated_at = now() WHERE id = $1`,
+    [registration_id],
+  );
 
   if (registration?.user_id) {
-    await supabase.from('notifications').insert({
-      user_id: registration.user_id,
-      type: 'payment',
-      title: 'Payment Failed',
-      body: `Your payment could not be processed: ${failureMessage}. Please try again.`,
-      data: { registration_id, payment_intent_id: paymentIntent.id, failure_message: failureMessage },
-    });
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Payment Failed', $2, $3)`,
+      [
+        registration.user_id,
+        `Your payment could not be processed: ${failureMessage}. Please try again.`,
+        JSON.stringify({ registration_id, payment_intent_id: paymentIntent.id, failure_message: failureMessage }),
+      ],
+    );
   }
 }
 
-async function handleRefund(supabase: any, charge: Stripe.Charge) {
+async function handleRefund(query: QueryFn, charge: Stripe.Charge) {
   const paymentIntentId = charge.payment_intent as string;
   if (!paymentIntentId) return;
 
-  const { data: donation } = await supabase
-    .from('celebration_donations')
-    .select('id, event_id, status, net_amount, refund_amount')
-    .eq('stripe_payment_intent_id', paymentIntentId)
-    .maybeSingle();
+  const donationRows = await query<{
+    id: string; event_id: string; status: string; net_amount: string | number | null; refund_amount: string | number | null;
+  }>(
+    `SELECT id, event_id, status, net_amount, refund_amount FROM celebration_donations WHERE stripe_payment_intent_id = $1`,
+    [paymentIntentId],
+  );
+  const donation = donationRows[0];
 
   if (donation) {
     const refundAmount = (charge.amount_refunded ?? 0) / 100;
-    await supabase
-      .from('celebration_donations')
-      .update({
-        status: 'refunded',
-        refund_amount: refundAmount,
-        refunded_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', donation.id);
+    await query(
+      `UPDATE celebration_donations SET status = 'refunded', refund_amount = $2, refunded_at = now(), updated_at = now()
+       WHERE id = $1`,
+      [donation.id, refundAmount],
+    );
 
     if (donation.status === 'completed') {
-      const { data: evt } = await supabase
-        .from('events')
-        .select('organizer_id')
-        .eq('id', donation.event_id)
-        .single();
+      const evtRows = await query<{ organizer_id: string | null }>(
+        `SELECT organizer_id FROM events WHERE id = $1`,
+        [donation.event_id],
+      );
+      const evt = evtRows[0];
 
       if (evt?.organizer_id) {
         const netRefund = Math.max(Number(donation.net_amount ?? 0), 0);
-        await debitOrganizerWallet(supabase, evt.organizer_id, netRefund);
+        await debitOrganizerWallet(query, evt.organizer_id, netRefund);
       }
     }
     return;
   }
 
-  const { data: registration } = await supabase
-    .from('event_registrations')
-    .select('id, event_id, user_id, quantity, total, subtotal, platform_fee, processing_fee, status, payment_status, refund_amount')
-    .eq('payment_intent_id', paymentIntentId)
-    .single();
+  const registrationRows = await query<{
+    id: string; event_id: string; user_id: string | null; quantity: number; total: string | number;
+    subtotal: string | number; platform_fee: string | number; processing_fee: string | number;
+    status: string; payment_status: string; refund_amount: string | number | null;
+  }>(
+    `SELECT id, event_id, user_id, quantity, total, subtotal, platform_fee, processing_fee, status, payment_status, refund_amount
+     FROM event_registrations WHERE payment_intent_id = $1`,
+    [paymentIntentId],
+  );
+  const registration = registrationRows[0];
 
   if (!registration) return;
 
   const refundAmount = (charge.amount_refunded ?? 0) / 100;
   const isFullRefund = refundAmount >= Number(registration.total ?? 0);
 
-  await supabase
-    .from('event_registrations')
-    .update({
-      payment_status: isFullRefund ? 'refunded' : 'completed',
-      status: isFullRefund ? 'cancelled' : registration.status,
-      refund_amount: refundAmount,
-      refunded_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', registration.id);
+  await query(
+    `UPDATE event_registrations SET payment_status = $2, status = $3, refund_amount = $4, refunded_at = now(), updated_at = now()
+     WHERE id = $1`,
+    [
+      registration.id,
+      isFullRefund ? 'refunded' : 'completed',
+      isFullRefund ? 'cancelled' : registration.status,
+      refundAmount,
+    ],
+  );
 
   if (isFullRefund) {
     // status confirmed->cancelled: 003 trigger decrements tier/event counters.
     // Debit the organizer's wallet ledger so balances stay reconciled with the
     // Stripe Connect transfer that will be reversed.
-    const { data: evt } = await supabase
-      .from('events')
-      .select('organizer_id')
-      .eq('id', registration.event_id)
-      .single();
+    const evtRows = await query<{ organizer_id: string | null }>(
+      `SELECT organizer_id FROM events WHERE id = $1`,
+      [registration.event_id],
+    );
+    const evt = evtRows[0];
 
     if (evt?.organizer_id) {
       const netRefund = Math.max(
         Number(registration.total ?? 0) - Number(registration.platform_fee ?? 0) - Number(registration.processing_fee ?? 0),
         0,
       );
-      await debitOrganizerWallet(supabase, evt.organizer_id, netRefund);
+      await debitOrganizerWallet(query, evt.organizer_id, netRefund);
     }
 
-    await supabase
-      .from('event_tickets')
-      .update({ status: 'cancelled' })
-      .eq('registration_id', registration.id);
+    await query(
+      `UPDATE event_tickets SET status = 'cancelled' WHERE registration_id = $1`,
+      [registration.id],
+    );
   }
 
   if (registration.user_id) {
-    await supabase.from('notifications').insert({
-      user_id: registration.user_id,
-      type: 'payment',
-      title: 'Refund Processed',
-      body: `A refund of ${refundAmount} has been processed for your ticket.`,
-      data: { registration_id: registration.id, event_id: registration.event_id, refund_amount: refundAmount },
-    });
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Refund Processed', $2, $3)`,
+      [
+        registration.user_id,
+        `A refund of ${refundAmount} has been processed for your ticket.`,
+        JSON.stringify({ registration_id: registration.id, event_id: registration.event_id, refund_amount: refundAmount }),
+      ],
+    );
   }
 }
 
@@ -420,19 +420,19 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const supabase = await getAdminDb();
+    const query = await getAdminDb();
 
     switch (event.type) {
       case 'payment_intent.succeeded':
-        await handlePaymentSucceeded(supabase, event.data.object as Stripe.PaymentIntent);
+        await handlePaymentSucceeded(query, event.data.object as Stripe.PaymentIntent);
         break;
 
       case 'payment_intent.payment_failed':
-        await handlePaymentFailed(supabase, event.data.object as Stripe.PaymentIntent);
+        await handlePaymentFailed(query, event.data.object as Stripe.PaymentIntent);
         break;
 
       case 'charge.refunded':
-        await handleRefund(supabase, event.data.object as Stripe.Charge);
+        await handleRefund(query, event.data.object as Stripe.Charge);
         break;
 
       default:

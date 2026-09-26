@@ -26,7 +26,7 @@ export async function POST(
     return NextResponse.json({ error: 'Missing roomId, checkIn or checkOut' }, { status: 400 })
   }
 
-  const db = getStaysDb()
+  const db = await getStaysDb()
   const availability = await checkStayRoomAvailability(db, roomId, checkIn, checkOut, rooms)
 
   return NextResponse.json({ success: true, data: availability })

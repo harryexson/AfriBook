@@ -337,7 +337,7 @@ DECLARE
     v_avail JSONB;
     v_booking_id UUID;
     v_date DATE;
-    v_booked withdrawals INT := 0;
+    v_booked_units INT := 0; -- unused; fixed a stray word ("withdrawals") that made this an invalid declaration
 BEGIN
     -- Serialize all bookings for this room type through a transaction lock.
     PERFORM pg_advisory_xact_lock(hashtext('stay_room:' || p_room_id::text));
@@ -426,7 +426,7 @@ RETURNS JSONB AS $$
 DECLARE
     v_row RECORD;
     v_date DATE;
-    v_hotel host_id UUID;
+    v_hotel UUID; -- fixed a stray "host_id" word that made this an invalid declaration; used below as a bare hotel id (RETURNING hotel_id INTO v_hotel)
     v_wallet UUID;
 BEGIN
     PERFORM pg_advisory_xact_lock(hashtext('stay_booking:' || upper(p_booking_code)));

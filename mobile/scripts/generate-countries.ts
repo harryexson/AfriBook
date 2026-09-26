@@ -1,4 +1,5 @@
 import { COUNTRIES as WEB_COUNTRIES } from '../../src/lib/localization/countries';
+import { CURRENCIES as WEB_CURRENCIES } from '../../src/lib/localization/currencies';
 import * as fs from 'fs';
 
 const lines: string[] = [];
@@ -49,6 +50,20 @@ for (const code of Object.keys(WEB_COUNTRIES).sort()) {
 
 lines.push(`};`);
 lines.push(``);
+lines.push(`// Units of each currency per 1 USD, mirrored from the web app's`);
+lines.push(`// src/lib/localization/currencies.ts. Rates are benchmarked against USD,`);
+lines.push(`// so converting A -> B is a multiplier of rateB / rateA — see`);
+lines.push(`// src/lib/money.ts, where reading that backwards silently mispriced`);
+lines.push(`// every cross-border conversion by orders of magnitude.`);
+lines.push(`//`);
+lines.push(`// These are config snapshots, not live quotes. Anything shown to a user`);
+lines.push(`// from them must be labelled approximate.`);
+lines.push(`export const CURRENCY_RATES: Record<string, number> = {`);
+for (const code of Object.keys(WEB_CURRENCIES).sort()) {
+  lines.push(`  ${code}: ${WEB_CURRENCIES[code].exchangeRate},`);
+}
+lines.push(`};`);
+lines.push(``);
 lines.push(`// Preserved from the original hand-written file — these are icon/color`);
 lines.push(`// mappings for category tiles, not per-country data, so they're not`);
 lines.push(`// part of the web->mobile country sync above.`);
@@ -94,4 +109,7 @@ lines.push(`};`);
 lines.push(``);
 
 fs.writeFileSync(__dirname + '/../src/constants/countries.ts', lines.join('\n'));
-console.log(`Wrote ${Object.keys(WEB_COUNTRIES).length} countries to mobile/src/constants/countries.ts`);
+console.log(
+  `Wrote ${Object.keys(WEB_COUNTRIES).length} countries and ` +
+    `${Object.keys(WEB_CURRENCIES).length} currency rates to mobile/src/constants/countries.ts`,
+);

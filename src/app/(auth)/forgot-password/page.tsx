@@ -8,6 +8,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Mail, ArrowLeft, CheckCircle, Send } from 'lucide-react'
+import { describeAuthError } from '@/lib/auth-error'
 
 const emailSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -18,6 +19,7 @@ type EmailForm = z.infer<typeof emailSchema>
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [submitLoading, setSubmitLoading] = useState(false)
+  const [serverError, setServerError] = useState('')
 
   const {
     register,
@@ -30,15 +32,16 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (data: EmailForm) => {
     setSubmitLoading(true)
+    setServerError('')
     try {
-      const supabase = (await import('@/lib/supabase/client')).createClient()
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
+      const client = (await import('@/lib/neon/client')).createClient()
+      const { error } = await client.auth.resetPasswordForEmail(data.email, {
         redirectTo: `${window.location.origin}/reset-password`,
       })
       if (error) throw error
       setSent(true)
     } catch (err: any) {
-      alert(err.message)
+      setServerError(describeAuthError(err))
     } finally {
       setSubmitLoading(false)
     }
@@ -121,6 +124,12 @@ export default function ForgotPasswordPage() {
                 <p className="text-xs text-red-500">{errors.email.message}</p>
               )}
             </div>
+
+            {serverError && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 dark:bg-red-500/10 dark:text-red-400">
+                {serverError}
+              </p>
+            )}
 
             <button
               type="submit"

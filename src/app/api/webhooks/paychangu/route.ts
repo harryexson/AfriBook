@@ -50,34 +50,28 @@ function verifySignature(rawBody: string, signature: string): boolean {
   return crypto.timingSafeEqual(a, b);
 }
 
-async function getSupabase() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient();
+async function getDb() {
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
 
 async function handleChargeWebhook(data: PayChanguChargeWebhook) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const isSuccess = data.status === 'success' || data.status === 'successful';
 
   // The webhook exposes the PayChangu charge_id; our stored
   // provider_transaction_id is either the tx_ref (checkout) or the
   // charge_id (direct MoMo). Try charge_id first, then reference.
-  const lookupIds = [
-    data.charge_id,
-    data.reference,
-  ].filter(Boolean);
+  const lookupIds = [data.charge_id, data.reference].filter(Boolean);
 
   let txId: string | null = null;
   for (const id of lookupIds) {
-    const txResult = await supabase
-      .from('payment_transactions')
-      .select('id, metadata')
-      .eq('provider_transaction_id', id)
-      .maybeSingle() as unknown as {
-      data: { id: string; metadata: Record<string, unknown> } | null;
-    };
-    if (txResult.data) {
-      txId = txResult.data.id;
+    const rows = await query<{ id: string }>(
+      `SELECT id FROM payment_transactions WHERE provider_transaction_id = $1`,
+      [id],
+    );
+    if (rows[0]) {
+      txId = rows[0].id;
       break;
     }
   }
@@ -85,95 +79,92 @@ async function handleChargeWebhook(data: PayChanguChargeWebhook) {
   const status = isSuccess ? 'succeeded' : 'failed';
 
   if (txId) {
-    await supabase
-      .from('payment_transactions')
-      .update({
-        status,
-        provider_transaction_id: data.charge_id,
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq('id', txId);
+    await query(
+      `UPDATE payment_transactions SET status = $2, provider_transaction_id = $3, updated_at = now() WHERE id = $1`,
+      [txId, status, data.charge_id],
+    );
   } else if (data.mode) {
     // Store as an orphan event so it can be reconciled later.
-    await supabase.from('webhook_events').insert({
-      provider: 'paychangu',
-      event_type: data.event_type,
-      event_id: data.charge_id,
-      raw_event: data as unknown as Record<string, unknown>,
-      processed_at: new Date().toISOString(),
-    } as never);
+    await query(
+      `INSERT INTO webhook_events (provider, event_type, event_id, raw_event, processed_at)
+       VALUES ('paychangu', $1, $2, $3, now())`,
+      [data.event_type, data.charge_id, JSON.stringify(data)],
+    );
   }
 
   if (!txId) return;
 
-  const txResult = await supabase
-    .from('payment_transactions')
-    .select('metadata, booking_id, order_id')
-    .eq('id', txId)
-    .single() as unknown as {
-    data: {
-      metadata: Record<string, unknown>;
-      booking_id: string | null;
-      order_id: string | null;
-    } | null;
-  };
+  const txRows = await query<{
+    metadata: Record<string, unknown> | null;
+    booking_id: string | null;
+    order_id: string | null;
+  }>(
+    `SELECT metadata, booking_id, order_id FROM payment_transactions WHERE id = $1`,
+    [txId],
+  );
 
-  const meta = txResult.data?.metadata ?? {};
-  const bookingId = (meta.afribook_booking_id as string) ?? txResult.data?.booking_id;
-  const orderId = (meta.afribook_order_id as string) ?? txResult.data?.order_id;
+  const meta = txRows[0]?.metadata ?? {};
+  const bookingId = (meta.afribook_booking_id as string) ?? txRows[0]?.booking_id;
+  const orderId = (meta.afribook_order_id as string) ?? txRows[0]?.order_id;
 
   if (isSuccess && bookingId) {
-    await supabase
-      .from('bookings')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', bookingId);
+    // payment_status enum has no 'completed' value; 'succeeded' is the closest fit.
+    await query(
+      `UPDATE bookings SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [bookingId],
+    );
   }
 
   if (isSuccess && orderId) {
-    await supabase
-      .from('orders')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', orderId);
+    await query(
+      `UPDATE orders SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [orderId],
+    );
   }
 
   const customerId = meta.afribook_customer_id as string | undefined;
   if (customerId) {
     const amount = Number(data.amount ?? 0);
-    await supabase.from('notifications').insert({
-      userId: customerId,
-      type: 'payment',
-      title: isSuccess ? 'Payment Successful' : 'Payment Failed',
-      body: isSuccess
-        ? `Payment of ${amount.toFixed(2)} ${data.currency} was successful.`
-        : `Your payment of ${amount.toFixed(2)} ${data.currency} was not completed.`,
-      data: {
-        charge_id: data.charge_id,
-        reference: data.reference,
-        amount,
-        currency: data.currency,
-      },
-    } as never);
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', $2, $3, $4)`,
+      [
+        customerId,
+        isSuccess ? 'Payment Successful' : 'Payment Failed',
+        isSuccess
+          ? `Payment of ${amount.toFixed(2)} ${data.currency} was successful.`
+          : `Your payment of ${amount.toFixed(2)} ${data.currency} was not completed.`,
+        JSON.stringify({
+          charge_id: data.charge_id,
+          reference: data.reference,
+          amount,
+          currency: data.currency,
+        }),
+      ],
+    );
   }
 }
 
 async function handlePayoutWebhook(data: PayChanguPayoutWebhook) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const isSuccess = data.status === 'success' || data.status === 'successful';
 
-  await supabase
-    .from('payouts')
-    .update({
-      status: isSuccess ? 'completed' : 'failed',
-      provider_payout_id: data.charge_id,
-      paid_at: isSuccess ? new Date().toISOString() : null,
-      metadata: {
+  // payouts has no updated_at column — only created_at / paid_at.
+  await query(
+    `UPDATE payouts SET status = $3, provider_payout_id = $1, paid_at = $4, metadata = $5
+     WHERE provider_payout_id = $1 OR metadata->>'paychangu_transfer_id' = $2`,
+    [
+      data.charge_id,
+      data.charge_id,
+      isSuccess ? 'completed' : 'failed',
+      isSuccess ? new Date().toISOString() : null,
+      JSON.stringify({
         paychangu_transfer_id: data.charge_id,
         paychangu_reference: data.reference,
         failure_reason: isSuccess ? null : `PayChangu status: ${data.status}`,
-      },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .or(`provider_payout_id.eq.${data.charge_id},metadata->>paychangu_transfer_id.eq.${data.charge_id}`);
+      }),
+    ],
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -209,15 +200,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
 
-  const supabase = await getSupabase();
-  await supabase.from('webhook_events').insert({
-    provider: 'paychangu',
-    event_type: payload.event_type,
-    event_id: payload.charge_id,
-    idempotency_key: `${payload.event_type}:${payload.charge_id}`,
-    raw_event: payload as unknown as Record<string, unknown>,
-    processed_at: new Date().toISOString(),
-  } as never);
+  const query = await getDb();
+  await query(
+    `INSERT INTO webhook_events (provider, event_type, event_id, idempotency_key, raw_event, processed_at)
+     VALUES ('paychangu', $1, $2, $3, $4, now())`,
+    [
+      payload.event_type,
+      payload.charge_id,
+      `${payload.event_type}:${payload.charge_id}`,
+      JSON.stringify(payload),
+    ],
+  );
 
   try {
     if (payload.event_type === 'api.payout') {

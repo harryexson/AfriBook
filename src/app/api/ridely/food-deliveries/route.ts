@@ -3,13 +3,13 @@ import { FOOD_DELIVERY_STATUS_TRANSITIONS } from '@/types/ridely';
 import { getCurrencyForCountry, convertCurrency } from '@/lib/money';
 
 async function getDb() {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   return createClient() as any;
 }
 
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
+async function getAdminQuery() {
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
 
 function parseWktPoint(location: unknown): { lat: number; lng: number } | null {
@@ -65,7 +65,7 @@ function estimatePricing(distanceKm: number, durationMin: number, countryCode?: 
 export async function POST(req: NextRequest) {
   try {
     const supabase = await getDb();
-    const adminDb = await getAdminDb();
+    const adminQuery = await getAdminQuery();
 
     const {
       data: { user },
@@ -104,18 +104,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: restaurant, error: restError } = await adminDb
-      .from('restaurants')
-      .select('id, business_id, businesses!inner(id, name, owner_id, address, location, country_code)')
-      .eq('id', restaurantId)
-      .single();
+    const restaurantRows = await adminQuery<{
+      id: string; business_id: string; name: string; owner_id: string;
+      address: unknown; location: unknown; country_code: string | null;
+    }>(
+      `SELECT r.id, r.business_id, b.name, b.owner_id, b.address, b.location, b.country_code
+       FROM restaurants r
+       JOIN businesses b ON b.id = r.business_id
+       WHERE r.id = $1`,
+      [restaurantId],
+    );
+    const restaurant = restaurantRows[0];
+    const business = restaurant as unknown as Record<string, unknown> | undefined;
 
-    const business = (restaurant as { businesses?: Record<string, unknown> } | null)?.businesses as
-      | Record<string, unknown>
-      | null
-      | undefined;
-
-    if (restError || !restaurant || !business) {
+    if (!restaurant || !business) {
       return NextResponse.json(
         { success: false, error: 'Restaurant not found' },
         { status: 404 },
@@ -191,21 +193,16 @@ export async function POST(req: NextRequest) {
     const ownerId = business.owner_id as string;
     if (ownerId) {
       Promise.resolve(
-        adminDb.from('notifications').insert({
-          user_id: ownerId,
-          type: 'order',
-          title: 'New Food Order',
-          body: `New order received with ${items.length} item(s).`,
-          data: { food_delivery_id: foodDelivery.id },
-        }),
+        adminQuery(
+          `INSERT INTO notifications (user_id, type, title, body, data)
+           VALUES ($1, 'order', 'New Food Order', $2, $3)`,
+          [ownerId, `New order received with ${items.length} item(s).`, JSON.stringify({ food_delivery_id: foodDelivery.id })],
+        ),
       ).catch(() => {});
     }
 
     Promise.resolve(
-      adminDb.rpc('ridely_dispatch_delivery' as never, {
-        p_delivery_id: foodDelivery.id,
-        p_table: 'ridely_food_deliveries',
-      } as never),
+      adminQuery('SELECT ridely_dispatch_delivery($1, $2)', [foodDelivery.id, 'ridely_food_deliveries']),
     ).catch(() => {});
 
     return NextResponse.json(
@@ -228,7 +225,7 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const supabase = await getDb();
-    const adminDb = await getAdminDb();
+    const adminQuery = await getAdminQuery();
 
     const {
       data: { user },
@@ -250,12 +247,11 @@ export async function GET(req: NextRequest) {
 
     const restaurantId = searchParams.get('restaurantId');
     if (restaurantId) {
-      const { data: owned } = await adminDb
-        .from('businesses')
-        .select('id')
-        .eq('owner_id', user.id)
-        .eq('id', restaurantId)
-        .maybeSingle();
+      const ownedRows = await adminQuery<{ id: string }>(
+        'SELECT id FROM businesses WHERE owner_id = $1 AND id = $2',
+        [user.id, restaurantId],
+      );
+      const owned = ownedRows[0];
       if (!owned) {
         return NextResponse.json(
           { success: false, error: 'Not authorized for this restaurant' },

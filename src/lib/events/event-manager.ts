@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { query } from '@/lib/neon/admin';
 import type {
   Event,
   EventTypeTicket,
@@ -34,12 +34,105 @@ interface PaginatedResult<T> {
   totalPages: number;
 }
 
+// The confirmed `events` table has no columns for venue_lat/venue_lng,
+// min_price/max_price, is_free, referral_code/referral_discount_percent,
+// requires_approval, show_guest_list, allow_refunds, refund_deadline_days,
+// meta_title/meta_description/share_image_url, promo_video_url/flyer_url,
+// published_at, or is_featured. Those are kept in the `metadata` jsonb bag
+// instead of being dropped outright, so callers still see them round-trip.
+interface EventMetadataExtras {
+  venueLat?: number;
+  venueLng?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  isFree?: boolean;
+  referralCode?: string;
+  referralDiscountPercent?: number;
+  requiresApproval?: boolean;
+  showGuestList?: boolean;
+  allowRefunds?: boolean;
+  refundDeadlineDays?: number;
+  metaTitle?: string;
+  metaDescription?: string;
+  shareImageUrl?: string;
+  promoVideoUrl?: string;
+  flyerUrl?: string;
+  publishedAt?: string;
+  isFeatured?: boolean;
+  cancellationReason?: string;
+  cancelledAt?: string;
+  [key: string]: unknown;
+}
+
+interface EventRow {
+  id: string;
+  organizer_id: string;
+  organizer_name: string | null;
+  title: string;
+  slug: string;
+  description: string | null;
+  short_description: string | null;
+  category: EventCategory;
+  status: EventStatus;
+  venue_name: string | null;
+  venue_address: string | null;
+  venue_city: string | null;
+  venue_country: string | null;
+  is_virtual: boolean | null;
+  virtual_link: string | null;
+  start_date: string;
+  end_date: string;
+  timezone: string;
+  doors_open_at: string | null;
+  cover_image_url: string | null;
+  gallery_images: unknown;
+  ticket_type: TicketType;
+  total_capacity: number | null;
+  tickets_sold: number | null;
+  currency_code: string | null;
+  platform_fee_percent: number | null;
+  platform_fee_fixed: number | null;
+  tax_rate: number | null;
+  share_count: string | number | null;
+  view_count: string | number | null;
+  favorite_count: string | number | null;
+  tags: unknown;
+  metadata: EventMetadataExtras | null;
+  created_at: string;
+  updated_at: string;
+  share_url: string | null;
+  enable_referrals: boolean | null;
+  enable_waitlist: boolean | null;
+  allow_guest_registration: boolean | null;
+  max_guests_per_registration: number | null;
+}
+
+interface EventTicketTypeRow {
+  id: string;
+  event_id: string;
+  name: string;
+  tier: string;
+  type: string;
+  description: string | null;
+  price: number;
+  original_price: number | null;
+  currency_code: string | null;
+  quantity_available: number | null;
+  quantity_sold: number | null;
+  max_per_order: number | null;
+  min_per_order: number | null;
+  sale_starts_at: string | null;
+  sale_ends_at: string | null;
+  includes_guest_registration: boolean | null;
+  max_guests_per_ticket: number | null;
+  benefits: unknown;
+  is_active: boolean | null;
+  sort_order: number | null;
+}
+
 // ─── Create Event ─────────────────────────────────────────────
 
-export async function createEvent(
-  sb: SupabaseClient,
-  params: CreateEventParams,
-): Promise<Event> {
+export async function createEvent(params: CreateEventParams): Promise<Event> {
   const now = new Date().toISOString();
   const start = new Date(params.startDate);
   const end = new Date(params.endDate);
@@ -54,13 +147,11 @@ export async function createEvent(
   // Ensure slug uniqueness
   let attempts = 0;
   while (attempts < 5) {
-    const { data: existing } = await sb
-      .from('events')
-      .select('id')
-      .eq('slug', slug)
-      .single();
-
-    if (!existing) break;
+    const existing = await query<{ id: string }>(
+      `SELECT id FROM events WHERE slug = $1 LIMIT 1`,
+      [slug],
+    );
+    if (existing.length === 0) break;
     slug = generateUniqueSlug(baseSlug);
     attempts++;
   }
@@ -71,116 +162,155 @@ export async function createEvent(
   const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
 
   const planConfig = SUBSCRIPTION_PLANS.free;
-  const event = {
-    organizer_id: params.organizerId,
-    organizer_name: '',
-    title: params.title,
-    slug,
-    description: params.description,
-    short_description: params.shortDescription,
-    category: params.category,
-    status: 'draft' as EventStatus,
-    start_date: params.startDate,
-    end_date: params.endDate,
-    timezone: params.timezone,
-    is_virtual: params.isVirtual,
-    venue_name: params.venueName ?? null,
-    venue_address: params.venueAddress ?? null,
-    venue_city: params.venueCity ?? null,
-    venue_country: params.venueCountry ?? null,
-    venue_lat: params.venueLat ?? null,
-    venue_lng: params.venueLng ?? null,
-    virtual_link: params.virtualLink ?? null,
-    cover_image_url: null,
-    gallery_images: [],
-    ticket_types: ticketTypes.map((t) => t.type),
-    min_price: minPrice,
-    max_price: maxPrice,
-    currency_code: params.currencyCode,
-    total_capacity: params.totalCapacity,
-    tickets_sold: 0,
-    is_free: params.isFree,
-    platform_fee_percent: planConfig.feePercent,
-    platform_fee_fixed: planConfig.feeFixed,
-    share_url: '',
-    referral_code: Math.random().toString(36).slice(2, 10),
-    referral_discount_percent: params.referralDiscountPercent,
-    enable_referrals: params.enableReferrals,
-    enable_waitlist: false,
-    require_approval: false,
-    allow_guest_registration: params.allowGuestRegistration,
-    max_guests_per_ticket: params.maxGuestsPerTicket,
-    tags: params.tags,
-    view_count: 0,
-    share_count: 0,
-    published_at: null,
-    created_at: now,
-    updated_at: now,
+  const ticketType: TicketType = params.isFree ? 'free' : 'paid';
+
+  const metadataExtras: EventMetadataExtras = {
+    venueLat: params.venueLat,
+    venueLng: params.venueLng,
+    minPrice,
+    maxPrice,
+    isFree: params.isFree,
+    referralCode: Math.random().toString(36).slice(2, 10),
+    referralDiscountPercent: params.referralDiscountPercent,
+    requiresApproval: false,
+    showGuestList: false,
+    allowRefunds: true,
+    refundDeadlineDays: 7,
   };
 
-  const { data: created, error } = await sb
-    .from('events')
-    .insert(event)
-    .select()
-    .single();
+  const created = await query<EventRow>(
+    `INSERT INTO events (
+       organizer_id, organizer_name, title, slug, description, short_description,
+       category, status, venue_name, venue_address, venue_city, venue_country,
+       is_virtual, virtual_link, start_date, end_date, timezone,
+       cover_image_url, gallery_images, ticket_type, total_capacity, tickets_sold,
+       currency_code, platform_fee_percent, platform_fee_fixed, tax_rate,
+       share_count, view_count, favorite_count, tags, metadata, created_at, updated_at,
+       share_url, enable_referrals, enable_waitlist, allow_guest_registration,
+       max_guests_per_registration
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6,
+       $7, $8, $9, $10, $11, $12,
+       $13, $14, $15, $16, $17,
+       $18, $19, $20, $21, $22,
+       $23, $24, $25, $26,
+       $27, $28, $29, $30, $31, $32, $33,
+       $34, $35, $36, $37,
+       $38
+     )
+     RETURNING *`,
+    [
+      params.organizerId,
+      '',
+      params.title,
+      slug,
+      params.description,
+      params.shortDescription,
+      params.category,
+      'draft',
+      params.venueName ?? null,
+      params.venueAddress ?? null,
+      params.venueCity ?? null,
+      params.venueCountry ?? null,
+      params.isVirtual,
+      params.virtualLink ?? null,
+      params.startDate,
+      params.endDate,
+      params.timezone,
+      null,
+      JSON.stringify([]),
+      ticketType,
+      params.totalCapacity,
+      0,
+      params.currencyCode,
+      planConfig.feePercent,
+      planConfig.feeFixed,
+      0,
+      0,
+      0,
+      0,
+      JSON.stringify(params.tags ?? []),
+      JSON.stringify(metadataExtras),
+      now,
+      now,
+      '',
+      params.enableReferrals,
+      false,
+      params.allowGuestRegistration,
+      params.maxGuestsPerTicket ?? 0,
+    ],
+  );
 
-  if (error) throw new Error(`Failed to create event: ${error.message}`);
+  const event = created[0];
+  if (!event) throw new Error('Failed to create event');
 
-  // Insert ticket types
+  // Insert ticket types (real table for tier/pricing config is
+  // `event_ticket_types`; `event_tickets` is for individual attendee
+  // tickets, see ticket-manager.ts)
   if (ticketTypes.length > 0) {
-    const ticketRows = ticketTypes.map((t, idx) => ({
-      event_id: created.id,
-      name: t.name,
-      type: t.type,
-      description: t.description,
-      price: t.price,
-      original_price: t.originalPrice ?? null,
-      currency_code: params.currencyCode,
-      quantity_available: t.quantityAvailable,
-      quantity_sold: 0,
-      max_per_order: t.maxPerOrder,
-      min_per_order: t.minPerOrder,
-      sale_starts_at: t.saleStartsAt,
-      sale_ends_at: t.saleEndsAt,
-      includes_guest_registration: t.includesGuestRegistration,
-      max_guests_per_ticket: t.maxGuestsPerTicket,
-      benefits: t.benefits,
-      is_active: t.isActive,
-      sort_order: idx,
-    }));
+    const columns = [
+      'event_id', 'name', 'tier', 'type', 'description', 'price', 'original_price',
+      'currency_code', 'quantity_available', 'quantity_sold', 'max_per_order',
+      'min_per_order', 'sale_starts_at', 'sale_ends_at', 'includes_guest_registration',
+      'max_guests_per_ticket', 'benefits', 'is_active', 'sort_order', 'created_at', 'updated_at',
+    ];
+    const values: unknown[] = [];
+    const placeholders = ticketTypes.map((t, idx) => {
+      const row = [
+        event.id,
+        t.name,
+        t.type, // TicketTierConfig-derived type here is actually a TicketTier value
+        t.price > 0 ? 'paid' : 'free',
+        t.description ?? null,
+        t.price,
+        t.originalPrice ?? null,
+        params.currencyCode,
+        t.quantityAvailable,
+        0,
+        t.maxPerOrder,
+        t.minPerOrder,
+        t.saleStartsAt,
+        t.saleEndsAt,
+        t.includesGuestRegistration,
+        t.maxGuestsPerTicket,
+        JSON.stringify(t.benefits ?? []),
+        t.isActive,
+        idx,
+        now,
+        now,
+      ];
+      const placeholderRow = columns.map((_, colIdx) => {
+        values.push(row[colIdx]);
+        return `$${idx * columns.length + colIdx + 1}`;
+      });
+      return `(${placeholderRow.join(', ')})`;
+    });
 
-    const { error: ticketError } = await sb
-      .from('event_tickets')
-      .insert(ticketRows);
-
-    if (ticketError) {
-      throw new Error(`Failed to create ticket types: ${ticketError.message}`);
-    }
+    await query(
+      `INSERT INTO event_ticket_types (${columns.join(', ')}) VALUES ${placeholders.join(', ')}`,
+      values,
+    );
   }
 
   // Update share URL
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://afribook.app';
   const shareUrl = `${origin}/events/${slug}`;
-  await sb.from('events').update({ share_url: shareUrl }).eq('id', created.id);
+  await query(`UPDATE events SET share_url = $1 WHERE id = $2`, [shareUrl, event.id]);
 
-  return mapEvent({ ...created, share_url: shareUrl });
+  return mapEvent({ ...event, share_url: shareUrl });
 }
 
 // ─── Update Event ─────────────────────────────────────────────
 
 export async function updateEvent(
-  sb: SupabaseClient,
   eventId: string,
   data: Partial<CreateEventParams>,
   userId: string,
 ): Promise<Event> {
-  const { data: existing, error: fetchError } = await sb
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .single();
+  const existingRows = await query<EventRow>(`SELECT * FROM events WHERE id = $1 LIMIT 1`, [eventId]);
+  const existing = existingRows[0];
 
-  if (fetchError || !existing) {
+  if (!existing) {
     throw new Error('Event not found');
   }
 
@@ -192,66 +322,74 @@ export async function updateEvent(
     throw new Error('Cannot update a completed event');
   }
 
-  const updates: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
+  const setClauses: string[] = ['updated_at = $1'];
+  const values: unknown[] = [new Date().toISOString()];
+  let idx = 2;
+
+  const addSet = (column: string, value: unknown) => {
+    setClauses.push(`${column} = $${idx}`);
+    values.push(value);
+    idx++;
   };
 
   if (data.title) {
-    updates.title = data.title;
-    updates.slug = generateUniqueSlug(slugify(data.title));
+    addSet('title', data.title);
+    addSet('slug', generateUniqueSlug(slugify(data.title)));
   }
-  if (data.description) updates.description = data.description;
-  if (data.shortDescription) updates.short_description = data.shortDescription;
-  if (data.category) updates.category = data.category;
-  if (data.startDate) updates.start_date = data.startDate;
-  if (data.endDate) updates.end_date = data.endDate;
-  if (data.timezone) updates.timezone = data.timezone;
-  if (data.isVirtual !== undefined) updates.is_virtual = data.isVirtual;
-  if (data.venueName !== undefined) updates.venue_name = data.venueName;
-  if (data.venueAddress !== undefined) updates.venue_address = data.venueAddress;
-  if (data.venueCity !== undefined) updates.venue_city = data.venueCity;
-  if (data.venueCountry !== undefined) updates.venue_country = data.venueCountry;
-  if (data.venueLat !== undefined) updates.venue_lat = data.venueLat;
-  if (data.venueLng !== undefined) updates.venue_lng = data.venueLng;
-  if (data.virtualLink !== undefined) updates.virtual_link = data.virtualLink;
-  if (data.tags) updates.tags = data.tags;
-  if (data.totalCapacity !== undefined) updates.total_capacity = data.totalCapacity;
-  if (data.enableReferrals !== undefined) updates.enable_referrals = data.enableReferrals;
-  if (data.referralDiscountPercent !== undefined) {
-    updates.referral_discount_percent = data.referralDiscountPercent;
-  }
+  if (data.description) addSet('description', data.description);
+  if (data.shortDescription) addSet('short_description', data.shortDescription);
+  if (data.category) addSet('category', data.category);
+  if (data.startDate) addSet('start_date', data.startDate);
+  if (data.endDate) addSet('end_date', data.endDate);
+  if (data.timezone) addSet('timezone', data.timezone);
+  if (data.isVirtual !== undefined) addSet('is_virtual', data.isVirtual);
+  if (data.venueName !== undefined) addSet('venue_name', data.venueName);
+  if (data.venueAddress !== undefined) addSet('venue_address', data.venueAddress);
+  if (data.venueCity !== undefined) addSet('venue_city', data.venueCity);
+  if (data.venueCountry !== undefined) addSet('venue_country', data.venueCountry);
+  if (data.virtualLink !== undefined) addSet('virtual_link', data.virtualLink);
+  if (data.tags) addSet('tags', JSON.stringify(data.tags));
+  if (data.totalCapacity !== undefined) addSet('total_capacity', data.totalCapacity);
+  if (data.enableReferrals !== undefined) addSet('enable_referrals', data.enableReferrals);
   if (data.allowGuestRegistration !== undefined) {
-    updates.allow_guest_registration = data.allowGuestRegistration;
+    addSet('allow_guest_registration', data.allowGuestRegistration);
   }
   if (data.maxGuestsPerTicket !== undefined) {
-    updates.max_guests_per_ticket = data.maxGuestsPerTicket;
+    addSet('max_guests_per_registration', data.maxGuestsPerTicket);
   }
 
-  const { data: updated, error } = await sb
-    .from('events')
-    .update(updates)
-    .eq('id', eventId)
-    .select()
-    .single();
+  // venueLat/venueLng and referralDiscountPercent are not real columns —
+  // merge them into the metadata jsonb bag instead.
+  if (data.venueLat !== undefined || data.venueLng !== undefined || data.referralDiscountPercent !== undefined) {
+    const mergedMetadata: EventMetadataExtras = {
+      ...(existing.metadata ?? {}),
+      ...(data.venueLat !== undefined ? { venueLat: data.venueLat } : {}),
+      ...(data.venueLng !== undefined ? { venueLng: data.venueLng } : {}),
+      ...(data.referralDiscountPercent !== undefined
+        ? { referralDiscountPercent: data.referralDiscountPercent }
+        : {}),
+    };
+    addSet('metadata', JSON.stringify(mergedMetadata));
+  }
 
-  if (error) throw new Error(`Failed to update event: ${error.message}`);
-  return mapEvent(updated);
+  values.push(eventId);
+  const updated = await query<EventRow>(
+    `UPDATE events SET ${setClauses.join(', ')} WHERE id = $${idx} RETURNING *`,
+    values,
+  );
+
+  const updatedEvent = updated[0];
+  if (!updatedEvent) throw new Error('Failed to update event');
+  return mapEvent(updatedEvent);
 }
 
 // ─── Publish Event ────────────────────────────────────────────
 
-export async function publishEvent(
-  sb: SupabaseClient,
-  eventId: string,
-  userId: string,
-): Promise<Event> {
-  const { data: existing, error: fetchError } = await sb
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .single();
+export async function publishEvent(eventId: string, userId: string): Promise<Event> {
+  const existingRows = await query<EventRow>(`SELECT * FROM events WHERE id = $1 LIMIT 1`, [eventId]);
+  const existing = existingRows[0];
 
-  if (fetchError || !existing) throw new Error('Event not found');
+  if (!existing) throw new Error('Event not found');
   if (existing.organizer_id !== userId) {
     throw new Error('Only the organizer can publish this event');
   }
@@ -262,36 +400,30 @@ export async function publishEvent(
     throw new Error('Cannot publish an event that has already ended');
   }
 
-  const { data: updated, error } = await sb
-    .from('events')
-    .update({
-      status: 'published',
-      published_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', eventId)
-    .select()
-    .single();
+  const now = new Date().toISOString();
+  const mergedMetadata: EventMetadataExtras = { ...(existing.metadata ?? {}), publishedAt: now };
 
-  if (error) throw new Error(`Failed to publish event: ${error.message}`);
-  return mapEvent(updated);
+  const updated = await query<EventRow>(
+    `UPDATE events SET status = $1, metadata = $2, updated_at = $3 WHERE id = $4 RETURNING *`,
+    ['published', JSON.stringify(mergedMetadata), now, eventId],
+  );
+
+  const updatedEvent = updated[0];
+  if (!updatedEvent) throw new Error('Failed to publish event');
+  return mapEvent(updatedEvent);
 }
 
 // ─── Cancel Event ─────────────────────────────────────────────
 
 export async function cancelEvent(
-  sb: SupabaseClient,
   eventId: string,
   userId: string,
   reason: string,
 ): Promise<Event> {
-  const { data: existing, error: fetchError } = await sb
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .single();
+  const existingRows = await query<EventRow>(`SELECT * FROM events WHERE id = $1 LIMIT 1`, [eventId]);
+  const existing = existingRows[0];
 
-  if (fetchError || !existing) throw new Error('Event not found');
+  if (!existing) throw new Error('Event not found');
   if (existing.organizer_id !== userId) {
     throw new Error('Only the organizer can cancel this event');
   }
@@ -302,55 +434,65 @@ export async function cancelEvent(
     throw new Error('Event is already cancelled');
   }
 
-  const { data: updated, error } = await sb
-    .from('events')
-    .update({
-      status: 'cancelled',
-      updated_at: new Date().toISOString(),
-      metadata: { cancellation_reason: reason, cancelled_at: new Date().toISOString() },
-    })
-    .eq('id', eventId)
-    .select()
-    .single();
+  const now = new Date().toISOString();
+  const mergedMetadata: EventMetadataExtras = {
+    ...(existing.metadata ?? {}),
+    cancellationReason: reason,
+    cancelledAt: now,
+  };
 
-  if (error) throw new Error(`Failed to cancel event: ${error.message}`);
+  const updated = await query<EventRow>(
+    `UPDATE events SET status = $1, updated_at = $2, metadata = $3 WHERE id = $4 RETURNING *`,
+    ['cancelled', now, JSON.stringify(mergedMetadata), eventId],
+  );
 
-  // Trigger refund process for paid registrations
-  const { data: registrations } = await sb
-    .from('ticket_purchases')
-    .select('id')
-    .eq('event_id', eventId)
-    .eq('order_status', 'confirmed');
+  const updatedEvent = updated[0];
+  if (!updatedEvent) throw new Error('Failed to cancel event');
 
-  if (registrations && registrations.length > 0) {
-    await sb.from('event_cancellation_refunds').insert(
-      registrations.map((r) => ({
-        event_id: eventId,
-        registration_id: r.id,
+  // Trigger refund process for paid registrations. `event_cancellation_refunds`
+  // does not exist — the closest real equivalent is `refunds`, which has no
+  // event_id column, so the event/registration linkage is stored in its
+  // metadata jsonb instead.
+  const registrations = await query<{ id: string; total: number }>(
+    `SELECT id, total FROM ticket_purchases WHERE event_id = $1 AND order_status = 'confirmed'`,
+    [eventId],
+  );
+
+  if (registrations.length > 0) {
+    const columns = ['transaction_id', 'amount', 'reason', 'status', 'metadata', 'created_at'];
+    const values: unknown[] = [];
+    const placeholders = registrations.map((r, idx) => {
+      const row = [
+        r.id,
+        r.total,
         reason,
-        status: 'pending',
-        created_at: new Date().toISOString(),
-      })),
+        'pending',
+        JSON.stringify({ event_id: eventId, registration_id: r.id }),
+        now,
+      ];
+      const placeholderRow = columns.map((_, colIdx) => {
+        values.push(row[colIdx]);
+        return `$${idx * columns.length + colIdx + 1}`;
+      });
+      return `(${placeholderRow.join(', ')})`;
+    });
+
+    await query(
+      `INSERT INTO refunds (${columns.join(', ')}) VALUES ${placeholders.join(', ')}`,
+      values,
     );
   }
 
-  return mapEvent(updated);
+  return mapEvent(updatedEvent);
 }
 
 // ─── Complete Event ───────────────────────────────────────────
 
-export async function completeEvent(
-  sb: SupabaseClient,
-  eventId: string,
-  userId: string,
-): Promise<Event> {
-  const { data: existing, error: fetchError } = await sb
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .single();
+export async function completeEvent(eventId: string, userId: string): Promise<Event> {
+  const existingRows = await query<EventRow>(`SELECT * FROM events WHERE id = $1 LIMIT 1`, [eventId]);
+  const existing = existingRows[0];
 
-  if (fetchError || !existing) throw new Error('Event not found');
+  if (!existing) throw new Error('Event not found');
   if (existing.organizer_id !== userId) {
     throw new Error('Only the organizer can complete this event');
   }
@@ -358,58 +500,46 @@ export async function completeEvent(
     throw new Error('Only published events can be marked as completed');
   }
 
-  const { data: updated, error } = await sb
-    .from('events')
-    .update({
-      status: 'completed',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', eventId)
-    .select()
-    .single();
+  const updated = await query<EventRow>(
+    `UPDATE events SET status = $1, updated_at = $2 WHERE id = $3 RETURNING *`,
+    ['completed', new Date().toISOString(), eventId],
+  );
 
-  if (error) throw new Error(`Failed to complete event: ${error.message}`);
-  return mapEvent(updated);
+  const updatedEvent = updated[0];
+  if (!updatedEvent) throw new Error('Failed to complete event');
+  return mapEvent(updatedEvent);
 }
 
 // ─── Get Event By ID ──────────────────────────────────────────
 
 export async function getEventById(
-  sb: SupabaseClient,
   eventId: string,
 ): Promise<(Event & { ticketTypes: EventTypeTicket[] }) | null> {
-  const { data: event, error } = await sb
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .single();
+  const events = await query<EventRow>(`SELECT * FROM events WHERE id = $1 LIMIT 1`, [eventId]);
+  const event = events[0];
+  if (!event) return null;
 
-  if (error || !event) return null;
+  const tickets = await query<EventTicketTypeRow>(
+    `SELECT * FROM event_ticket_types WHERE event_id = $1 ORDER BY sort_order ASC`,
+    [eventId],
+  );
 
-  const { data: tickets } = await sb
-    .from('event_tickets')
-    .select('*')
-    .eq('event_id', eventId)
-    .order('sort_order', { ascending: true });
+  const registrationCountRows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM ticket_purchases WHERE event_id = $1 AND order_status = 'confirmed'`,
+    [eventId],
+  );
 
-  const { count: registrationCount } = await sb
-    .from('ticket_purchases')
-    .select('id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('order_status', 'confirmed');
-
-  const { count: attendeeCount } = await sb
-    .from('ticket_purchases')
-    .select('id', { count: 'exact', head: true })
-    .eq('event_id', eventId)
-    .eq('check_in_status', 'checked_in');
+  const attendeeCountRows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM ticket_purchases WHERE event_id = $1 AND check_in_status = 'checked_in'`,
+    [eventId],
+  );
 
   return {
     ...mapEvent(event),
-    ticketTypes: (tickets ?? []).map(mapTicket),
+    ticketTypes: tickets.map(mapTicket),
     stats: {
-      registrations: registrationCount ?? 0,
-      attendees: attendeeCount ?? 0,
+      registrations: Number(registrationCountRows[0]?.count ?? 0),
+      attendees: Number(attendeeCountRows[0]?.count ?? 0),
     },
   } as Event & { ticketTypes: EventTypeTicket[]; stats: { registrations: number; attendees: number } };
 }
@@ -417,331 +547,295 @@ export async function getEventById(
 // ─── Get Event By Slug ────────────────────────────────────────
 
 export async function getEventBySlug(
-  sb: SupabaseClient,
   slug: string,
 ): Promise<(Event & { ticketTypes: EventTypeTicket[] }) | null> {
-  const { data: event, error } = await sb
-    .from('events')
-    .select('*')
-    .eq('slug', slug)
-    .single();
-
-  if (error || !event) return null;
+  const events = await query<EventRow>(`SELECT * FROM events WHERE slug = $1 LIMIT 1`, [slug]);
+  const event = events[0];
+  if (!event) return null;
 
   // Increment view count
-  await sb
-    .from('events')
-    .update({ view_count: (event.view_count ?? 0) + 1 })
-    .eq('id', event.id);
+  await query(`UPDATE events SET view_count = COALESCE(view_count, 0) + 1 WHERE id = $1`, [event.id]);
 
-  const { data: tickets } = await sb
-    .from('event_tickets')
-    .select('*')
-    .eq('event_id', event.id)
-    .order('sort_order', { ascending: true });
+  const tickets = await query<EventTicketTypeRow>(
+    `SELECT * FROM event_ticket_types WHERE event_id = $1 ORDER BY sort_order ASC`,
+    [event.id],
+  );
 
   return {
-    ...mapEvent(event),
-    ticketTypes: (tickets ?? []).map(mapTicket),
+    ...mapEvent({ ...event, view_count: Number(event.view_count ?? 0) + 1 }),
+    ticketTypes: tickets.map(mapTicket),
   } as Event & { ticketTypes: EventTypeTicket[] };
 }
 
 // ─── List Events ──────────────────────────────────────────────
 
 export async function listEvents(
-  sb: SupabaseClient,
   filters: EventFilters & { page?: number; limit?: number },
 ): Promise<PaginatedResult<Event>> {
   const page = filters.page ?? 1;
   const limit = Math.min(filters.limit ?? 20, 50);
   const offset = (page - 1) * limit;
 
-  let query = sb.from('events').select('*', { count: 'exact' });
+  const conditions: string[] = [];
+  const values: unknown[] = [];
+  let idx = 1;
 
-  if (filters.category) query = query.eq('category', filters.category);
-  if (filters.city) query = query.ilike('venue_city', `%${filters.city}%`);
-  if (filters.country) query = query.eq('venue_country', filters.country);
-  if (filters.isFree !== undefined) query = query.eq('is_free', filters.isFree);
-  if (filters.status) query = query.eq('status', filters.status);
-  if (filters.startDate) query = query.gte('start_date', filters.startDate);
-  if (filters.endDate) query = query.lte('end_date', filters.endDate);
+  const addCondition = (clause: string, value: unknown) => {
+    conditions.push(clause.replace('?', `$${idx}`));
+    values.push(value);
+    idx++;
+  };
+
+  if (filters.category) addCondition('category = ?', filters.category);
+  if (filters.city) addCondition('venue_city ILIKE ?', `%${filters.city}%`);
+  if (filters.country) addCondition('venue_country = ?', filters.country);
+  if (filters.isFree !== undefined) addCondition('ticket_type = ?', filters.isFree ? 'free' : 'paid');
+  if (filters.startDate) addCondition('start_date >= ?', filters.startDate);
+  if (filters.endDate) addCondition('end_date <= ?', filters.endDate);
   if (filters.search) {
-    query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    conditions.push(`(title ILIKE $${idx} OR description ILIKE $${idx})`);
+    values.push(`%${filters.search}%`);
+    idx++;
   }
 
-  query = query
-    .eq('status', filters.status ?? 'published')
-    .order('start_date', { ascending: true })
-    .range(offset, offset + limit - 1);
+  addCondition('status = ?', filters.status ?? 'published');
 
-  const { data, error, count } = await query;
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-  if (error) throw new Error(`Failed to list events: ${error.message}`);
+  const countRows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM events ${whereClause}`,
+    values,
+  );
+  const total = Number(countRows[0]?.count ?? 0);
+
+  const dataRows = await query<EventRow>(
+    `SELECT * FROM events ${whereClause} ORDER BY start_date ASC LIMIT $${idx} OFFSET $${idx + 1}`,
+    [...values, limit, offset],
+  );
 
   return {
-    data: (data ?? []).map(mapEvent),
-    total: count ?? 0,
+    data: dataRows.map(mapEvent),
+    total,
     page,
     limit,
-    totalPages: Math.ceil((count ?? 0) / limit),
+    totalPages: Math.ceil(total / limit),
   };
 }
 
 // ─── Organizer Events ─────────────────────────────────────────
 
 export async function getOrganizerEvents(
-  sb: SupabaseClient,
   userId: string,
   page: number = 1,
   limit: number = 20,
 ): Promise<PaginatedResult<Event>> {
   const offset = (page - 1) * limit;
 
-  const { data, error, count } = await sb
-    .from('events')
-    .select('*', { count: 'exact' })
-    .eq('organizer_id', userId)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const countRows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM events WHERE organizer_id = $1`,
+    [userId],
+  );
+  const total = Number(countRows[0]?.count ?? 0);
 
-  if (error) throw new Error(`Failed to get organizer events: ${error.message}`);
+  const dataRows = await query<EventRow>(
+    `SELECT * FROM events WHERE organizer_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`,
+    [userId, limit, offset],
+  );
 
   return {
-    data: (data ?? []).map(mapEvent),
-    total: count ?? 0,
+    data: dataRows.map(mapEvent),
+    total,
     page,
     limit,
-    totalPages: Math.ceil((count ?? 0) / limit),
+    totalPages: Math.ceil(total / limit),
   };
 }
 
 // ─── Featured Events ──────────────────────────────────────────
 
 export async function getFeaturedEvents(
-  sb: SupabaseClient,
   countryCode?: string,
   limit: number = 10,
 ): Promise<Event[]> {
-  let query = sb
-    .from('events')
-    .select('*')
-    .eq('status', 'published')
-    .eq('is_featured', true)
-    .gte('end_date', new Date().toISOString())
-    .order('start_date', { ascending: true })
-    .limit(limit);
+  // `is_featured` is not a real column on `events` — approximate "featured"
+  // by ordering published, upcoming events by view_count instead.
+  const conditions = [`status = 'published'`, `end_date >= $1`];
+  const values: unknown[] = [new Date().toISOString()];
+  let idx = 2;
 
   if (countryCode) {
-    query = query.eq('venue_country', countryCode);
+    conditions.push(`venue_country = $${idx}`);
+    values.push(countryCode);
+    idx++;
   }
 
-  const { data, error } = await query;
-  if (error) throw new Error(`Failed to get featured events: ${error.message}`);
-  return (data ?? []).map(mapEvent);
+  values.push(limit);
+
+  const rows = await query<EventRow>(
+    `SELECT * FROM events WHERE ${conditions.join(' AND ')} ORDER BY view_count DESC, start_date ASC LIMIT $${idx}`,
+    values,
+  );
+
+  return rows.map(mapEvent);
 }
 
 // ─── Upcoming Events ──────────────────────────────────────────
 
 export async function getUpcomingEvents(
-  sb: SupabaseClient,
   countryCode?: string,
   limit: number = 20,
 ): Promise<Event[]> {
-  let query = sb
-    .from('events')
-    .select('*')
-    .eq('status', 'published')
-    .gte('start_date', new Date().toISOString())
-    .order('start_date', { ascending: true })
-    .limit(limit);
+  const conditions = [`status = 'published'`, `start_date >= $1`];
+  const values: unknown[] = [new Date().toISOString()];
+  let idx = 2;
 
   if (countryCode) {
-    query = query.eq('venue_country', countryCode);
+    conditions.push(`venue_country = $${idx}`);
+    values.push(countryCode);
+    idx++;
   }
 
-  const { data, error } = await query;
-  if (error) throw new Error(`Failed to get upcoming events: ${error.message}`);
-  return (data ?? []).map(mapEvent);
+  values.push(limit);
+
+  const rows = await query<EventRow>(
+    `SELECT * FROM events WHERE ${conditions.join(' AND ')} ORDER BY start_date ASC LIMIT $${idx}`,
+    values,
+  );
+
+  return rows.map(mapEvent);
 }
 
 // ─── Past Events ──────────────────────────────────────────────
 
-export async function getPastEvents(
-  sb: SupabaseClient,
-  userId: string,
-  limit: number = 20,
-): Promise<Event[]> {
-  const { data: registrations, error: regError } = await sb
-    .from('ticket_purchases')
-    .select('event_id')
-    .eq('buyer_id', userId)
-    .eq('order_status', 'confirmed');
+export async function getPastEvents(userId: string, limit: number = 20): Promise<Event[]> {
+  const registrations = await query<{ event_id: string }>(
+    `SELECT event_id FROM ticket_purchases WHERE buyer_id = $1 AND order_status = 'confirmed'`,
+    [userId],
+  );
 
-  if (regError) throw new Error(`Failed to get past events: ${regError.message}`);
-
-  const eventIds = [...new Set((registrations ?? []).map((r) => r.event_id))];
+  const eventIds = [...new Set(registrations.map((r) => r.event_id))];
   if (eventIds.length === 0) return [];
 
-  const { data, error } = await sb
-    .from('events')
-    .select('*')
-    .in('id', eventIds)
-    .lt('end_date', new Date().toISOString())
-    .order('end_date', { ascending: false })
-    .limit(limit);
+  const rows = await query<EventRow>(
+    `SELECT * FROM events WHERE id = ANY($1::uuid[]) AND end_date < $2 ORDER BY end_date DESC LIMIT $3`,
+    [eventIds, new Date().toISOString(), limit],
+  );
 
-  if (error) throw new Error(`Failed to get past events: ${error.message}`);
-  return (data ?? []).map(mapEvent);
+  return rows.map(mapEvent);
 }
 
 // ─── Mappers ──────────────────────────────────────────────────
 
-function mapEvent(row: Record<string, unknown>): Event {
-  // The `events` table stores venue/location under two conventions depending
-  // on which schema revision created the row. Read both so existing rows map.
-  const venue =
-    (row.venue_name as string) ?? (row.venue as string) ?? '';
-  const address =
-    (row.venue_address as string) ?? (row.address as string) ?? '';
-  const city = (row.venue_city as string) ?? (row.city as string) ?? '';
-  const country = (row.venue_country as string) ?? (row.country as string) ?? '';
-  const countryCode = (row.country_code as string) ?? (row.venue_country as string) ?? '';
+function mapEvent(row: EventRow): Event {
+  const metadata = row.metadata ?? {};
 
-  // location may be a PostGIS string ("SRID=4326;POINT(lng lat)"),
-  // a GeoJSON Point, or absent entirely.
-  let location: { lat: number; lng: number };
-  const rawLocation = row.location as unknown;
-  if (
-    rawLocation &&
-    typeof rawLocation === 'object' &&
-    'lat' in rawLocation &&
-    'lng' in rawLocation
-  ) {
-    location = { lat: Number(rawLocation.lat), lng: Number(rawLocation.lng) };
-  } else if (typeof rawLocation === 'string' && rawLocation.includes('POINT(')) {
-    const coords = rawLocation.match(/POINT\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)/);
-    location = coords
-      ? { lat: Number(coords[2]), lng: Number(coords[1]) }
-      : { lat: 0, lng: 0 };
-  } else if (
-    rawLocation &&
-    typeof rawLocation === 'object' &&
-    'coordinates' in rawLocation
-  ) {
-    const [lng, lat] = (rawLocation as { coordinates: [number, number] }).coordinates ?? [0, 0];
-    location = { lat, lng };
-  } else {
-    location = {
-      lat: (row.venue_lat as number) ?? 0,
-      lng: (row.venue_lng as number) ?? 0,
-    };
-  }
+  const location = {
+    lat: metadata.venueLat ?? 0,
+    lng: metadata.venueLng ?? 0,
+  };
 
-  const isFree = (row.is_free as boolean) ?? row.ticket_type === 'free';
-  const ticketType = (row.ticket_type as TicketType) ?? (isFree ? 'free' : 'paid');
-  const rawTiers = row.ticket_tiers as unknown;
-  const ticketTiers: TicketTierConfig[] = Array.isArray(rawTiers)
-    ? (rawTiers as TicketTierConfig[])
-    : [];
+  const isFree = metadata.isFree ?? row.ticket_type === 'free';
+  const ticketType = row.ticket_type ?? (isFree ? 'free' : 'paid');
+  const tags = Array.isArray(row.tags) ? (row.tags as string[]) : [];
+  const galleryImages = Array.isArray(row.gallery_images) ? (row.gallery_images as string[]) : [];
 
   return {
-    id: row.id as string,
-    organizerId: row.organizer_id as string,
-    organizerName: (row.organizer_name as string) ?? '',
-    title: row.title as string,
-    slug: row.slug as string,
-    description: row.description as string,
-    shortDescription: (row.short_description as string) ?? '',
-    category: row.category as EventCategory,
-    status: row.status as EventStatus,
+    id: row.id,
+    organizerId: row.organizer_id,
+    organizerName: row.organizer_name ?? '',
+    title: row.title,
+    slug: row.slug,
+    description: row.description ?? '',
+    shortDescription: row.short_description ?? '',
+    category: row.category,
+    status: row.status,
 
-    venue,
-    venueName: venue || undefined,
-    venueAddress: address || undefined,
-    venueCity: city || undefined,
-    venueCountry: country || undefined,
+    venue: row.venue_name ?? '',
+    venueName: row.venue_name ?? undefined,
+    venueAddress: row.venue_address ?? undefined,
+    venueCity: row.venue_city ?? undefined,
+    venueCountry: row.venue_country ?? undefined,
     venueLat: location.lat || undefined,
     venueLng: location.lng || undefined,
-    address,
-    city,
-    country,
-    countryCode,
+    address: row.venue_address ?? '',
+    city: row.venue_city ?? '',
+    country: row.venue_country ?? '',
+    countryCode: row.venue_country ?? '',
     location,
-    isVirtual: (row.is_virtual as boolean) ?? false,
-    virtualLink: (row.virtual_link as string) ?? undefined,
+    isVirtual: row.is_virtual ?? false,
+    virtualLink: row.virtual_link ?? undefined,
 
-    startDate: row.start_date as string,
-    endDate: row.end_date as string,
-    timezone: row.timezone as string,
-    doorsOpenAt: (row.doors_open as string) ?? (row.doors_open_at as string) ?? undefined,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    timezone: row.timezone,
+    doorsOpenAt: row.doors_open_at ?? undefined,
 
-    coverImageUrl: (row.cover_image_url as string) ?? '',
-    galleryImages: (row.gallery_images as string[]) ?? [],
-    promoVideoUrl: (row.promo_video_url as string) ?? undefined,
-    flyerUrl: (row.flyer_url as string) ?? undefined,
+    coverImageUrl: row.cover_image_url ?? '',
+    galleryImages,
+    promoVideoUrl: metadata.promoVideoUrl,
+    flyerUrl: metadata.flyerUrl,
 
     ticketType,
-    ticketTypes: (row.ticket_types as EventCategory[]) ?? [],
-    ticketTiers,
-    totalCapacity: (row.total_capacity as number) ?? 0,
-    ticketsSold: (row.tickets_sold as number) ?? 0,
-    waitlistEnabled: (row.enable_waitlist as boolean) ?? (row.waitlist_enabled as boolean) ?? false,
+    ticketTiers: [] as TicketTierConfig[],
+    totalCapacity: row.total_capacity ?? 0,
+    ticketsSold: row.tickets_sold ?? 0,
+    waitlistEnabled: row.enable_waitlist ?? false,
 
-    currencyCode: (row.currency_code as string) ?? getCurrencyForCountry((row.country_code as string) ?? (row.venue_country as string) ?? 'NG'),
-    minPrice: (row.min_price as number) ?? undefined,
-    maxPrice: (row.max_price as number) ?? undefined,
+    currencyCode: row.currency_code ?? getCurrencyForCountry(row.venue_country ?? 'NG'),
+    minPrice: metadata.minPrice,
+    maxPrice: metadata.maxPrice,
     isFree,
-    platformFeePercent: (row.platform_fee_percent as number) ?? 5,
-    platformFeeFixed: (row.platform_fee_fixed as number) ?? 1,
-    taxRate: (row.tax_rate as number) ?? 0,
+    platformFeePercent: row.platform_fee_percent ?? 5,
+    platformFeeFixed: row.platform_fee_fixed ?? 1,
+    taxRate: row.tax_rate ?? 0,
 
-    requiresApproval: (row.require_approval as boolean) ?? (row.requires_approval as boolean) ?? false,
-    showGuestList: (row.show_guest_list as boolean) ?? false,
-    allowRefunds: (row.allow_refunds as boolean) ?? true,
-    refundDeadlineDays: (row.refund_deadline_days as number) ?? 7,
-    maxGuestsPerRegistration: (row.max_guests_per_registration as number) ?? (row.max_guests_per_ticket as number) ?? 0,
-    allowGuestRegistration: (row.allow_guest_registration as boolean) ?? undefined,
-    maxGuestsPerTicket: (row.max_guests_per_ticket as number) ?? undefined,
+    requiresApproval: metadata.requiresApproval ?? false,
+    showGuestList: metadata.showGuestList ?? false,
+    allowRefunds: metadata.allowRefunds ?? true,
+    refundDeadlineDays: metadata.refundDeadlineDays ?? 7,
+    maxGuestsPerRegistration: row.max_guests_per_registration ?? 0,
+    allowGuestRegistration: row.allow_guest_registration ?? undefined,
+    maxGuestsPerTicket: row.max_guests_per_registration ?? undefined,
 
-    metaTitle: (row.meta_title as string) ?? undefined,
-    metaDescription: (row.meta_description as string) ?? undefined,
-    shareImageUrl: (row.share_image_url as string) ?? undefined,
-    shareUrl: (row.share_url as string) ?? '',
-    tags: (row.tags as string[]) ?? [],
-    referralCode: (row.referral_code as string) ?? '',
-    referralDiscountPercent: (row.referral_discount_percent as number) ?? 0,
-    enableReferrals: (row.enable_referrals as boolean) ?? false,
+    metaTitle: metadata.metaTitle,
+    metaDescription: metadata.metaDescription,
+    shareImageUrl: metadata.shareImageUrl,
+    shareUrl: row.share_url ?? '',
+    tags,
+    referralCode: metadata.referralCode ?? '',
+    referralDiscountPercent: metadata.referralDiscountPercent ?? 0,
+    enableReferrals: row.enable_referrals ?? false,
 
-    viewCount: (row.view_count as number) ?? 0,
-    shareCount: (row.share_count as number) ?? 0,
-    favoriteCount: (row.favorite_count as number) ?? 0,
-    publishedAt: (row.published_at as string) ?? undefined,
+    viewCount: Number(row.view_count ?? 0),
+    shareCount: Number(row.share_count ?? 0),
+    favoriteCount: Number(row.favorite_count ?? 0),
+    publishedAt: metadata.publishedAt,
 
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
-function mapTicket(row: Record<string, unknown>): EventTypeTicket {
+function mapTicket(row: EventTicketTypeRow): EventTypeTicket {
   return {
-    id: row.id as string,
-    eventId: row.event_id as string,
-    name: row.name as string,
-    type: row.type as EventTypeTicket['type'],
-    description: (row.description as string) ?? '',
-    price: (row.price as number) ?? 0,
-    originalPrice: (row.original_price as number) ?? undefined,
-    currencyCode: (row.currency_code as string) ?? getCurrencyForCountry((row.country_code as string) ?? 'NG'),
-    quantityAvailable: (row.quantity_available as number) ?? 0,
-    quantitySold: (row.quantity_sold as number) ?? 0,
-    maxPerOrder: (row.max_per_order as number) ?? 10,
-    minPerOrder: (row.min_per_order as number) ?? 1,
-    saleStartsAt: row.sale_starts_at as string,
-    saleEndsAt: row.sale_ends_at as string,
-    includesGuestRegistration: (row.includes_guest_registration as boolean) ?? false,
-    maxGuestsPerTicket: (row.max_guests_per_ticket as number) ?? 0,
-    benefits: (row.benefits as string[]) ?? [],
-    isActive: (row.is_active as boolean) ?? true,
-    sortOrder: (row.sort_order as number) ?? 0,
+    id: row.id,
+    eventId: row.event_id,
+    name: row.name,
+    type: row.tier as EventTypeTicket['type'],
+    description: row.description ?? '',
+    price: Number(row.price) ?? 0,
+    originalPrice: row.original_price != null ? Number(row.original_price) : undefined,
+    currencyCode: row.currency_code ?? getCurrencyForCountry('NG'),
+    quantityAvailable: row.quantity_available ?? 0,
+    quantitySold: row.quantity_sold ?? 0,
+    maxPerOrder: row.max_per_order ?? 10,
+    minPerOrder: row.min_per_order ?? 1,
+    saleStartsAt: row.sale_starts_at ?? '',
+    saleEndsAt: row.sale_ends_at ?? '',
+    includesGuestRegistration: row.includes_guest_registration ?? false,
+    maxGuestsPerTicket: row.max_guests_per_ticket ?? 0,
+    benefits: Array.isArray(row.benefits) ? (row.benefits as string[]) : [],
+    isActive: row.is_active ?? true,
+    sortOrder: row.sort_order ?? 0,
   };
 }

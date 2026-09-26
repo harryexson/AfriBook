@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DEFAULT_COUNTRY } from '@/lib/localization/market-context';
 
 async function getDb() {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   return createClient() as any;
-}
-
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
 }
 
 // --- POST: Submit a driver application ----------------------
@@ -17,7 +12,6 @@ async function getAdminDb() {
 export async function POST(req: NextRequest) {
   try {
     const supabase = await getDb();
-    const adminDb = await getAdminDb();
 
     const {
       data: { user },
@@ -172,12 +166,10 @@ export async function POST(req: NextRequest) {
     // -- Update user role to driver ----------------------------
     // Done via the service-role client: trg_profiles_protect_privileged_columns
     // blocks direct role changes from the session client.
-    const { error: roleError } = await adminDb
-      .from('profiles')
-      .update({ role: 'driver' })
-      .eq('id', user.id);
-
-    if (roleError) {
+    try {
+      const { query } = await import('@/lib/neon/admin');
+      await query(`UPDATE profiles SET role = 'driver' WHERE id = $1`, [user.id]);
+    } catch (roleError) {
       console.error('[driver-apply] Failed to update user role:', roleError);
       // Non-fatal: driver profile was created, role update can be retried
     }

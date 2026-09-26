@@ -9,9 +9,9 @@ function verifySignature(body: string, signature: string, secret: string): boole
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
-async function getSupabase() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient();
+async function getDb() {
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
 
 interface RazorpayPayment {
@@ -41,91 +41,91 @@ interface RazorpayPayout {
 }
 
 async function handlePaymentAuthorized(payment: RazorpayPayment) {
-  const supabase = await getSupabase();
+  const query = await getDb();
 
-  await supabase
-    .from('payment_transactions')
-    .update({
-      status: 'processing',
-      provider_transaction_id: payment.id,
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('provider_transaction_id', payment.order_id);
+  await query(
+    `UPDATE payment_transactions SET status = 'processing', provider_transaction_id = $2, updated_at = now()
+     WHERE provider_transaction_id = $1`,
+    [payment.order_id, payment.id],
+  );
 }
 
 async function handlePaymentCaptured(payment: RazorpayPayment) {
-  const supabase = await getSupabase();
+  const query = await getDb();
 
-  await supabase
-    .from('payment_transactions')
-    .update({
-      status: 'succeeded',
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('provider_transaction_id', payment.id);
+  await query(
+    `UPDATE payment_transactions SET status = 'succeeded', updated_at = now() WHERE provider_transaction_id = $1`,
+    [payment.id],
+  );
 
   const bookingId = payment.notes?.afribook_booking_id;
   if (bookingId) {
-    await supabase
-      .from('bookings')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', bookingId);
+    // payment_status enum has no 'completed' value; 'succeeded' is the closest fit.
+    await query(
+      `UPDATE bookings SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [bookingId],
+    );
   }
 
   const orderId = payment.notes?.afribook_order_id;
   if (orderId) {
-    await supabase
-      .from('orders')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', orderId);
+    await query(
+      `UPDATE orders SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [orderId],
+    );
   }
 
   const customerId = payment.notes?.afribook_customer_id;
   if (customerId) {
-    await supabase.from('notifications').insert({
-      userId: customerId,
-      type: 'payment',
-      title: 'Payment Successful',
-      body: `Payment of ${(payment.amount / 100).toFixed(2)} ${payment.currency} via Razorpay was successful.`,
-      data: { razorpay_payment_id: payment.id, order_id: payment.order_id },
-    } as never);
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Payment Successful', $2, $3)`,
+      [
+        customerId,
+        `Payment of ${(payment.amount / 100).toFixed(2)} ${payment.currency} via Razorpay was successful.`,
+        JSON.stringify({ razorpay_payment_id: payment.id, order_id: payment.order_id }),
+      ],
+    );
   }
 }
 
 async function handlePaymentFailed(payment: RazorpayPayment) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const failureMessage = payment.error_description ?? payment.error_code ?? 'Payment failed';
 
-  await supabase
-    .from('payment_transactions')
-    .update({
-      status: 'failed',
-      metadata: {
+  await query(
+    `UPDATE payment_transactions SET status = 'failed', metadata = $2, updated_at = now()
+     WHERE provider_transaction_id = $1`,
+    [
+      payment.id,
+      JSON.stringify({
         failure_message: failureMessage,
         error_code: payment.error_code,
         failed_at: new Date().toISOString(),
-      },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('provider_transaction_id', payment.id);
+      }),
+    ],
+  );
 }
 
 async function handlePayoutProcessed(payout: RazorpayPayout) {
-  const supabase = await getSupabase();
+  const query = await getDb();
+  const isSuccess = payout.status === 'processed';
 
-  await supabase
-    .from('payouts')
-    .update({
-      status: payout.status === 'processed' ? 'completed' : 'failed',
-      provider_payout_id: payout.id,
-      paid_at: payout.status === 'processed' ? new Date().toISOString() : null,
-      metadata: {
+  // payouts has no updated_at column — only created_at / paid_at.
+  await query(
+    `UPDATE payouts SET status = $2, provider_payout_id = $3, paid_at = $4, metadata = $5
+     WHERE metadata->>'razorpay_payout_id' = $1`,
+    [
+      payout.id,
+      isSuccess ? 'completed' : 'failed',
+      payout.id,
+      isSuccess ? new Date().toISOString() : null,
+      JSON.stringify({
         razorpay_payout_id: payout.id,
         failure_reason: payout.failure_reason,
-      },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('metadata->>razorpay_payout_id', payout.id);
+      }),
+    ],
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -181,4 +181,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ received: true });
 }
-

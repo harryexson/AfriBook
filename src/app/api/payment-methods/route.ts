@@ -7,7 +7,7 @@ type LooseQuery = any;
 
 // GET /api/payment-methods — list the signed-in user's saved payment methods.
 export async function GET() {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -32,7 +32,7 @@ export async function GET() {
 // POST /api/payment-methods — create a saved payment method.
 // We persist only masked identifiers / provider tokens, never raw PANs.
 export async function POST(req: NextRequest) {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

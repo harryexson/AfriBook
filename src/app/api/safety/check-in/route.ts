@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { createDriverCheckIn } from '@/lib/pickup/safety-manager';
 
 export async function POST(req: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const { data: driver } = await supabase
     .from('drivers')
     .select('id')
-    .eq('userId', user.id)
+    .eq('profile_id', user.id)
     .single() as unknown as { data: { id: string } | null };
 
   if (!driver) {
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
   const { data: driver } = await supabase
     .from('drivers')
     .select('id')
-    .eq('userId', user.id)
+    .eq('profile_id', user.id)
     .single() as unknown as { data: { id: string } | null };
 
   if (!driver) {

@@ -7,7 +7,7 @@
 // migrations 001/006 (earnings_status, payout_type, `currency`).
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { getCurrencyForCountry } from '@/lib/money';
 
 // ─── Types ───────────────────────────────────────────────────

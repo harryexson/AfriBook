@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
 import Stripe from "stripe";
-
-const supabase = createServiceRoleClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from "@/lib/neon/admin";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 
@@ -18,19 +13,23 @@ export async function GET(
     const { id: registrationId } = await params;
     const { supabase: authSupabase, user } = await requireAuthenticatedUser();
 
-    const { data: registration, error: regError } = await supabase
-      .from("ticket_purchases")
-      .select(
-        `
-        *,
-        event_ticket_types(name, tier, type, benefits),
-        events(id, title, slug, start_date, end_date, venue_name, venue_address, venue_city, cover_image_url, organizer_name, timezone, status)
-      `,
-      )
-      .eq("id", registrationId)
-      .single();
+    const regRows = await query<Record<string, unknown>>(
+      `SELECT tp.*,
+              et.name AS tier_name, et.tier AS tier_tier, et.type AS tier_type, et.benefits AS tier_benefits,
+              ev.id AS ev_id, ev.title AS ev_title, ev.slug AS ev_slug, ev.start_date AS ev_start_date,
+              ev.end_date AS ev_end_date, ev.venue_name AS ev_venue_name, ev.venue_address AS ev_venue_address,
+              ev.venue_city AS ev_venue_city, ev.cover_image_url AS ev_cover_image_url,
+              ev.organizer_name AS ev_organizer_name, ev.timezone AS ev_timezone, ev.status AS ev_status
+       FROM ticket_purchases tp
+       LEFT JOIN event_ticket_types et ON et.id = tp.ticket_type_id
+       LEFT JOIN events ev ON ev.id = tp.event_id
+       WHERE tp.id = $1
+       LIMIT 1`,
+      [registrationId],
+    );
+    const registration = regRows[0];
 
-    if (regError || !registration) {
+    if (!registration) {
       return NextResponse.json(
         { success: false, error: "Registration not found" },
         { status: 404 },
@@ -56,24 +55,35 @@ export async function GET(
       );
     }
 
-    const { data: guests } = await supabase
-      .from("event_guests")
-      .select("*")
-      .eq("ticket_purchase_id", registrationId)
-      .order("created_at", { ascending: true });
+    const guests = await query<Record<string, unknown>>(
+      `SELECT * FROM event_guests WHERE ticket_purchase_id = $1 ORDER BY created_at ASC`,
+      [registrationId],
+    );
 
     return NextResponse.json({
       success: true,
       data: {
         ...registration,
+        event: {
+          id: registration.ev_id,
+          title: registration.ev_title,
+          slug: registration.ev_slug,
+          start_date: registration.ev_start_date,
+          end_date: registration.ev_end_date,
+          venue_name: registration.ev_venue_name,
+          venue_address: registration.ev_venue_address,
+          venue_city: registration.ev_venue_city,
+          cover_image_url: registration.ev_cover_image_url,
+          organizer_name: registration.ev_organizer_name,
+          timezone: registration.ev_timezone,
+          status: registration.ev_status,
+        },
         guests: guests ?? [],
         tickets: [
           {
             id: registration.id,
             ticketCode: registration.ticket_code,
-            tierName: (
-              registration.event_ticket_types as Record<string, unknown>
-            )?.name,
+            tierName: registration.tier_name,
             quantity: registration.quantity,
             status: registration.order_status,
             qrCodeUrl: registration.qr_code_url,
@@ -104,13 +114,19 @@ export async function PATCH(
     const body = await req.json();
     const { specialRequests } = body;
 
-    const { data: registration, error: fetchError } = await supabase
-      .from("ticket_purchases")
-      .select("id, buyer_id, event_id, order_status")
-      .eq("id", registrationId)
-      .single();
+    const regRows = await query<{
+      id: string;
+      buyer_id: string | null;
+      event_id: string;
+      order_status: string;
+      metadata: Record<string, unknown> | null;
+    }>(
+      `SELECT id, buyer_id, event_id, order_status, metadata FROM ticket_purchases WHERE id = $1 LIMIT 1`,
+      [registrationId],
+    );
+    const registration = regRows[0];
 
-    if (fetchError || !registration) {
+    if (!registration) {
       return NextResponse.json(
         { success: false, error: "Registration not found" },
         { status: 404 },
@@ -136,33 +152,23 @@ export async function PATCH(
       );
     }
 
-    const updateData: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
-
     if (specialRequests !== undefined) {
-      updateData.special_requests = specialRequests;
+      // ticket_purchases has no `special_requests` column — store it in metadata (jsonb).
+      const newMetadata = {
+        ...(registration.metadata ?? {}),
+        special_requests: specialRequests,
+      };
+      await query(
+        `UPDATE ticket_purchases SET metadata = $1, updated_at = now() WHERE id = $2`,
+        [JSON.stringify(newMetadata), registrationId],
+      );
     }
 
-    if (Object.keys(updateData).length > 1) {
-      const { error: updateError } = await supabase
-        .from("ticket_purchases")
-        .update(updateData)
-        .eq("id", registrationId);
-
-      if (updateError) {
-        return NextResponse.json(
-          { success: false, error: "Failed to update registration" },
-          { status: 500 },
-        );
-      }
-    }
-
-    const { data: updated } = await supabase
-      .from("ticket_purchases")
-      .select("*")
-      .eq("id", registrationId)
-      .single();
+    const updatedRows = await query<Record<string, unknown>>(
+      `SELECT * FROM ticket_purchases WHERE id = $1 LIMIT 1`,
+      [registrationId],
+    );
+    const updated = updatedRows[0];
 
     return NextResponse.json({
       success: true,
@@ -190,15 +196,24 @@ export async function DELETE(
     const { searchParams } = new URL(req.url);
     const reason = searchParams.get("reason") ?? "User requested cancellation";
 
-    const { data: registration, error: fetchError } = await supabase
-      .from("ticket_purchases")
-      .select(
-        "id, buyer_id, event_id, order_status, payment_status, quantity, total, ticket_type_id",
-      )
-      .eq("id", registrationId)
-      .single();
+    const regRows = await query<{
+      id: string;
+      buyer_id: string | null;
+      event_id: string;
+      order_status: string;
+      payment_status: string;
+      quantity: number;
+      total: number;
+      ticket_type_id: string | null;
+      metadata: Record<string, unknown> | null;
+    }>(
+      `SELECT id, buyer_id, event_id, order_status, payment_status, quantity, total, ticket_type_id, metadata
+       FROM ticket_purchases WHERE id = $1 LIMIT 1`,
+      [registrationId],
+    );
+    const registration = regRows[0];
 
-    if (fetchError || !registration) {
+    if (!registration) {
       return NextResponse.json(
         { success: false, error: "Registration not found" },
         { status: 404 },
@@ -234,13 +249,17 @@ export async function DELETE(
       );
     }
 
-    let refundResult = null;
+    let refundResult: { refundId?: string; amount?: number; error?: string } | null = null;
     if (registration.total > 0 && registration.payment_status === "completed") {
-      const { data: event } = await supabase
-        .from("events")
-        .select("allow_refunds, refund_deadline_days, start_date")
-        .eq("id", registration.event_id)
-        .single();
+      const eventRows = await query<{
+        allow_refunds: boolean | null;
+        refund_deadline_days: number | null;
+        start_date: string | null;
+      }>(
+        `SELECT allow_refunds, refund_deadline_days, start_date FROM events WHERE id = $1 LIMIT 1`,
+        [registration.event_id],
+      );
+      const event = eventRows[0];
 
       const allowsRefunds = event?.allow_refunds !== false;
       const deadlineDays = event?.refund_deadline_days ?? 7;
@@ -250,25 +269,21 @@ export async function DELETE(
         : new Date();
       const canRefund = allowsRefunds && new Date() < refundDeadline;
 
-      if (canRefund) {
-        try {
-          const { data: purchase } = await supabase
-            .from("ticket_purchases")
-            .select("payment_intent_id")
-            .eq("id", registrationId)
-            .single();
+      // ticket_purchases has no `payment_intent_id` column — it is stored in metadata (jsonb).
+      const paymentIntentId =
+        (registration.metadata?.payment_intent_id as string | undefined) ?? null;
 
-          if (purchase?.payment_intent_id) {
-            const refund = await stripe.refunds.create({
-              payment_intent: purchase.payment_intent_id,
-              reason: "requested_by_customer",
-              metadata: {
-                registration_id: registrationId,
-                reason,
-              },
-            });
-            refundResult = { refundId: refund.id, amount: refund.amount / 100 };
-          }
+      if (canRefund && paymentIntentId) {
+        try {
+          const refund = await stripe.refunds.create({
+            payment_intent: paymentIntentId,
+            reason: "requested_by_customer",
+            metadata: {
+              registration_id: registrationId,
+              reason,
+            },
+          });
+          refundResult = { refundId: refund.id, amount: refund.amount / 100 };
         } catch (stripeError) {
           refundResult = {
             error:
@@ -280,76 +295,71 @@ export async function DELETE(
       }
     }
 
-    const { error: cancelError } = await supabase
-      .from("ticket_purchases")
-      .update({
-        order_status: "cancelled",
-        payment_status:
-          refundResult && !("error" in (refundResult ?? {}))
-            ? "refunded"
-            : registration.payment_status,
-        refund_amount: registration.total,
-        cancelled_at: new Date().toISOString(),
-        cancellation_reason: reason,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", registrationId);
+    const newMetadata = {
+      ...(registration.metadata ?? {}),
+      refund_amount: registration.total,
+      cancelled_at: new Date().toISOString(),
+      cancellation_reason: reason,
+    };
 
-    if (cancelError) {
+    const cancelRows = await query<{ id: string }>(
+      `UPDATE ticket_purchases
+       SET order_status = 'cancelled',
+           payment_status = $1,
+           metadata = $2,
+           updated_at = now()
+       WHERE id = $3
+       RETURNING id`,
+      [
+        refundResult && !refundResult.error ? "refunded" : registration.payment_status,
+        JSON.stringify(newMetadata),
+        registrationId,
+      ],
+    );
+
+    if (!cancelRows[0]) {
       return NextResponse.json(
         { success: false, error: "Failed to cancel registration" },
         { status: 500 },
       );
     }
 
-    const { data: event } = await supabase
-      .from("events")
-      .select("tickets_sold")
-      .eq("id", registration.event_id)
-      .single();
+    const eventRows = await query<{ tickets_sold: number }>(
+      `SELECT tickets_sold FROM events WHERE id = $1 LIMIT 1`,
+      [registration.event_id],
+    );
+    const event = eventRows[0];
 
     if (event) {
-      await supabase
-        .from("events")
-        .update({
-          tickets_sold: Math.max(0, event.tickets_sold - registration.quantity),
-        })
-        .eq("id", registration.event_id);
+      await query(
+        `UPDATE events SET tickets_sold = GREATEST(0, tickets_sold - $1), updated_at = now() WHERE id = $2`,
+        [registration.quantity, registration.event_id],
+      );
     }
 
-    const { data: ticketType } = await supabase
-      .from("event_ticket_types")
-      .select("id, quantity_sold")
-      .eq("id", registration.ticket_type_id)
-      .single();
-
-    if (ticketType) {
-      await supabase
-        .from("event_ticket_types")
-        .update({
-          quantity_sold: Math.max(
-            0,
-            (ticketType.quantity_sold ?? 0) - registration.quantity,
-          ),
-        })
-        .eq("id", ticketType.id);
+    if (registration.ticket_type_id) {
+      await query(
+        `UPDATE event_ticket_types SET quantity_sold = GREATEST(0, quantity_sold - $1), updated_at = now() WHERE id = $2`,
+        [registration.quantity, registration.ticket_type_id],
+      );
     }
 
     if (registration.buyer_id) {
-      await supabase.from("notifications").insert({
-        user_id: registration.buyer_id,
-        type: "registration_cancelled",
-        title: "Registration Cancelled",
-        body:
-          refundResult && !("error" in (refundResult ?? {}))
+      await query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'registration_cancelled', 'Registration Cancelled', $2, $3)`,
+        [
+          registration.buyer_id,
+          refundResult && !refundResult.error
             ? `Your registration has been cancelled. A refund of ${refundResult.amount} has been initiated.`
             : `Your registration has been cancelled.${reason ? ` Reason: ${reason}` : ""}`,
-        data: {
-          registration_id: registrationId,
-          event_id: registration.event_id,
-          refund: refundResult,
-        },
-      });
+          JSON.stringify({
+            registration_id: registrationId,
+            event_id: registration.event_id,
+            refund: refundResult,
+          }),
+        ],
+      );
     }
 
     return NextResponse.json({

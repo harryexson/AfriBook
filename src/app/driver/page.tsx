@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useCountry } from '@/components/shared/CountryProvider'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/neon/client'
 import { subscribeToDriverOffers, type DriverOfferEvent } from '@/lib/realtime/ride-status'
 import {
   MapPin, Wallet, Route, Star, Wifi, WifiOff,
@@ -13,7 +13,36 @@ import {
 } from 'lucide-react'
 import TripCard from '@/components/shared/TripCard'
 import TripRequest from '@/components/shared/TripRequest'
-import type { Trip } from '@/types'
+import type { Address, Trip } from '@/types'
+
+interface DriverTripApi {
+  id: string
+  kind: 'ride' | 'delivery'
+  status: string
+  pickup: string
+  dropoff: string
+  distanceKm: number
+  durationMin: number
+  earnings: number
+}
+
+function toAddress(street: string): Address {
+  return { street, city: '', state: '', postalCode: '', countryCode: '', formatted: street }
+}
+
+function toTrip(t: DriverTripApi): Trip {
+  return {
+    id: t.id,
+    driverId: '',
+    type: t.kind === 'delivery' ? 'delivery' : 'pickup',
+    status: t.status === 'completed' || t.status === 'delivered' ? 'delivered' : t.status === 'cancelled' ? 'cancelled' : 'in_transit',
+    pickupAddress: toAddress(t.pickup),
+    dropoffAddress: toAddress(t.dropoff),
+    distanceKm: t.distanceKm,
+    durationMin: t.durationMin,
+    earnings: t.earnings,
+  }
+}
 
 const CONTAINER = {
   hidden: { opacity: 0 },
@@ -31,31 +60,6 @@ const QUICK_ACTIONS = [
   { label: 'View Earnings', icon: Wallet, href: '/driver/earnings' },
   { label: 'My Vehicle', icon: Car, href: '/driver/vehicle' },
   { label: 'Trip History', icon: Route, href: '/driver/trips' },
-]
-
-const MOCK_TRIPS: Trip[] = [
-  // Still hardcoded — recent trip history should come from the driver's own
-  // ride/delivery records (the same tables `driver-payouts.ts` reads for
-  // earnings), not a fixed sample list. Left as-is rather than guessing at
-  // the right query; flagging as the next real fix, not shipping a fake one.
-  {
-    id: 't1', driverId: 'd1', type: 'delivery', status: 'delivered',
-    pickupAddress: { street: '123 Main St', city: 'Lagos', state: 'LA', postalCode: '100001', countryCode: 'NG', formatted: '123 Main St, Lagos' },
-    dropoffAddress: { street: '456 Oak Ave', city: 'Lagos', state: 'LA', postalCode: '100002', countryCode: 'NG', formatted: '456 Oak Ave, Lagos' },
-    distanceKm: 5.2, durationMin: 18, earnings: 1200,
-  },
-  {
-    id: 't2', driverId: 'd1', type: 'pickup', status: 'delivered',
-    pickupAddress: { street: '789 Pine Rd', city: 'Lagos', state: 'LA', postalCode: '100003', countryCode: 'NG', formatted: '789 Pine Rd, Lagos' },
-    dropoffAddress: { street: '321 Elm St', city: 'Lagos', state: 'LA', postalCode: '100004', countryCode: 'NG', formatted: '321 Elm St, Lagos' },
-    distanceKm: 3.8, durationMin: 12, earnings: 850,
-  },
-  {
-    id: 't3', driverId: 'd1', type: 'delivery', status: 'delivered',
-    pickupAddress: { street: '555 Market St', city: 'Lagos', state: 'LA', postalCode: '100005', countryCode: 'NG', formatted: '555 Market St, Lagos' },
-    dropoffAddress: { street: '777 Park Ave', city: 'Lagos', state: 'LA', postalCode: '100006', countryCode: 'NG', formatted: '777 Park Ave, Lagos' },
-    distanceKm: 7.1, durationMin: 25, earnings: 2100,
-  },
 ]
 
 type EarningsSummary = { totalEarnings: number; tripCount: number }
@@ -95,6 +99,8 @@ export default function DriverDashboardPage() {
   const [tripRequest, setTripRequest] = useState<ReturnType<typeof toTripRequestData> | null>(null)
   const [acceptingOffer, setAcceptingOffer] = useState(false)
   const [dispatchError, setDispatchError] = useState<string | null>(null)
+  const [rating, setRating] = useState<number | null>(null)
+  const [recentTrips, setRecentTrips] = useState<Trip[]>([])
 
   // Load real persisted status on mount, so a page refresh doesn't
   // silently reset an actually-online driver back to "Offline".
@@ -106,10 +112,25 @@ export default function DriverDashboardPage() {
         if (cancelled || !data.success) return
         setDriverId(data.driverId)
         setIsOnline(data.isOnline)
+        setRating(data.rating)
       })
       .finally(() => {
         if (!cancelled) setStatusLoading(false)
       })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/driver/trips?status=completed&limit=3')
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled || !data.success) return
+        setRecentTrips((data.trips as DriverTripApi[]).map(toTrip))
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -271,7 +292,7 @@ export default function DriverDashboardPage() {
           {[
             { label: "Today's Earnings", value: today ? formatCurrency(today.totalEarnings, currencyCode) : '—', icon: Wallet },
             { label: 'Trips Today', value: today ? String(today.tripCount) : '—', icon: Route },
-            { label: 'Rating', value: '4.92', icon: Star }, // still mock — see note below on driver profile rating
+            { label: 'Rating', value: rating != null ? rating.toFixed(2) : '—', icon: Star },
           ].map((stat) => (
             <div key={stat.label} className="rounded-2xl bg-surface border border-border p-4 hover:shadow-md hover:border-amber-500/20 transition-all">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-3 text-amber-600 bg-amber-100 dark:bg-amber-900/30">
@@ -353,9 +374,13 @@ export default function DriverDashboardPage() {
             </Link>
           </div>
           <div className="space-y-2">
-            {MOCK_TRIPS.map((trip, i) => (
-              <TripCard key={trip.id} trip={trip} index={i} />
-            ))}
+            {recentTrips.length === 0 ? (
+              <p className="text-sm text-text-tertiary text-center py-6">No completed trips yet.</p>
+            ) : (
+              recentTrips.map((trip, i) => (
+                <TripCard key={trip.id} trip={trip} index={i} />
+              ))
+            )}
           </div>
         </motion.div>
       </motion.div>

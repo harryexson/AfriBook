@@ -4,11 +4,7 @@ import {
   type RideType,
 } from '@/types/ridely';
 import { getCurrencyForCountry } from '@/lib/money';
-
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
-}
+import { query } from '@/lib/neon/admin';
 
 function calculateSurgeMultiplier(activeDrivers: number, activeRequests: number): number {
   if (activeDrivers === 0) return 3.0;
@@ -45,13 +41,12 @@ export async function GET(req: NextRequest) {
 
     const country = typeof countryCode === 'string' && countryCode ? countryCode : 'NG';
     const currencyCode = getCurrencyForCountry(country);
-    const adminDb = await getAdminDb();
 
-    const { data: surgeMultiplier } = await adminDb.rpc(
-      'get_surge_multiplier' as never,
-      { p_lat: lat, p_lng: lng } as never,
+    const surgeRows = await query<{ multiplier: number | null }>(
+      'SELECT get_surge_multiplier($1, $2) AS multiplier',
+      [lat, lng],
     );
-    const multiplierFromZone = (surgeMultiplier as number | null) ?? 1;
+    const multiplierFromZone = surgeRows[0]?.multiplier ?? 1;
 
     if (multiplierFromZone > 1) {
       const cfg = RIDE_TYPE_CONFIG[rideType];
@@ -76,24 +71,20 @@ export async function GET(req: NextRequest) {
     }
 
     const searchRadius = 3;
-    const { data: nearbyDrivers } = await adminDb.rpc(
-      'ridely_find_nearby_drivers' as never,
-      {
-        p_lat: lat,
-        p_lng: lng,
-        p_radius_km: searchRadius,
-        p_vehicle_type: rideType,
-      } as never,
+    const nearbyDrivers = await query(
+      'SELECT * FROM ridely_find_nearby_drivers($1, $2, $3, $4)',
+      [lat, lng, searchRadius, rideType],
     );
 
     const activeDrivers = nearbyDrivers?.length ?? 0;
 
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    const { count: activeRequests } = await adminDb
-      .from('ridely_rides')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['requesting', 'searching'])
-      .gte('created_at', fiveMinAgo);
+    const countRows = await query<{ count: string }>(
+      `SELECT count(*) FROM ridely_rides
+       WHERE status IN ('requesting', 'searching') AND created_at >= $1`,
+      [fiveMinAgo],
+    );
+    const activeRequests = Number(countRows[0]?.count ?? 0);
 
     const multiplier = calculateSurgeMultiplier(activeDrivers, activeRequests ?? 0);
 

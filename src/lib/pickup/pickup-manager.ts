@@ -3,7 +3,7 @@
 // transitions, and secure code-based handoff.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import type { PickupOrder, PickupStatus, PickupOrderInsert } from '@/types/pickup-security';
 
 // ─── Create Pickup Order ──────────────────────────────────────

@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { getCurrencyForCountry } from '@/lib/money';
-
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
-}
+import { query } from '@/lib/neon/admin';
 
 interface OrderLineInput {
   productId?: string;
@@ -187,8 +183,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 });
   }
 
-  const adminDb = await getAdminDb();
-
   // Persist canonical line items (RLS allows because the order belongs to the customer).
   await supabase
     .from('order_items')
@@ -229,13 +223,16 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  await adminDb.from('notifications').insert({
-    user_id: user.id,
-    type: 'order',
-    title: orderType === 'food' ? 'Food Order Placed' : 'Order Placed',
-    body: `Your order #${order.id} has been placed.`,
-    data: { order_id: order.id, total, currency, type: orderType },
-  });
+  await query(
+    `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5)`,
+    [
+      user.id,
+      'order',
+      orderType === 'food' ? 'Food Order Placed' : 'Order Placed',
+      `Your order #${order.id} has been placed.`,
+      JSON.stringify({ order_id: order.id, total, currency, type: orderType }),
+    ],
+  );
 
   const { data: ownerRow } = await supabase
     .from('businesses')
@@ -244,13 +241,16 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (ownerRow?.owner_id && ownerRow.owner_id !== user.id) {
-    await adminDb.from('notifications').insert({
-      user_id: ownerRow.owner_id,
-      type: 'order',
-      title: 'New Order Received',
-      body: `New ${orderType} order #${order.id} for ${business.name}.`,
-      data: { order_id: order.id, total, currency, type: orderType },
-    });
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5)`,
+      [
+        ownerRow.owner_id,
+        'order',
+        'New Order Received',
+        `New ${orderType} order #${order.id} for ${business.name}.`,
+        JSON.stringify({ order_id: order.id, total, currency, type: orderType }),
+      ],
+    );
   }
 
   return NextResponse.json(order, { status: 201 });
@@ -316,7 +316,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
   }
 
-  return NextResponse.json({ data, count, page, limit });
+  const orderRows = (data ?? []) as { business_id?: string }[];
+  const businessIds = [...new Set(orderRows.map((o) => o.business_id).filter(Boolean))];
+  let businessNames: Record<string, string> = {};
+  if (businessIds.length > 0) {
+    const { data: businesses } = await supabase.from('businesses').select('id, name').in('id', businessIds);
+    businessNames = Object.fromEntries((businesses ?? []).map((b: any) => [b.id, b.name]));
+  }
+  const orders = orderRows.map((o: any) => ({ ...o, businessName: businessNames[o.business_id] ?? 'AfriBook' }));
+
+  return NextResponse.json({ success: true, orders, data: orders, count, page, limit });
 }
 
 export async function PUT(req: NextRequest) {

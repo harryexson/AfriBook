@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-
-const admin = createAdminClient() as any;
+import { requireAuthenticatedUser } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 
 const MENU_CATEGORIES = ['starter', 'main', 'dessert', 'drink', 'snack', 'other'];
 
 async function assertOrganizer(userId: string, eventId: string): Promise<void> {
-  const { data: evt } = await admin
-    .from('events')
-    .select('id, organizer_id, celebration_type, allow_menu_choice')
-    .eq('id', eventId)
-    .single();
+  const rows = await query<{
+    id: string;
+    organizer_id: string;
+    celebration_type: string | null;
+    allow_menu_choice: boolean | null;
+  }>(
+    `SELECT id, organizer_id, celebration_type, allow_menu_choice FROM events WHERE id = $1 LIMIT 1`,
+    [eventId],
+  );
+  const evt = rows[0] ?? null;
 
   if (!evt || evt.celebration_type == null) {
     throw Object.assign(new Error('Not found: not a celebration'), { status: 404 });
@@ -35,13 +38,12 @@ export async function GET(
     const { user } = await requireAuthenticatedUser();
     await assertOrganizer(user.id, eventId);
 
-    const { data: items } = await admin
-      .from('celebration_menu_items')
-      .select('*')
-      .eq('event_id', eventId)
-      .order('sort_order', { ascending: true });
+    const items = await query(
+      `SELECT * FROM celebration_menu_items WHERE event_id = $1 ORDER BY sort_order ASC`,
+      [eventId],
+    );
 
-    return NextResponse.json({ success: true, data: { items: items ?? [] } });
+    return NextResponse.json({ success: true, data: { items } });
   } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error?.message ?? 'Internal server error' },
@@ -98,12 +100,41 @@ export async function POST(
       };
     });
 
-    const { data: created, error } = await admin
-      .from('celebration_menu_items')
-      .insert(rows)
-      .select();
+    const columns = [
+      'event_id',
+      'name',
+      'category',
+      'description',
+      'is_vegetarian',
+      'is_vegan',
+      'is_halal',
+      'is_kosher',
+      'allergens',
+      'price',
+      'is_active',
+      'sort_order',
+      'created_at',
+      'updated_at',
+    ];
+    const values: unknown[] = [];
+    const valuePlaceholders = rows.map((row, rowIndex) => {
+      const placeholders = columns.map((col, colIndex) => {
+        const value = (row as Record<string, unknown>)[col];
+        values.push(col === 'allergens' ? JSON.stringify(value) : value);
+        return `$${rowIndex * columns.length + colIndex + 1}`;
+      });
+      return `(${placeholders.join(', ')})`;
+    });
 
-    if (error) {
+    let created: unknown[] = [];
+    try {
+      created = await query(
+        `INSERT INTO celebration_menu_items (${columns.join(', ')})
+         VALUES ${valuePlaceholders.join(', ')}
+         RETURNING *`,
+        values,
+      );
+    } catch {
       return NextResponse.json(
         { success: false, error: 'Failed to create menu items' },
         { status: 500 },
@@ -113,8 +144,8 @@ export async function POST(
     return NextResponse.json(
       {
         success: true,
-        data: { items: created ?? [], count: created?.length ?? 0 },
-        message: `${created?.length ?? 0} menu item(s) added`,
+        data: { items: created, count: created.length },
+        message: `${created.length} menu item(s) added`,
       },
       { status: 201 },
     );

@@ -6,6 +6,7 @@ import { getCurrencyForCountry, getCurrencySymbol } from '../lib/money';
 
 const STORED_COUNTRY = 'afribook.market.country';
 const STORED_EXPLICIT = 'afribook.market.explicit';
+const STORED_SHOW_ESTIMATE = 'afribook.market.showCurrencyEstimate';
 const FALLBACK = 'NG';
 
 /**
@@ -34,9 +35,17 @@ interface MarketState {
   detectedCountry: string | null;
   isExplicit: boolean;
   hydrated: boolean;
+  /**
+   * Opt-in only, mirroring src/components/shared/CountryProvider.tsx on web.
+   * Uber, Airbnb and Amazon all treat a converted price in the viewer's own
+   * currency as something the viewer asks to see, never a silent default —
+   * the listing's own currency stays the bound, charged amount regardless.
+   */
+  showCurrencyEstimate: boolean;
 
   hydrate: () => Promise<void>;
   setCountry: (code: string, opts?: { explicit?: boolean }) => void;
+  setShowCurrencyEstimate: (value: boolean) => void;
 
   country: () => CountryConfig | undefined;
   currencyCode: () => string;
@@ -81,15 +90,18 @@ export const useMarketStore = create<MarketState>()((set, get) => ({
   detectedCountry: null,
   isExplicit: false,
   hydrated: false,
+  showCurrencyEstimate: false,
 
   hydrate: async () => {
     if (get().hydrated) return;
 
-    const [stored, explicitFlag] = await Promise.all([
+    const [stored, explicitFlag, showEstimate] = await Promise.all([
       AsyncStorage.getItem(STORED_COUNTRY).catch(() => null),
       AsyncStorage.getItem(STORED_EXPLICIT).catch(() => null),
+      AsyncStorage.getItem(STORED_SHOW_ESTIMATE).catch(() => null),
     ]);
     const explicit = explicitFlag === 'true';
+    if (showEstimate === 'true') set({ showCurrencyEstimate: true });
 
     // Apply the stored market immediately, so the first frame isn't the wrong
     // country while location resolves.
@@ -116,6 +128,11 @@ export const useMarketStore = create<MarketState>()((set, get) => ({
 
     AsyncStorage.setItem(STORED_COUNTRY, next).catch(() => {});
     AsyncStorage.setItem(STORED_EXPLICIT, String(explicit)).catch(() => {});
+  },
+
+  setShowCurrencyEstimate: (value) => {
+    set({ showCurrencyEstimate: value });
+    AsyncStorage.setItem(STORED_SHOW_ESTIMATE, String(value)).catch(() => {});
   },
 
   country: () => COUNTRIES[get().countryCode],

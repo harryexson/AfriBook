@@ -10,7 +10,7 @@
 // one blended number.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { getCurrencyForCountry } from '@/lib/money';
 
 export type AnalyticsPeriod = '7d' | '30d';

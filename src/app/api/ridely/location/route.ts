@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from '@/lib/neon/admin';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,13 +20,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: driver, error: driverError } = await supabase
-      .from('drivers')
-      .select('id, status')
-      .eq('id', driverId)
-      .single();
+    const driverRows = await query<{ id: string; status: string }>(
+      'SELECT id, status FROM drivers WHERE id = $1',
+      [driverId],
+    );
+    const driver = driverRows[0];
 
-    if (driverError || !driver) {
+    if (!driver) {
       return NextResponse.json(
         { success: false, error: 'Driver not found' },
         { status: 404 },
@@ -40,38 +35,22 @@ export async function POST(req: NextRequest) {
 
     const now = new Date().toISOString();
 
-    const { error: insertError } = await supabase
-      .from('ridely_driver_locations')
-      .insert({
-        driver_id: driverId,
-        lat,
-        lng,
-        heading,
-        speed,
-        accuracy,
-        updated_at: now,
-      });
+    // NOTE: original code wrote to a table named `ridely_driver_locations`,
+    // which does not exist in the real schema (confirmed via information_schema) —
+    // the real table is `driver_locations`, storing position as a PostGIS
+    // `geography` point rather than separate lat/lng columns. This was a
+    // silently-dropped write under Supabase; fixed here to hit the real table.
+    await query(
+      `INSERT INTO driver_locations (driver_id, location, heading, speed, accuracy, last_seen_at)
+       VALUES ($1, ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography, $4, $5, $6, $7)`,
+      [driverId, lng, lat, heading, speed, accuracy, now],
+    );
 
-    if (insertError) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to store location' },
-        { status: 500 },
-      );
-    }
-
-    await supabase.channel(`driver_location:${driverId}`).send({
-      type: 'broadcast',
-      event: 'location_update',
-      payload: {
-        driverId,
-        lat,
-        lng,
-        heading,
-        speed,
-        accuracy,
-        updatedAt: now,
-      },
-    });
+    // NOTE: the original code also broadcast this update via Supabase
+    // Realtime (`supabase.channel(...).send(...)`). Neon has no equivalent
+    // realtime broadcast primitive documented for this migration, so the
+    // broadcast is dropped here — real-time driver location updates to
+    // subscribed clients need a separate solution (follow-up, not in scope).
 
     return NextResponse.json({
       success: true,
@@ -95,20 +74,27 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data: location, error } = await supabase
-      .from('ridely_driver_locations')
-      .select('driver_id, lat, lng, heading, speed, accuracy, updated_at')
-      .eq('driver_id', driverId)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch location' },
-        { status: 500 },
-      );
-    }
+    const rows = await query<{
+      driver_id: string;
+      lat: number;
+      lng: number;
+      heading: number | null;
+      speed: number | null;
+      accuracy: number | null;
+      updated_at: string;
+    }>(
+      `SELECT driver_id,
+              ST_Y(location::geometry) AS lat,
+              ST_X(location::geometry) AS lng,
+              heading, speed, accuracy,
+              last_seen_at AS updated_at
+       FROM driver_locations
+       WHERE driver_id = $1
+       ORDER BY last_seen_at DESC
+       LIMIT 1`,
+      [driverId],
+    );
+    const location = rows[0] ?? null;
 
     if (!location) {
       return NextResponse.json(

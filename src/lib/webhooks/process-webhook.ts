@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { query } from '@/lib/neon/admin';
 
 export interface ParsedWebhookEvent {
   /** Provider event id, used as the idempotency key. */
@@ -24,24 +24,17 @@ export async function applyWebhookEvent(
   provider: string,
   event: ParsedWebhookEvent,
 ): Promise<void> {
-  const supabase = createAdminClient();
+  const existing = await query<{ id: string }>(
+    `SELECT id FROM webhook_events WHERE provider = $1 AND event_id = $2`,
+    [provider, event.eventId],
+  );
 
-  const existing = await supabase
-    .from('webhook_events')
-    .select('id')
-    .eq('provider', provider)
-    .eq('event_id', event.eventId)
-    .maybeSingle();
-
-  if (!existing.data) {
-    await supabase.from('webhook_events').insert({
-      provider,
-      event_type: event.eventType,
-      event_id: event.eventId,
-      idempotency_key: event.eventId,
-      raw_event: event.rawEvent,
-      processed_at: new Date().toISOString(),
-    } as never);
+  if (existing.length === 0) {
+    await query(
+      `INSERT INTO webhook_events (provider, event_type, event_id, idempotency_key, raw_event, processed_at)
+       VALUES ($1, $2, $3, $4, $5, now())`,
+      [provider, event.eventType, event.eventId, event.eventId, JSON.stringify(event.rawEvent)],
+    );
   }
 
   if (event.status === 'ignored' || !event.providerTransactionId) {
@@ -50,63 +43,61 @@ export async function applyWebhookEvent(
 
   const nextStatus = event.status === 'succeeded' ? 'succeeded' : 'failed';
 
-  await supabase
-    .from('payment_transactions')
-    .update({
-      status: nextStatus,
-      provider_transaction_id: event.providerTransactionId,
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('provider_transaction_id', event.providerTransactionId);
+  await query(
+    `UPDATE payment_transactions SET status = $1, provider_transaction_id = $2, updated_at = now()
+     WHERE provider_transaction_id = $2`,
+    [nextStatus, event.providerTransactionId],
+  );
 
   if (nextStatus !== 'succeeded') {
     return;
   }
 
-  const txResult = await supabase
-    .from('payment_transactions')
-    .select('metadata, booking_id, order_id, ridely_ride_id, delivery_id')
-    .eq('provider_transaction_id', event.providerTransactionId)
-    .single() as unknown as {
-    data: {
-      metadata: Record<string, unknown> | null;
-      booking_id: string | null;
-      order_id: string | null;
-    } | null;
-  };
+  const txRows = await query<{
+    metadata: Record<string, unknown> | null;
+    booking_id: string | null;
+    order_id: string | null;
+  }>(
+    `SELECT metadata, booking_id, order_id, ridely_ride_id, delivery_id
+     FROM payment_transactions WHERE provider_transaction_id = $1`,
+    [event.providerTransactionId],
+  );
 
-  const meta = txResult.data?.metadata ?? {};
-  const bookingId = (meta.afribook_booking_id as string) ?? txResult.data?.booking_id;
-  const orderId = (meta.afribook_order_id as string) ?? txResult.data?.order_id;
+  const tx = txRows[0];
+  const meta = tx?.metadata ?? {};
+  const bookingId = (meta.afribook_booking_id as string) ?? tx?.booking_id;
+  const orderId = (meta.afribook_order_id as string) ?? tx?.order_id;
   const customerId = (meta.afribook_customer_id as string) ?? null;
 
   if (bookingId) {
-    await supabase
-      .from('bookings')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', bookingId);
+    await query(
+      `UPDATE bookings SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [bookingId],
+    );
   }
 
   if (orderId) {
-    await supabase
-      .from('orders')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', orderId);
+    await query(
+      `UPDATE orders SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [orderId],
+    );
   }
 
   if (customerId) {
     const amount = Number(meta.amount ?? 0);
     const currency = (meta.currency as string) ?? 'USD';
-    await supabase.from('notifications').insert({
-      userId: customerId,
-      type: 'payment',
-      title: 'Payment Successful',
-      body: `Payment of ${amount.toFixed(2)} ${currency} via ${provider} was successful.`,
-      data: {
-        provider_transaction_id: event.providerTransactionId,
-        amount,
-        currency,
-      },
-    } as never);
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Payment Successful', $2, $3)`,
+      [
+        customerId,
+        `Payment of ${amount.toFixed(2)} ${currency} via ${provider} was successful.`,
+        JSON.stringify({
+          provider_transaction_id: event.providerTransactionId,
+          amount,
+          currency,
+        }),
+      ],
+    );
   }
 }

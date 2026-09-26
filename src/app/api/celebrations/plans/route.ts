@@ -1,16 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 import { getCurrencyConfig, getCurrencyForCountry } from '@/lib/money';
 import { DEFAULT_COUNTRY } from '@/lib/localization/market-context';
 import {
   getCelebrationPlans,
   resolvePlannerMarket,
 } from '@/lib/celebrations/service';
-
-// Service-role client: the plan catalog is public data, but localization needs
-// the planner's market which is resolved from the authenticated profile.
-const admin = createAdminClient() as any;
 
 export async function GET(req: NextRequest) {
   try {
@@ -20,7 +15,7 @@ export async function GET(req: NextRequest) {
     let market;
     try {
       const { user } = await requireAuthenticatedUser();
-      market = await resolvePlannerMarket(admin, user.id);
+      market = await resolvePlannerMarket(user.id);
       if (countryOverride) {
         market = {
           countryCode: countryOverride.toUpperCase(),
@@ -39,7 +34,7 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    const plans = await getCelebrationPlans(admin, market);
+    const plans = await getCelebrationPlans(market);
 
     return NextResponse.json({
       success: true,

@@ -31,6 +31,9 @@ export const colors = {
 
   success: "#10B981",
   successLight: "#D1FAE5",
+  // Readable green *type* on successLight — the mid green fails contrast at
+  // label sizes. Matches the web card's emerald-700 on emerald tint.
+  successDark: "#047857",
   error: "#EF4444",
   errorLight: "#FEE2E2",
   warning: "#F59E0B",

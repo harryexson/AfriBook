@@ -3,17 +3,21 @@
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { Phone, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react'
+import { Phone, Mail, ArrowLeft, RefreshCw, AlertCircle } from 'lucide-react'
 
 interface PhoneVerificationProps {
-  phoneNumber: string
+  destination: string
   onVerify: (code: string) => Promise<void>
   onResend: () => Promise<void>
   onBack?: () => void
   loading?: boolean
+  /** Which channel the code was actually sent over — changes the icon and
+   *  heading only; the 6-digit input flow is identical either way. Defaults
+   *  to 'phone' so every existing call site keeps its current copy. */
+  channel?: 'phone' | 'email'
 }
 
-export default function PhoneVerification({ phoneNumber, onVerify, onResend, onBack, loading }: PhoneVerificationProps) {
+export default function PhoneVerification({ destination, onVerify, onResend, onBack, loading, channel = 'phone' }: PhoneVerificationProps) {
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [error, setError] = useState('')
   const [resending, setResending] = useState(false)
@@ -65,7 +69,14 @@ export default function PhoneVerification({ phoneNumber, onVerify, onResend, onB
       return
     }
     setError('')
-    await onVerify(fullCode)
+    // onVerify now actually checks the code (it used to just advance the
+    // wizard regardless of what was typed) — a wrong or expired code throws,
+    // and with no catch here that error had nowhere to go.
+    try {
+      await onVerify(fullCode)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'That code didn\'t work. Please try again.')
+    }
   }
 
   const handleResend = async () => {
@@ -105,12 +116,18 @@ export default function PhoneVerification({ phoneNumber, onVerify, onResend, onB
           transition={{ type: 'spring', damping: 15, stiffness: 200 }}
           className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-amber-500/25"
         >
-          <Phone className="w-7 h-7 text-white" />
+          {channel === 'email' ? (
+            <Mail className="w-7 h-7 text-white" />
+          ) : (
+            <Phone className="w-7 h-7 text-white" />
+          )}
         </motion.div>
-        <h2 className="text-xl font-bold text-text-primary font-heading">Verify your phone</h2>
+        <h2 className="text-xl font-bold text-text-primary font-heading">
+          {channel === 'email' ? 'Verify your email' : 'Verify your phone'}
+        </h2>
         <p className="text-sm text-text-secondary mt-2">
           Enter the code sent to{' '}
-          <span className="font-semibold text-text-primary">{phoneNumber}</span>
+          <span className="font-semibold text-text-primary">{destination}</span>
         </p>
       </div>
 

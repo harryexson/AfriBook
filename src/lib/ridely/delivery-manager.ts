@@ -9,7 +9,20 @@
 //       DeliveryType = "package" | "food" | "grocery" | "pharmacy" | "document"
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
+// NOTE (found during Supabase->Neon migration, not fixed — this module is
+// not imported anywhere in the codebase, verified via a repo-wide grep for
+// "delivery-manager"): every query below targets a `delivery_requests`
+// table, which does not exist in the real schema (verified via
+// information_schema — the real table for deliveries is `ridely_deliveries`,
+// used by src/app/api/ridely/deliveries/**). That means every function here
+// has always errored/returned null-ish under Supabase too, both before and
+// after this migration — no behavior change, but flagging because it's a
+// bigger gap than a column rename: several columns this file expects
+// (`cancel_reason`, `cancellation_fee`, `cancelled_by`, `currency`) don't
+// exist on `ridely_deliveries` either, so pointing this at the real table is
+// a real rewrite, not a find-and-replace. Left as dead code per the scope
+// of this migration; worth a follow-up if this module gets wired up.
 import type {
   DeliveryRequest,
   DeliveryStatus,

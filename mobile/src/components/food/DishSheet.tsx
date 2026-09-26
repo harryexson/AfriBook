@@ -17,7 +17,7 @@ import { colors, spacing, borderRadius, typography, shadows } from "../../theme"
 import { dishPhotoFor } from "../../lib/images";
 import Chip from "../ui/Chip";
 import Button from "../ui/Button";
-import { formatMoney } from "../../lib/money";
+import { useLocalPrice } from "../../lib/use-local-price";
 import type { MenuItem } from "../../types";
 
 interface DishSheetProps {
@@ -41,6 +41,7 @@ interface DishSheetProps {
 export default function DishSheet({ item, prepTime, onClose, onAdd }: DishSheetProps) {
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
+  const { price } = useLocalPrice();
 
   const slide = useRef(new Animated.Value(0)).current;
   const visible = Boolean(item);
@@ -60,6 +61,7 @@ export default function DishSheet({ item, prepTime, onClose, onAdd }: DishSheetP
   }, [visible, slide]);
 
   const total = useMemo(() => (item ? item.price * quantity : 0), [item, quantity]);
+  const localPrice = price(total, item?.currencyCode ?? '');
 
   if (!item) return null;
 
@@ -144,7 +146,11 @@ export default function DishSheet({ item, prepTime, onClose, onAdd }: DishSheetP
           </View>
         </ScrollView>
 
-        {/* Commit bar — price lives on the button, as in the reference. */}
+        {/* Commit bar — price lives on the button, as in the reference.
+            The button always carries the vendor's own currency, matching how
+            Uber/Airbnb/Bolt price a listing in its own market by default. An
+            opted-in currency estimate (see the toggle in CountryNotice) shows
+            as a secondary, clearly labelled line — never a substituted total. */}
         <View style={styles.footer}>
           <TouchableOpacity
             onPress={onClose}
@@ -154,15 +160,21 @@ export default function DishSheet({ item, prepTime, onClose, onAdd }: DishSheetP
           >
             <Ionicons name="close" size={20} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Button
-            title={`Add · ${formatMoney(total, item.currencyCode)}`}
-            variant="ink"
-            style={styles.addButton}
-            onPress={() => {
-              onAdd(item, quantity, notes.trim() || undefined);
-              onClose();
-            }}
-          />
+          <View style={styles.commit}>
+            <Button
+              title={`Add · ${localPrice.display}`}
+              variant="ink"
+              onPress={() => {
+                onAdd(item, quantity, notes.trim() || undefined);
+                onClose();
+              }}
+            />
+            {localPrice.hasEstimate ? (
+              <Text style={styles.convertedNote}>
+                {`Estimate ≈ ${localPrice.estimate} at today's indicative rate — you're charged ${localPrice.display}`}
+              </Text>
+            ) : null}
+          </View>
         </View>
       </Animated.View>
     </Modal>
@@ -291,7 +303,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  addButton: {
+  commit: {
     flex: 1,
+  },
+  convertedNote: {
+    marginTop: spacing.sm,
+    textAlign: "center",
+    fontSize: typography.fontSize.xs,
+    color: colors.textTertiary,
   },
 });

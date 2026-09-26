@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 import {
   verifyCelebrationDomain,
   getEventPlan,
 } from '@/lib/celebrations/service';
-
-const admin = createAdminClient() as any;
 
 async function assertOrganizer(
   userId: string,
@@ -18,11 +16,19 @@ async function assertOrganizer(
   custom_domain: string | null;
   custom_domain_status: string | null;
 }> {
-  const { data: evt } = await admin
-    .from('events')
-    .select('id, organizer_id, title, celebration_type, custom_domain, custom_domain_status')
-    .eq('id', eventId)
-    .single();
+  const rows = await query<{
+    id: string;
+    organizer_id: string;
+    title: string;
+    celebration_type: string | null;
+    custom_domain: string | null;
+    custom_domain_status: string | null;
+  }>(
+    `SELECT id, organizer_id, title, celebration_type, custom_domain, custom_domain_status
+     FROM events WHERE id = $1 LIMIT 1`,
+    [eventId],
+  );
+  const evt = rows[0] ?? null;
 
   if (!evt || evt.celebration_type == null) {
     throw Object.assign(new Error('Not found: not a celebration'), { status: 404 });
@@ -43,7 +49,7 @@ export async function GET(
     const { id: eventId } = await params;
     const { user } = await requireAuthenticatedUser();
     const evt = await assertOrganizer(user.id, eventId);
-    const plan = await getEventPlan(admin, evt);
+    const plan = await getEventPlan(evt);
 
     return NextResponse.json({
       success: true,
@@ -73,7 +79,7 @@ export async function POST(
     const { user } = await requireAuthenticatedUser();
     const evt = await assertOrganizer(user.id, eventId);
 
-    const plan = await getEventPlan(admin, evt);
+    const plan = await getEventPlan(evt);
     if (!plan.custom_domain_enabled) {
       return NextResponse.json(
         { success: false, error: 'Custom domains are not enabled on your celebration plan' },
@@ -102,7 +108,7 @@ export async function POST(
       );
     }
 
-    const status = await verifyCelebrationDomain(admin, eventId, normalized);
+    const status = await verifyCelebrationDomain(eventId, normalized);
 
     return NextResponse.json({
       success: true,

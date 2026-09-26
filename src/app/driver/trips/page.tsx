@@ -1,13 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
   Route, Download, MapPin, Clock, DollarSign, Star,
-  Search, ChevronDown, Calendar,
+  Search, ChevronDown, Calendar, Loader2,
 } from 'lucide-react'
-import type { Trip } from '@/types'
 
 const CONTAINER = {
   hidden: { opacity: 0 },
@@ -19,44 +18,84 @@ const ITEM = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as [number, number, number, number] } },
 }
 
-const MOCK_TRIPS: (Trip & { rating?: number })[] = [
-  { id: 't1', driverId: 'd1', type: 'delivery', status: 'delivered', pickupAddress: { street: '123 Main St', city: 'Lagos', state: 'LA', postalCode: '100001', countryCode: 'NG', formatted: '123 Main St, Lagos' }, dropoffAddress: { street: '456 Oak Ave', city: 'Lagos', state: 'LA', postalCode: '100002', countryCode: 'NG', formatted: '456 Oak Ave, Lagos' }, distanceKm: 5.2, durationMin: 18, earnings: 1200, rating: 5 },
-  { id: 't2', driverId: 'd1', type: 'pickup', status: 'delivered', pickupAddress: { street: '789 Pine Rd', city: 'Lagos', state: 'LA', postalCode: '100003', countryCode: 'NG', formatted: '789 Pine Rd, Lagos' }, dropoffAddress: { street: '321 Elm St', city: 'Lagos', state: 'LA', postalCode: '100004', countryCode: 'NG', formatted: '321 Elm St, Lagos' }, distanceKm: 3.8, durationMin: 12, earnings: 850, rating: 4 },
-  { id: 't3', driverId: 'd1', type: 'delivery', status: 'delivered', pickupAddress: { street: '555 Market St', city: 'Lagos', state: 'LA', postalCode: '100005', countryCode: 'NG', formatted: '555 Market St, Lagos' }, dropoffAddress: { street: '777 Park Ave', city: 'Lagos', state: 'LA', postalCode: '100006', countryCode: 'NG', formatted: '777 Park Ave, Lagos' }, distanceKm: 7.1, durationMin: 25, earnings: 2100, rating: 5 },
-  { id: 't4', driverId: 'd1', type: 'delivery', status: 'cancelled', pickupAddress: { street: '999 Broad St', city: 'Lagos', state: 'LA', postalCode: '100007', countryCode: 'NG', formatted: '999 Broad St, Lagos' }, dropoffAddress: { street: '111 High St', city: 'Lagos', state: 'LA', postalCode: '100008', countryCode: 'NG', formatted: '111 High St, Lagos' }, distanceKm: 2.1, durationMin: 8, earnings: 0, rating: 0 },
-  { id: 't5', driverId: 'd1', type: 'pickup', status: 'delivered', pickupAddress: { street: '222 River Rd', city: 'Lagos', state: 'LA', postalCode: '100009', countryCode: 'NG', formatted: '222 River Rd, Lagos' }, dropoffAddress: { street: '444 Lake Dr', city: 'Lagos', state: 'LA', postalCode: '100010', countryCode: 'NG', formatted: '444 Lake Dr, Lagos' }, distanceKm: 6.5, durationMin: 20, earnings: 1800, rating: 5 },
-]
+interface DriverTrip {
+  id: string
+  kind: 'ride' | 'delivery'
+  status: string
+  pickup: string
+  dropoff: string
+  distanceKm: number
+  durationMin: number
+  earnings: number
+  rating: number | null
+  tip: number
+  requestedAt: string | null
+  completedAt: string | null
+}
 
-const STATUS_FILTERS = ['all', 'delivered', 'cancelled'] as const
+const COMPLETED_STATUSES = new Set(['completed', 'delivered'])
+const STATUS_FILTERS = ['all', 'completed', 'cancelled'] as const
 
 export default function TripsPage() {
+  const [trips, setTrips] = useState<DriverTrip[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [search, setSearch] = useState('')
   const [selectedTrip, setSelectedTrip] = useState<string | null>(null)
   const [showDateFilter, setShowDateFilter] = useState(false)
 
-  const filtered = MOCK_TRIPS.filter((t) => {
-    if (statusFilter !== 'all' && t.status !== statusFilter) return false
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError('')
+    fetch('/api/driver/trips')
+      .then((res) => res.json())
+      .then((body) => {
+        if (cancelled) return
+        if (!body.success) {
+          setError(body.error ?? 'Failed to load trips')
+          return
+        }
+        setTrips(body.trips as DriverTrip[])
+      })
+      .catch(() => {
+        if (!cancelled) setError('Failed to load trips')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filtered = useMemo(() => trips.filter((t) => {
+    if (statusFilter === 'completed' && !COMPLETED_STATUSES.has(t.status)) return false
+    if (statusFilter === 'cancelled' && t.status !== 'cancelled') return false
     if (search) {
       const q = search.toLowerCase()
       return (
-        t.pickupAddress.formatted.toLowerCase().includes(q) ||
-        t.dropoffAddress.formatted.toLowerCase().includes(q) ||
+        t.pickup.toLowerCase().includes(q) ||
+        t.dropoff.toLowerCase().includes(q) ||
         t.id.toLowerCase().includes(q)
       )
     }
     return true
-  })
+  }), [trips, statusFilter, search])
 
   const totalEarnings = filtered.reduce((s, t) => s + t.earnings, 0)
   const totalDistance = filtered.reduce((s, t) => s + t.distanceKm, 0)
-  const avgRating = filtered.filter((t) => t.rating).reduce((s, t, _, a) => s + (t.rating ?? 0) / a.length, 0)
+  const ratedTrips = filtered.filter((t) => t.rating)
+  const avgRating = ratedTrips.length
+    ? ratedTrips.reduce((s, t) => s + (t.rating ?? 0), 0) / ratedTrips.length
+    : 0
 
   const handleExport = () => {
     const csv = [
       ['ID', 'Type', 'Status', 'Pickup', 'Dropoff', 'Distance (km)', 'Duration (min)', 'Earnings', 'Rating'].join(','),
       ...filtered.map((t) =>
-        [t.id, t.type, t.status, `"${t.pickupAddress.formatted}"`, `"${t.dropoffAddress.formatted}"`, t.distanceKm, t.durationMin, t.earnings, t.rating ?? '-'].join(',')
+        [t.id, t.kind, t.status, `"${t.pickup}"`, `"${t.dropoff}"`, t.distanceKm, t.durationMin, t.earnings, t.rating ?? '-'].join(',')
       ),
     ].join('\n')
     const blob = new Blob([csv], { type: 'text/csv' })
@@ -95,6 +134,21 @@ export default function TripsPage() {
         </div>
       </motion.div>
 
+      {loading && (
+        <div className="flex items-center justify-center py-16 text-text-secondary">
+          <Loader2 className="w-5 h-5 animate-spin mr-2" />
+          Loading trips…
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="text-center py-16">
+          <p className="text-red-600 font-medium">{error}</p>
+        </div>
+      )}
+
+      {!loading && !error && (
+      <>
       {/* Stats summary */}
       <motion.div variants={ITEM} className="grid grid-cols-3 gap-3">
         {[
@@ -172,14 +226,16 @@ export default function TripsPage() {
                       <div className="flex items-center gap-2">
                         <span className={cn(
                           'inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold capitalize',
-                          trip.status === 'delivered'
+                          COMPLETED_STATUSES.has(trip.status)
                             ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                            : trip.status === 'cancelled'
+                              ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
                         )}>
                           {trip.status}
                         </span>
                         <span className="text-xs text-text-tertiary bg-surface-secondary px-2 py-0.5 rounded-md capitalize">
-                          {trip.type}
+                          {trip.kind}
                         </span>
                       </div>
                       <span className="text-sm font-bold text-text-primary">{formatCurrency(trip.earnings)}</span>
@@ -188,11 +244,11 @@ export default function TripsPage() {
                     <div className="space-y-2">
                       <div className="flex items-start gap-2 text-sm">
                         <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1 shrink-0" />
-                        <span className="text-text-primary">{trip.pickupAddress.formatted}</span>
+                        <span className="text-text-primary">{trip.pickup}</span>
                       </div>
                       <div className="flex items-start gap-2 text-sm">
                         <div className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
-                        <span className="text-text-primary">{trip.dropoffAddress.formatted}</span>
+                        <span className="text-text-primary">{trip.dropoff}</span>
                       </div>
                     </div>
 
@@ -213,30 +269,16 @@ export default function TripsPage() {
                       className="border-t border-border bg-surface-secondary"
                     >
                       <div className="p-4 space-y-4">
-                        {/* Route map placeholder */}
-                        <div className="h-32 rounded-xl bg-gradient-to-br from-dark-400 to-dark-500 flex items-center justify-center">
-                          <div className="text-center">
-                            <MapPin className="w-6 h-6 text-amber-500 mx-auto mb-1" />
-                            <p className="text-white/60 text-xs">Route map</p>
-                          </div>
-                        </div>
-
                         {/* Fare breakdown */}
                         <div>
-                          <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">Fare Breakdown</h4>
+                          <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">Fare</h4>
                           <div className="space-y-1.5">
-                            <div className="flex justify-between text-sm">
-                              <span className="text-text-secondary">Base fare</span>
-                              <span className="text-text-primary font-medium">{formatCurrency(trip.earnings * 0.7)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-text-secondary">Distance</span>
-                              <span className="text-text-primary font-medium">{formatCurrency(trip.earnings * 0.2)}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                              <span className="text-text-secondary">Time</span>
-                              <span className="text-text-primary font-medium">{formatCurrency(trip.earnings * 0.1)}</span>
-                            </div>
+                            {trip.tip > 0 && (
+                              <div className="flex justify-between text-sm">
+                                <span className="text-text-secondary">Tip</span>
+                                <span className="text-text-primary font-medium">{formatCurrency(trip.tip)}</span>
+                              </div>
+                            )}
                             <div className="flex justify-between text-sm font-semibold border-t border-border pt-1.5 mt-1.5">
                               <span className="text-text-primary">Total</span>
                               <span className="text-text-primary">{formatCurrency(trip.earnings)}</span>
@@ -249,10 +291,16 @@ export default function TripsPage() {
                           <h4 className="text-xs font-semibold text-text-tertiary uppercase tracking-wider mb-2">Timeline</h4>
                           <div className="space-y-3">
                             {[
-                              { label: 'Assigned', time: '10:15 AM', completed: true },
-                              { label: 'Picked up', time: '10:22 AM', completed: true },
-                              { label: 'In transit', time: '10:25 AM', completed: true },
-                              { label: 'Delivered', time: '10:40 AM', completed: trip.status === 'delivered' },
+                              {
+                                label: 'Requested',
+                                time: trip.requestedAt ? new Date(trip.requestedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null,
+                                completed: Boolean(trip.requestedAt),
+                              },
+                              {
+                                label: trip.status === 'cancelled' ? 'Cancelled' : trip.kind === 'delivery' ? 'Delivered' : 'Completed',
+                                time: trip.completedAt ? new Date(trip.completedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : null,
+                                completed: Boolean(trip.completedAt),
+                              },
                             ].map((step, si) => (
                               <div key={si} className="flex items-start gap-3">
                                 <div className="flex flex-col items-center">
@@ -262,7 +310,7 @@ export default function TripsPage() {
                                       ? 'bg-emerald-500 ring-emerald-100 dark:ring-emerald-900'
                                       : 'bg-text-tertiary ring-border'
                                   )} />
-                                  {si < 3 && <div className="w-0.5 h-6 bg-border" />}
+                                  {si < 1 && <div className="w-0.5 h-6 bg-border" />}
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <p className={cn('text-sm', step.completed ? 'text-text-primary' : 'text-text-tertiary')}>{step.label}</p>
@@ -283,6 +331,8 @@ export default function TripsPage() {
           })
         )}
       </motion.div>
+      </>
+      )}
     </motion.div>
   )
 }

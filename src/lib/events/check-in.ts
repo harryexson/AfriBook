@@ -1,24 +1,55 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { query } from '@/lib/neon/admin';
 import type { CheckInResult, CheckInStats } from './types';
+
+// The real individual-ticket table is `event_tickets` (not
+// `event_individual_tickets`, which does not exist). Its check-in state is
+// a `checked_in` boolean + `checked_in_at`/`checked_in_method`, not a
+// check_in_status enum, and the tier name column is `tier_name`
+// (not `ticket_type`).
+interface EventTicketRow {
+  id: string;
+  registration_id: string | null;
+  event_id: string;
+  user_id: string | null;
+  ticket_code: string;
+  tier_name: string | null;
+  attendee_name: string | null;
+  attendee_email: string | null;
+  status: 'active' | 'used' | 'cancelled' | 'refunded' | 'transferred';
+  checked_in: boolean | null;
+  checked_in_at: string | null;
+  checked_in_method: 'qr_scan' | 'manual' | 'nfc' | null;
+  created_at: string;
+}
+
+interface EventGuestRow {
+  id: string;
+  event_id: string;
+  ticket_purchase_id: string | null;
+  guest_name: string;
+  guest_email: string;
+  ticket_code: string;
+  check_in_status: 'not_checked_in' | 'checked_in' | 'cancelled';
+  checked_in_at: string | null;
+  checked_in_by: string | null;
+}
 
 // ─── Check In Attendee ────────────────────────────────────────
 
 export async function checkInAttendee(
-  sb: SupabaseClient,
   ticketCode: string,
   eventId: string,
   checkedInBy: string,
   method: 'qr_scan' | 'manual' | 'nfc' = 'qr_scan',
 ): Promise<CheckInResult> {
   // 1. Find the ticket
-  const { data: ticket, error: ticketError } = await sb
-    .from('event_individual_tickets')
-    .select('*')
-    .eq('ticket_code', ticketCode)
-    .eq('event_id', eventId)
-    .single();
+  const ticketRows = await query<EventTicketRow>(
+    `SELECT * FROM event_tickets WHERE ticket_code = $1 AND event_id = $2 LIMIT 1`,
+    [ticketCode, eventId],
+  );
+  const ticket = ticketRows[0];
 
-  if (ticketError || !ticket) {
+  if (!ticket) {
     return {
       success: false,
       ticketCode,
@@ -32,26 +63,26 @@ export async function checkInAttendee(
   }
 
   // 2. Check ticket status
-  if (ticket.check_in_status === 'checked_in') {
+  if (ticket.checked_in) {
     return {
       success: false,
       ticketCode,
-      attendeeName: ticket.attendee_name,
-      attendeeEmail: ticket.attendee_email,
-      ticketType: ticket.ticket_type,
+      attendeeName: ticket.attendee_name ?? '',
+      attendeeEmail: ticket.attendee_email ?? '',
+      ticketType: ticket.tier_name ?? '',
       checkedInAt: ticket.checked_in_at ?? '',
       isGuest: false,
       error: 'Ticket already checked in',
     };
   }
 
-  if (ticket.check_in_status === 'cancelled') {
+  if (ticket.status === 'cancelled' || ticket.status === 'refunded') {
     return {
       success: false,
       ticketCode,
-      attendeeName: ticket.attendee_name,
-      attendeeEmail: ticket.attendee_email,
-      ticketType: ticket.ticket_type,
+      attendeeName: ticket.attendee_name ?? '',
+      attendeeEmail: ticket.attendee_email ?? '',
+      ticketType: ticket.tier_name ?? '',
       checkedInAt: '',
       isGuest: false,
       error: 'Ticket has been cancelled',
@@ -59,19 +90,19 @@ export async function checkInAttendee(
   }
 
   // 3. Verify event is active
-  const { data: event } = await sb
-    .from('events')
-    .select('status, start_date, end_date')
-    .eq('id', eventId)
-    .single();
+  const eventRows = await query<{ status: string; start_date: string; end_date: string }>(
+    `SELECT status, start_date, end_date FROM events WHERE id = $1 LIMIT 1`,
+    [eventId],
+  );
+  const event = eventRows[0];
 
   if (event && event.status !== 'published' && event.status !== 'completed') {
     return {
       success: false,
       ticketCode,
-      attendeeName: ticket.attendee_name,
-      attendeeEmail: ticket.attendee_email,
-      ticketType: ticket.ticket_type,
+      attendeeName: ticket.attendee_name ?? '',
+      attendeeEmail: ticket.attendee_email ?? '',
+      ticketType: ticket.tier_name ?? '',
       checkedInAt: '',
       isGuest: false,
       error: 'Event is not active',
@@ -81,47 +112,33 @@ export async function checkInAttendee(
   const now = new Date().toISOString();
 
   // 4. Mark ticket as checked in
-  const { error: updateError } = await sb
-    .from('event_individual_tickets')
-    .update({
-      check_in_status: 'checked_in',
-      checked_in_at: now,
-      checked_in_by: checkedInBy,
-    })
-    .eq('id', ticket.id);
-
-  if (updateError) {
-    throw new Error(`Failed to check in: ${updateError.message}`);
-  }
+  await query(
+    `UPDATE event_tickets SET checked_in = true, checked_in_at = $1, checked_in_method = $2 WHERE id = $3`,
+    [now, method, ticket.id],
+  );
 
   // 5. Update parent registration check-in status
   if (ticket.registration_id) {
-    await sb
-      .from('ticket_purchases')
-      .update({
-        check_in_status: 'checked_in',
-        checked_in_at: now,
-      })
-      .eq('id', ticket.registration_id);
+    await query(
+      `UPDATE ticket_purchases SET check_in_status = 'checked_in', checked_in_at = $1 WHERE id = $2`,
+      [now, ticket.registration_id],
+    );
   }
 
-  // 6. Log check-in record
-  await sb.from('check_in_logs').insert({
-    event_id: eventId,
-    ticket_purchase_id: ticket.registration_id ?? null,
-    ticket_individual_id: ticket.id,
-    scanned_by: checkedInBy,
-    scanned_at: now,
-    method,
-    ticket_code: ticketCode,
-  });
+  // 6. Log check-in record. `check_in_logs` has no ticket_individual_id or
+  // action column — only ticket_purchase_id/guest_id linkage.
+  await query(
+    `INSERT INTO check_in_logs (event_id, ticket_purchase_id, ticket_code, scanned_by, scanned_at, method, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [eventId, ticket.registration_id ?? null, ticketCode, checkedInBy, now, method, now],
+  );
 
   return {
     success: true,
     ticketCode,
-    attendeeName: ticket.attendee_name,
-    attendeeEmail: ticket.attendee_email,
-    ticketType: ticket.ticket_type,
+    attendeeName: ticket.attendee_name ?? '',
+    attendeeEmail: ticket.attendee_email ?? '',
+    ticketType: ticket.tier_name ?? '',
     checkedInAt: now,
     isGuest: false,
   };
@@ -130,19 +147,17 @@ export async function checkInAttendee(
 // ─── Check In Guest ───────────────────────────────────────────
 
 export async function checkInGuest(
-  sb: SupabaseClient,
   guestId: string,
   eventId: string,
   checkedInBy: string,
 ): Promise<CheckInResult> {
-  const { data: guest, error: guestError } = await sb
-    .from('event_guests')
-    .select('*')
-    .eq('id', guestId)
-    .eq('event_id', eventId)
-    .single();
+  const guestRows = await query<EventGuestRow>(
+    `SELECT * FROM event_guests WHERE id = $1 AND event_id = $2 LIMIT 1`,
+    [guestId, eventId],
+  );
+  const guest = guestRows[0];
 
-  if (guestError || !guest) {
+  if (!guest) {
     return {
       success: false,
       ticketCode: '',
@@ -183,29 +198,17 @@ export async function checkInGuest(
 
   const now = new Date().toISOString();
 
-  const { error: updateError } = await sb
-    .from('event_guests')
-    .update({
-      check_in_status: 'checked_in',
-      checked_in_at: now,
-      checked_in_by: checkedInBy,
-    })
-    .eq('id', guestId);
-
-  if (updateError) {
-    throw new Error(`Failed to check in guest: ${updateError.message}`);
-  }
+  await query(
+    `UPDATE event_guests SET check_in_status = 'checked_in', checked_in_at = $1, checked_in_by = $2 WHERE id = $3`,
+    [now, checkedInBy, guestId],
+  );
 
   // Log check-in
-  await sb.from('check_in_logs').insert({
-    event_id: eventId,
-    ticket_purchase_id: guest.ticket_purchase_id,
-    guest_id: guestId,
-    scanned_by: checkedInBy,
-    scanned_at: now,
-    method: 'manual',
-    ticket_code: guest.ticket_code,
-  });
+  await query(
+    `INSERT INTO check_in_logs (event_id, ticket_purchase_id, guest_id, ticket_code, scanned_by, scanned_at, method, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [eventId, guest.ticket_purchase_id ?? null, guestId, guest.ticket_code, checkedInBy, now, 'manual', now],
+  );
 
   return {
     success: true,
@@ -221,72 +224,53 @@ export async function checkInGuest(
 // ─── Undo Check-In ────────────────────────────────────────────
 
 export async function undoCheckIn(
-  sb: SupabaseClient,
   ticketCode: string,
   eventId: string,
 ): Promise<{ success: boolean; error?: string }> {
   // Find the individual ticket
-  const { data: ticket, error: ticketError } = await sb
-    .from('event_individual_tickets')
-    .select('*')
-    .eq('ticket_code', ticketCode)
-    .eq('event_id', eventId)
-    .single();
+  const ticketRows = await query<EventTicketRow>(
+    `SELECT * FROM event_tickets WHERE ticket_code = $1 AND event_id = $2 LIMIT 1`,
+    [ticketCode, eventId],
+  );
+  const ticket = ticketRows[0];
 
-  if (ticketError || !ticket) {
+  if (!ticket) {
     return { success: false, error: 'Ticket not found' };
   }
 
-  if (ticket.check_in_status !== 'checked_in') {
+  if (!ticket.checked_in) {
     return { success: false, error: 'Ticket is not checked in' };
   }
 
   // Reset check-in status
-  const { error: updateError } = await sb
-    .from('event_individual_tickets')
-    .update({
-      check_in_status: 'not_checked_in',
-      checked_in_at: null,
-      checked_in_by: null,
-    })
-    .eq('id', ticket.id);
-
-  if (updateError) {
-    throw new Error(`Failed to undo check-in: ${updateError.message}`);
-  }
+  await query(
+    `UPDATE event_tickets SET checked_in = false, checked_in_at = NULL, checked_in_method = NULL WHERE id = $1`,
+    [ticket.id],
+  );
 
   // Update parent registration if applicable
   if (ticket.registration_id) {
     // Check if any other tickets from this registration are still checked in
-    const { data: otherTickets } = await sb
-      .from('event_individual_tickets')
-      .select('id')
-      .eq('registration_id', ticket.registration_id)
-      .eq('check_in_status', 'checked_in')
-      .neq('id', ticket.id);
+    const otherTickets = await query<{ id: string }>(
+      `SELECT id FROM event_tickets WHERE registration_id = $1 AND checked_in = true AND id != $2`,
+      [ticket.registration_id, ticket.id],
+    );
 
-    if (!otherTickets || otherTickets.length === 0) {
-      await sb
-        .from('ticket_purchases')
-        .update({
-          check_in_status: 'not_checked_in',
-          checked_in_at: null,
-        })
-        .eq('id', ticket.registration_id);
+    if (otherTickets.length === 0) {
+      await query(
+        `UPDATE ticket_purchases SET check_in_status = 'not_checked_in', checked_in_at = NULL WHERE id = $1`,
+        [ticket.registration_id],
+      );
     }
   }
 
-  // Log undo
-  await sb.from('check_in_logs').insert({
-    event_id: eventId,
-    ticket_purchase_id: ticket.registration_id ?? null,
-    ticket_individual_id: ticket.id,
-    scanned_by: 'system',
-    scanned_at: new Date().toISOString(),
-    method: 'manual',
-    ticket_code: ticketCode,
-    action: 'undo',
-  });
+  // Log undo (check_in_logs has no `action` column, so this is recorded as
+  // a plain scan entry with method 'manual')
+  await query(
+    `INSERT INTO check_in_logs (event_id, ticket_purchase_id, ticket_code, scanned_by, scanned_at, method, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [eventId, ticket.registration_id ?? null, ticketCode, 'system', new Date().toISOString(), 'manual', new Date().toISOString()],
+  );
 
   return { success: true };
 }
@@ -294,31 +278,28 @@ export async function undoCheckIn(
 // ─── Check-In Statistics ──────────────────────────────────────
 
 export async function getCheckInStats(
-  sb: SupabaseClient,
   eventId: string,
 ): Promise<CheckInStats & { tierBreakdown: { tier: string; total: number; checkedIn: number }[] }> {
   // Get all individual tickets for this event
-  const { data: tickets, error: ticketError } = await sb
-    .from('event_individual_tickets')
-    .select('ticket_type, check_in_status')
-    .eq('event_id', eventId);
+  const allTickets = await query<{ tier_name: string | null; checked_in: boolean | null; status: string }>(
+    `SELECT tier_name, checked_in, status FROM event_tickets WHERE event_id = $1`,
+    [eventId],
+  );
 
-  if (ticketError) throw new Error(`Failed to get check-in stats: ${ticketError.message}`);
-
-  const allTickets = tickets ?? [];
   const totalExpected = allTickets.length;
-  const totalCheckedIn = allTickets.filter((t) => t.check_in_status === 'checked_in').length;
-  const noShows = allTickets.filter((t) => t.check_in_status === 'no_show').length;
+  const totalCheckedIn = allTickets.filter((t) => t.checked_in).length;
+  // event_tickets has no 'no_show' state — approximate as not-checked-in,
+  // non-cancelled tickets.
+  const noShows = allTickets.filter((t) => !t.checked_in && t.status !== 'cancelled').length;
+
   // Get check-in timeline
-  const { data: logs } = await sb
-    .from('check_in_logs')
-    .select('scanned_at')
-    .eq('event_id', eventId)
-    .eq('action', null)
-    .order('scanned_at', { ascending: true });
+  const logs = await query<{ scanned_at: string }>(
+    `SELECT scanned_at FROM check_in_logs WHERE event_id = $1 ORDER BY scanned_at ASC`,
+    [eventId],
+  );
 
   const hourCounts: Record<string, number> = {};
-  for (const log of logs ?? []) {
+  for (const log of logs) {
     const hour = new Date(log.scanned_at).toISOString().slice(0, 13);
     hourCounts[hour] = (hourCounts[hour] ?? 0) + 1;
   }
@@ -336,10 +317,10 @@ export async function getCheckInStats(
   // Tier breakdown
   const tierMap: Record<string, { total: number; checkedIn: number }> = {};
   for (const ticket of allTickets) {
-    const tier = ticket.ticket_type ?? 'Unknown';
+    const tier = ticket.tier_name ?? 'Unknown';
     if (!tierMap[tier]) tierMap[tier] = { total: 0, checkedIn: 0 };
     tierMap[tier].total++;
-    if (ticket.check_in_status === 'checked_in') {
+    if (ticket.checked_in) {
       tierMap[tier].checkedIn++;
     }
   }
@@ -350,15 +331,13 @@ export async function getCheckInStats(
   }));
 
   // Also count guests
-  const { data: guests } = await sb
-    .from('event_guests')
-    .select('check_in_status')
-    .eq('event_id', eventId);
+  const guests = await query<{ check_in_status: string }>(
+    `SELECT check_in_status FROM event_guests WHERE event_id = $1`,
+    [eventId],
+  );
 
-  const guestTotal = (guests ?? []).length;
-  const guestCheckedIn = (guests ?? []).filter(
-    (g) => g.check_in_status === 'checked_in',
-  ).length;
+  const guestTotal = guests.length;
+  const guestCheckedIn = guests.filter((g) => g.check_in_status === 'checked_in').length;
 
   return {
     totalExpected: totalExpected + guestTotal,
@@ -383,32 +362,29 @@ export async function getCheckInStats(
 // ─── Get Checked-In Attendees ─────────────────────────────────
 
 export async function getCheckedInAttendees(
-  sb: SupabaseClient,
   eventId: string,
 ): Promise<{ name: string; email: string; ticketType: string; checkedInAt: string; isGuest: boolean }[]> {
-  const { data: tickets } = await sb
-    .from('event_individual_tickets')
-    .select('attendee_name, attendee_email, ticket_type, checked_in_at')
-    .eq('event_id', eventId)
-    .eq('check_in_status', 'checked_in')
-    .order('checked_in_at', { ascending: true });
+  const tickets = await query<{ attendee_name: string | null; attendee_email: string | null; tier_name: string | null; checked_in_at: string | null }>(
+    `SELECT attendee_name, attendee_email, tier_name, checked_in_at FROM event_tickets
+     WHERE event_id = $1 AND checked_in = true ORDER BY checked_in_at ASC`,
+    [eventId],
+  );
 
-  const { data: guests } = await sb
-    .from('event_guests')
-    .select('guest_name, guest_email, checked_in_at')
-    .eq('event_id', eventId)
-    .eq('check_in_status', 'checked_in')
-    .order('checked_in_at', { ascending: true });
+  const guests = await query<{ guest_name: string; guest_email: string; checked_in_at: string | null }>(
+    `SELECT guest_name, guest_email, checked_in_at FROM event_guests
+     WHERE event_id = $1 AND check_in_status = 'checked_in' ORDER BY checked_in_at ASC`,
+    [eventId],
+  );
 
   const attendees = [
-    ...(tickets ?? []).map((t) => ({
-      name: t.attendee_name,
-      email: t.attendee_email,
-      ticketType: t.ticket_type,
+    ...tickets.map((t) => ({
+      name: t.attendee_name ?? '',
+      email: t.attendee_email ?? '',
+      ticketType: t.tier_name ?? '',
       checkedInAt: t.checked_in_at ?? '',
       isGuest: false,
     })),
-    ...(guests ?? []).map((g) => ({
+    ...guests.map((g) => ({
       name: g.guest_name,
       email: g.guest_email,
       ticketType: 'Guest',
@@ -425,30 +401,29 @@ export async function getCheckedInAttendees(
 // ─── Get Not-Checked-In Attendees ─────────────────────────────
 
 export async function getNotCheckedInAttendees(
-  sb: SupabaseClient,
   eventId: string,
 ): Promise<{ name: string; email: string; ticketType: string; ticketCode: string; isGuest: boolean; guestId?: string }[]> {
-  const { data: tickets } = await sb
-    .from('event_individual_tickets')
-    .select('attendee_name, attendee_email, ticket_type, ticket_code')
-    .eq('event_id', eventId)
-    .eq('check_in_status', 'not_checked_in');
+  const tickets = await query<{ attendee_name: string | null; attendee_email: string | null; tier_name: string | null; ticket_code: string }>(
+    `SELECT attendee_name, attendee_email, tier_name, ticket_code FROM event_tickets
+     WHERE event_id = $1 AND checked_in = false`,
+    [eventId],
+  );
 
-  const { data: guests } = await sb
-    .from('event_guests')
-    .select('id, guest_name, guest_email, ticket_code')
-    .eq('event_id', eventId)
-    .eq('check_in_status', 'not_checked_in');
+  const guests = await query<{ id: string; guest_name: string; guest_email: string; ticket_code: string }>(
+    `SELECT id, guest_name, guest_email, ticket_code FROM event_guests
+     WHERE event_id = $1 AND check_in_status = 'not_checked_in'`,
+    [eventId],
+  );
 
   return [
-    ...(tickets ?? []).map((t) => ({
-      name: t.attendee_name,
-      email: t.attendee_email,
-      ticketType: t.ticket_type,
+    ...tickets.map((t) => ({
+      name: t.attendee_name ?? '',
+      email: t.attendee_email ?? '',
+      ticketType: t.tier_name ?? '',
       ticketCode: t.ticket_code,
       isGuest: false,
     })),
-    ...(guests ?? []).map((g) => ({
+    ...guests.map((g) => ({
       name: g.guest_name,
       email: g.guest_email,
       ticketType: 'Guest',
@@ -462,45 +437,44 @@ export async function getNotCheckedInAttendees(
 // ─── Validate Check-In (Quick) ────────────────────────────────
 
 export async function validateCheckIn(
-  sb: SupabaseClient,
   ticketCode: string,
   eventId: string,
 ): Promise<{ valid: boolean; attendeeName?: string; ticketType?: string; alreadyCheckedIn?: boolean; error?: string }> {
   // Check individual tickets
-  const { data: ticket } = await sb
-    .from('event_individual_tickets')
-    .select('attendee_name, ticket_type, check_in_status')
-    .eq('ticket_code', ticketCode)
-    .eq('event_id', eventId)
-    .single();
+  const ticketRows = await query<{ attendee_name: string | null; tier_name: string | null; checked_in: boolean | null; status: string }>(
+    `SELECT attendee_name, tier_name, checked_in, status FROM event_tickets
+     WHERE ticket_code = $1 AND event_id = $2 LIMIT 1`,
+    [ticketCode, eventId],
+  );
+  const ticket = ticketRows[0];
 
   if (ticket) {
-    if (ticket.check_in_status === 'checked_in') {
+    if (ticket.checked_in) {
       return {
         valid: false,
-        attendeeName: ticket.attendee_name,
-        ticketType: ticket.ticket_type,
+        attendeeName: ticket.attendee_name ?? undefined,
+        ticketType: ticket.tier_name ?? undefined,
         alreadyCheckedIn: true,
         error: 'Already checked in',
       };
     }
-    if (ticket.check_in_status === 'cancelled') {
+    if (ticket.status === 'cancelled' || ticket.status === 'refunded') {
       return { valid: false, error: 'Ticket cancelled' };
     }
     return {
       valid: true,
-      attendeeName: ticket.attendee_name,
-      ticketType: ticket.ticket_type,
+      attendeeName: ticket.attendee_name ?? undefined,
+      ticketType: ticket.tier_name ?? undefined,
     };
   }
 
   // Check guests
-  const { data: guest } = await sb
-    .from('event_guests')
-    .select('guest_name, check_in_status')
-    .eq('ticket_code', ticketCode)
-    .eq('event_id', eventId)
-    .single();
+  const guestRows = await query<{ guest_name: string; check_in_status: string }>(
+    `SELECT guest_name, check_in_status FROM event_guests
+     WHERE ticket_code = $1 AND event_id = $2 LIMIT 1`,
+    [ticketCode, eventId],
+  );
+  const guest = guestRows[0];
 
   if (guest) {
     if (guest.check_in_status === 'checked_in') {
@@ -531,7 +505,6 @@ export interface BulkCheckInResult {
 }
 
 export async function bulkCheckIn(
-  sb: SupabaseClient,
   ticketCodes: string[],
   eventId: string,
   checkedInBy: string,
@@ -541,7 +514,7 @@ export async function bulkCheckIn(
 
   for (const code of ticketCodes) {
     try {
-      const result = await checkInAttendee(sb, code, eventId, checkedInBy, 'manual');
+      const result = await checkInAttendee(code, eventId, checkedInBy, 'manual');
       if (result.success) {
         successful.push(result);
       } else {

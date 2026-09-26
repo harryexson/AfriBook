@@ -2,9 +2,32 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStaysDb } from '@/lib/stays/db'
 import { COUNTRIES } from '@/lib/localization/countries'
 import { randomId } from '@/lib/utils'
-import { requireAuthenticatedUser } from '@/lib/supabase/server'
+import { requireAuthenticatedUser } from '@/lib/neon/server'
 
 export const runtime = 'nodejs'
+
+/** The current host's own properties, for the host dashboard. */
+export async function GET() {
+  let auth: Awaited<ReturnType<typeof requireAuthenticatedUser>>
+  try {
+    auth = await requireAuthenticatedUser()
+  } catch {
+    return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+  }
+
+  const db = await getStaysDb()
+  const { data, error } = await db
+    .from('stay_hotels')
+    .select('id, name, slug, status, city, country, cover_image_url, gallery_images, rooms_count, price_from, currency_code, rating, review_count, created_at')
+    .eq('host_id', auth.user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    return NextResponse.json({ error: 'Failed to load your properties' }, { status: 500 })
+  }
+
+  return NextResponse.json({ success: true, data: data ?? [] })
+}
 
 function slugify(text: string): string {
   return text
@@ -78,7 +101,7 @@ export async function POST(req: NextRequest) {
     is_featured: false,
   }
 
-  const db = getStaysDb()
+  const db = await getStaysDb()
   if (db) {
     try {
       const { data, error } = await db.from('stay_hotels').insert(payload).select().single()

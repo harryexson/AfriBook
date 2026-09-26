@@ -11,7 +11,7 @@
 // dependency — and secrets only ever live in server env vars.
 // ─────────────────────────────────────────────────────────────────
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { query } from '@/lib/neon/admin';
 
 export type SmsProvider = 'twilio' | 'console';
 
@@ -91,8 +91,23 @@ async function deliverTwilio(
 
 async function logSms(insert: SmsLogInsert): Promise<void> {
   try {
-    const admin = createAdminClient() as any;
-    await admin.from('sms_logs').insert(insert);
+    await query(
+      `INSERT INTO sms_logs
+         (event_id, recipient_name, recipient_phone, template_key, body, provider, status, provider_message_id, error, sent_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        insert.event_id,
+        insert.recipient_name,
+        insert.recipient_phone,
+        insert.template_key,
+        insert.body,
+        insert.provider,
+        insert.status,
+        insert.provider_message_id,
+        insert.error,
+        insert.sent_at,
+      ],
+    );
   } catch {
     // Audit logging must never break SMS delivery.
   }

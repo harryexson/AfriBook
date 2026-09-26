@@ -7,13 +7,13 @@ import {
 import { getCurrencyForCountry, convertCurrency } from '@/lib/money';
 
 async function getDb() {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   return createClient() as any;
 }
 
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
+async function getAdminQuery() {
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
 
 function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
@@ -69,7 +69,7 @@ function estimatePricing(
 export async function POST(req: NextRequest) {
   try {
     const supabase = await getDb();
-    const adminDb = await getAdminDb();
+    const adminQuery = await getAdminQuery();
 
     const {
       data: { user },
@@ -152,10 +152,7 @@ export async function POST(req: NextRequest) {
     }
 
     Promise.resolve(
-      adminDb.rpc('ridely_dispatch_delivery' as never, {
-        p_delivery_id: delivery.id,
-        p_table: 'ridely_deliveries',
-      } as never),
+      adminQuery('SELECT ridely_dispatch_delivery($1, $2)', [delivery.id, 'ridely_deliveries']),
     ).catch(() => {});
 
     return NextResponse.json(

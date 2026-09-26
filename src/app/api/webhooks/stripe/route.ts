@@ -6,9 +6,9 @@ import { sendSms } from '@/lib/sms';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
-async function getSupabase() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient();
+async function getDb() {
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
 
 function escapeHtml(str: string): string {
@@ -21,94 +21,94 @@ function escapeHtml(str: string): string {
 }
 
 async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const { transactionId } = intent.metadata;
 
-  await supabase
-    .from('payment_transactions')
-    .update({ status: 'succeeded', updated_at: new Date().toISOString() } as never)
-    .eq('provider_transaction_id', intent.id);
+  await query(
+    `UPDATE payment_transactions SET status = 'succeeded', updated_at = now() WHERE provider_transaction_id = $1`,
+    [intent.id],
+  );
 
   if (transactionId) {
-    await supabase.rpc('handle_payment_succeeded', {
-      p_transaction_id: transactionId,
-    } as never);
+    await query(`SELECT handle_payment_succeeded($1::uuid)`, [transactionId]);
   }
 
   if (intent.metadata.afribook_booking_id) {
-    await supabase
-      .from('bookings')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', intent.metadata.afribook_booking_id);
+    await query(
+      `UPDATE bookings SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [intent.metadata.afribook_booking_id],
+    );
   }
 
   if (intent.metadata.afribook_order_id) {
-    await supabase
-      .from('orders')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', intent.metadata.afribook_order_id);
+    await query(
+      `UPDATE orders SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [intent.metadata.afribook_order_id],
+    );
   }
 
   // Event registration payments: confirm the registration and mint tickets.
   const eventId = intent.metadata.event_id;
   const registrationId = intent.metadata.registration_id;
   if (eventId && registrationId) {
-    const { data: registration } = await (supabase as any)
-      .from('event_registrations')
-      .select(
-        'id, event_id, user_id, user_name, user_email, user_phone, quantity, ticket_tier_name, total, currency_code'
-      )
-      .eq('id', registrationId)
-      .eq('event_id', eventId)
-      .single();
+    const registrationRows = await query<{
+      id: string; event_id: string; user_id: string; user_name: string;
+      user_email: string | null; user_phone: string | null; quantity: number;
+      ticket_tier_name: string; total: number; currency_code: string;
+    }>(
+      `SELECT id, event_id, user_id, user_name, user_email, user_phone, quantity, ticket_tier_name, total, currency_code
+       FROM event_registrations WHERE id = $1 AND event_id = $2`,
+      [registrationId, eventId],
+    );
+    const registration = registrationRows[0];
 
     if (registration) {
-      const { data: event } = await (supabase as any)
-        .from('events')
-        .select('id, title, start_date, end_date, venue_name, is_virtual')
-        .eq('id', eventId)
-        .single();
+      const eventRows = await query<{
+        id: string; title: string; start_date: string | null; end_date: string | null;
+        venue_name: string | null; is_virtual: boolean;
+      }>(
+        `SELECT id, title, start_date, end_date, venue_name, is_virtual FROM events WHERE id = $1`,
+        [eventId],
+      );
+      const event = eventRows[0];
 
-      await (supabase as any)
-        .from('event_registrations')
-        .update({
-          status: 'confirmed',
-          payment_status: 'completed',
-          updated_at: new Date().toISOString(),
-        } as never)
-        .eq('id', registrationId);
+      await query(
+        `UPDATE event_registrations SET status = 'confirmed', payment_status = 'completed', updated_at = now() WHERE id = $1`,
+        [registrationId],
+      );
 
-      const ticketRows = Array.from({ length: registration.quantity }).map(() => ({
-        registration_id: registrationId,
-        event_id: eventId,
-        user_id: registration.user_id,
-        tier_name: registration.ticket_tier_name,
-        attendee_name: registration.user_name,
-        attendee_email: registration.user_email,
-        status: 'active',
-        qr_code_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${eventId}/ticket/${registrationId}`,
-        valid_from: event?.start_date ?? null,
-        valid_until: event?.end_date ?? null,
-      }));
+      const ticketUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${eventId}/ticket/${registrationId}`;
+      const createdTickets: { id: string; ticket_code: string }[] = [];
+      for (let i = 0; i < registration.quantity; i++) {
+        const rows = await query<{ id: string; ticket_code: string }>(
+          `INSERT INTO event_tickets
+             (registration_id, event_id, user_id, tier_name, attendee_name, attendee_email, status, qr_code_url, valid_from, valid_until)
+           VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $8, $9)
+           RETURNING id, ticket_code`,
+          [
+            registrationId, eventId, registration.user_id, registration.ticket_tier_name,
+            registration.user_name, registration.user_email, ticketUrl,
+            event?.start_date ?? null, event?.end_date ?? null,
+          ],
+        );
+        createdTickets.push(rows[0]);
+      }
 
-      const { data: createdTickets } = await (supabase as any)
-        .from('event_tickets')
-        .insert(ticketRows)
-        .select('id, ticket_code');
+      const ticketCode = createdTickets[0]?.ticket_code ?? '';
 
-      const ticketCode = createdTickets?.[0]?.ticket_code ?? '';
-
-      await supabase.from('notifications').insert({
-        user_id: registration.user_id,
-        type: 'system',
-        title: 'Registration Confirmed',
-        body: `Payment received. You're registered for "${event?.title ?? 'the event'}".`,
-        data: {
-          event_id: eventId,
-          registration_id: registrationId,
-          ticket_codes: createdTickets?.map((t: any) => t.ticket_code) ?? [],
-        },
-      } as never);
+      await query(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'system', 'Registration Confirmed', $2, $3)`,
+        [
+          registration.user_id,
+          `Payment received. You're registered for "${event?.title ?? 'the event'}".`,
+          JSON.stringify({
+            event_id: eventId,
+            registration_id: registrationId,
+            ticket_codes: createdTickets.map((t) => t.ticket_code),
+          }),
+        ],
+      );
 
       // Dispatch confirmation email + SMS.
       if (registration.user_email) {
@@ -155,21 +155,17 @@ async function handlePaymentIntentSucceeded(intent: Stripe.PaymentIntent) {
 }
 
 async function handlePaymentIntentFailed(intent: Stripe.PaymentIntent) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const failureMessage = intent.last_payment_error?.message ?? 'Payment failed';
 
-  await supabase
-    .from('payment_transactions')
-    .update({
-      status: 'failed',
-      metadata: { failure_message: failureMessage, failed_at: new Date().toISOString() },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('provider_transaction_id', intent.id);
+  await query(
+    `UPDATE payment_transactions SET status = 'failed', metadata = $2, updated_at = now() WHERE provider_transaction_id = $1`,
+    [intent.id, JSON.stringify({ failure_message: failureMessage, failed_at: new Date().toISOString() })],
+  );
 }
 
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  const supabase = await getSupabase();
+  const query = await getDb();
 
   const metadata = session.metadata ?? {};
   const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
@@ -178,95 +174,85 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const amount = session.amount_total ? session.amount_total / 100 : 0;
 
   if (transactionId) {
-    await supabase
-      .from('payment_transactions')
-      .update({
-        status: 'succeeded',
-        provider_transaction_id: session.payment_intent as string ?? session.id,
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq('id', transactionId);
+    await query(
+      `UPDATE payment_transactions SET status = 'succeeded', provider_transaction_id = $2, updated_at = now() WHERE id = $1`,
+      [transactionId, (session.payment_intent as string) ?? session.id],
+    );
   }
 
   if (metadata.afribook_booking_id) {
-    await supabase
-      .from('bookings')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', metadata.afribook_booking_id);
+    await query(
+      `UPDATE bookings SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [metadata.afribook_booking_id],
+    );
   }
 
   if (metadata.afribook_order_id) {
-    await supabase
-      .from('orders')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', metadata.afribook_order_id);
+    await query(
+      `UPDATE orders SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [metadata.afribook_order_id],
+    );
   }
 
-  if (session.customer_details?.email) {
-    await supabase.from('notifications').insert({
-      userId: metadata.afribook_customer_id ?? '',
-      type: 'payment',
-      title: 'Payment Successful',
-      body: `Payment of ${(amount).toFixed(2)} ${session.currency?.toUpperCase()} was successful.`,
-      data: {
-        session_id: session.id,
-        payment_intent: session.payment_intent,
-        line_items: lineItems.data.map((i) => ({
-          description: i.description,
-          amount: i.amount_total / 100,
-          quantity: i.quantity,
-        })),
-      },
-    } as never);
+  if (session.customer_details?.email && metadata.afribook_customer_id) {
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Payment Successful', $2, $3)`,
+      [
+        metadata.afribook_customer_id,
+        `Payment of ${amount.toFixed(2)} ${session.currency?.toUpperCase()} was successful.`,
+        JSON.stringify({
+          session_id: session.id,
+          payment_intent: session.payment_intent,
+          line_items: lineItems.data.map((i) => ({
+            description: i.description,
+            amount: i.amount_total ? i.amount_total / 100 : 0,
+            quantity: i.quantity,
+          })),
+        }),
+      ],
+    );
   }
 }
 
 async function handleAccountUpdated(account: Stripe.Account) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const vendorId = account.metadata?.afribook_vendor_id;
   if (!vendorId) return;
 
-  await supabase
-    .from('vendor_wallets')
-    .update({
-      metadata: {
+  await query(
+    `UPDATE vendor_wallets SET metadata = $2, updated_at = now() WHERE vendor_id = $1`,
+    [
+      vendorId,
+      JSON.stringify({
         stripe_account_id: account.id,
         details_submitted: account.details_submitted,
         charges_enabled: account.charges_enabled,
         payouts_enabled: account.payouts_enabled,
         currently_due: account.requirements?.currently_due ?? [],
         updated_at: new Date().toISOString(),
-      },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('vendor_id', vendorId);
+      }),
+    ],
+  );
 }
 
 async function handlePayoutPaid(payout: Stripe.Payout) {
-  const supabase = await getSupabase();
+  const query = await getDb();
 
-  await supabase
-    .from('payouts')
-    .update({
-      status: 'completed',
-      paid_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('metadata->>stripe_payout_id', payout.id);
+  await query(
+    `UPDATE payouts SET status = 'completed', paid_at = now() WHERE metadata->>'stripe_payout_id' = $1`,
+    [payout.id],
+  );
 }
 
 async function handlePayoutFailed(payout: Stripe.Payout) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const failureMessage = payout.failure_message ?? 'Payout failed';
 
-  await supabase
-    .from('payouts')
-    .update({
-      status: 'failed',
-      metadata: { failure_message: failureMessage, failed_at: new Date().toISOString() },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('metadata->>stripe_payout_id', payout.id);
+  await query(
+    `UPDATE payouts SET status = 'failed', metadata = $2 WHERE metadata->>'stripe_payout_id' = $1`,
+    [payout.id, JSON.stringify({ failure_message: failureMessage, failed_at: new Date().toISOString() })],
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -288,25 +274,21 @@ export async function POST(req: NextRequest) {
   }
 
   if (idempotencyKey) {
-    const supabase = await getSupabase();
-    const existing = await supabase
-      .from('webhook_events')
-      .select('id')
-      .eq('idempotency_key', idempotencyKey)
-      .single();
+    const query = await getDb();
+    const existing = await query<{ id: string }>(
+      `SELECT id FROM webhook_events WHERE idempotency_key = $1`,
+      [idempotencyKey],
+    );
 
-    if (existing.data) {
+    if (existing.length > 0) {
       return NextResponse.json({ received: true, idempotent: true });
     }
 
-    await supabase.from('webhook_events').insert({
-      provider: 'stripe',
-      event_type: event.type,
-      event_id: event.id,
-      idempotency_key: idempotencyKey,
-      raw_event: event as unknown as Record<string, unknown>,
-      processed_at: new Date().toISOString(),
-    } as never);
+    await query(
+      `INSERT INTO webhook_events (provider, event_type, event_id, idempotency_key, raw_event, processed_at)
+       VALUES ('stripe', $1, $2, $3, $4, now())`,
+      [event.type, event.id, idempotencyKey, JSON.stringify(event)],
+    );
   }
 
   try {

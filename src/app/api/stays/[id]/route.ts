@@ -9,7 +9,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const db = getStaysDb()
+  const db = await getStaysDb()
   const hotel = await resolveStayHotel(db, id)
 
   if (!hotel) {

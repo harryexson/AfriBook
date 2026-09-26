@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { getPickupOrderByOrderId, getCustomerPickups, getVendorPickups } from '@/lib/pickup/pickup-manager';
 
 export async function GET(req: NextRequest) {
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single() as unknown as { data: { role: string } | null };
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       const { data: biz } = await supabase
         .from('businesses')
         .select('id')
-        .eq('ownerId', user.id)
+        .eq('owner_id', user.id)
         .single() as unknown as { data: { id: string } | null };
       if (!biz) {
         return NextResponse.json({ error: 'No business found' }, { status: 404 });

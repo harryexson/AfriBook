@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { query } from '@/lib/neon/admin';
 import { getMethodsForCountry, getProvidersForCountry } from './types';
 
 /**
@@ -38,12 +38,11 @@ export async function getProviderCapabilities(
   try {
     const now = Date.now();
     if (!capabilityCache || now - cacheTimestamp > CACHE_TTL_MS) {
-      const sb = createAdminClient();
-      const { data, error } = await sb
-        .from('payment_provider_capabilities')
-        .select('*');
-      if (error || !data || data.length === 0) return null;
-      capabilityCache = data as ProviderCapability[];
+      const data = await query<ProviderCapability>(
+        `SELECT * FROM payment_provider_capabilities`,
+      );
+      if (!data || data.length === 0) return null;
+      capabilityCache = data;
       cacheTimestamp = now;
     }
 

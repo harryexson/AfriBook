@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient as createServiceRoleClient } from '@supabase/supabase-js';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
-
-const supabase = createServiceRoleClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { query } from '@/lib/neon/admin';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 
 export async function GET(
   req: NextRequest,
@@ -16,62 +11,57 @@ export async function GET(
 
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
-    let query = supabase
-      .from('events')
-      .select('*, event_ticket_types(*)');
+    const eventRows = await query<Record<string, unknown>>(
+      `SELECT * FROM events WHERE ${isUuid ? 'id' : 'slug'} = $1 LIMIT 1`,
+      [id],
+    );
+    const event = eventRows[0];
 
-    if (isUuid) {
-      query = query.eq('id', id);
-    } else {
-      query = query.eq('slug', id);
-    }
-
-    const { data: event, error } = await query.single();
-
-    if (error || !event) {
+    if (!event) {
       return NextResponse.json(
         { success: false, error: 'Event not found' },
         { status: 404 }
       );
     }
 
-    await supabase
-      .from('events')
-      .update({ view_count: (event.view_count ?? 0) + 1 })
-      .eq('id', event.id);
+    const tierRows = await query<Record<string, unknown>>(
+      `SELECT * FROM event_ticket_types WHERE event_id = $1`,
+      [event.id],
+    );
 
-    const { count: totalRegistrations } = await supabase
-      .from('ticket_purchases')
-      .select('id', { count: 'exact', head: true })
-      .eq('event_id', event.id)
-      .eq('order_status', 'confirmed');
+    await query(
+      `UPDATE events SET view_count = $1 WHERE id = $2`,
+      [Number(event.view_count ?? 0) + 1, event.id],
+    );
 
-    const { count: totalCheckedIn } = await supabase
-      .from('ticket_purchases')
-      .select('id', { count: 'exact', head: true })
-      .eq('event_id', event.id)
-      .eq('check_in_status', 'checked_in');
+    const totalRegistrationsRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ticket_purchases WHERE event_id = $1 AND order_status = 'confirmed'`,
+      [event.id],
+    );
+    const totalCheckedInRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ticket_purchases WHERE event_id = $1 AND check_in_status = 'checked_in'`,
+      [event.id],
+    );
 
-    const { data: organizerEvents } = await supabase
-      .from('events')
-      .select('id, title, slug, cover_image_url, start_date, venue_city')
-      .eq('organizer_id', event.organizer_id)
-      .eq('status', 'published')
-      .neq('id', event.id)
-      .order('start_date', { ascending: true })
-      .limit(5);
+    const organizerEvents = await query<Record<string, unknown>>(
+      `SELECT id, title, slug, cover_image_url, start_date, venue_city FROM events
+       WHERE organizer_id = $1 AND status = 'published' AND id <> $2
+       ORDER BY start_date ASC LIMIT 5`,
+      [event.organizer_id, event.id],
+    );
 
     return NextResponse.json({
       success: true,
       data: {
         ...event,
+        event_ticket_types: tierRows,
         stats: {
-          totalRegistrations: totalRegistrations ?? 0,
-          totalCheckedIn: totalCheckedIn ?? 0,
+          totalRegistrations: Number(totalRegistrationsRows[0]?.count ?? 0),
+          totalCheckedIn: Number(totalCheckedInRows[0]?.count ?? 0),
           ticketsSold: event.tickets_sold ?? 0,
-          viewCount: (event.view_count ?? 0) + 1,
+          viewCount: Number(event.view_count ?? 0) + 1,
         },
-        relatedEvents: organizerEvents ?? [],
+        relatedEvents: organizerEvents,
       },
     });
   } catch (error) {
@@ -99,13 +89,13 @@ export async function PATCH(
 
     const isAdmin = profileResponse.data?.role === 'admin' || profileResponse.data?.role === 'super_admin';
 
-    const { data: existing, error: fetchError } = await supabase
-      .from('events')
-      .select('id, organizer_id, status, tickets_sold')
-      .eq('id', id)
-      .single();
+    const existingRows = await query<{ id: string; organizer_id: string; status: string; tickets_sold: number }>(
+      `SELECT id, organizer_id, status, tickets_sold FROM events WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    const existing = existingRows[0];
 
-    if (fetchError || !existing) {
+    if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Event not found' },
         { status: 404 }
@@ -137,7 +127,7 @@ export async function PATCH(
     const fieldToColumn: Record<string, string> = {
       title: 'title', description: 'description', shortDescription: 'short_description',
       category: 'category', startDate: 'start_date', endDate: 'end_date',
-      timezone: 'timezone', doorsOpen: 'doors_open', isVirtual: 'is_virtual',
+      timezone: 'timezone', doorsOpen: 'doors_open_at', isVirtual: 'is_virtual',
       venue: 'venue_name', address: 'venue_address', city: 'venue_city',
       country: 'venue_country', virtualLink: 'virtual_link',
       coverImageUrl: 'cover_image_url', galleryImages: 'gallery_images',
@@ -172,11 +162,11 @@ export async function PATCH(
     if (updateData.title) {
       let minPrice = 0;
       let maxPrice = 0;
-      const { data: tiers } = await supabase
-        .from('event_ticket_types')
-        .select('price')
-        .eq('event_id', id);
-      if (tiers && tiers.length > 0) {
+      const tiers = await query<{ price: number }>(
+        `SELECT price FROM event_ticket_types WHERE event_id = $1`,
+        [id],
+      );
+      if (tiers.length > 0) {
         const prices = tiers.map(t => t.price).filter(p => p > 0);
         minPrice = prices.length > 0 ? Math.min(...prices) : 0;
         maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
@@ -185,21 +175,45 @@ export async function PATCH(
       updateData.max_price = maxPrice;
     }
 
-    const { data: updated, error: updateError } = await supabase
-      .from('events')
-      .update(updateData)
-      .eq('id', id)
-      .select('*, event_ticket_types(*)')
-      .single();
+    // tags/galleryImages are jsonb columns — stringify array/object values.
+    if (updateData.tags !== undefined) updateData.tags = JSON.stringify(updateData.tags);
+    if (updateData.gallery_images !== undefined) updateData.gallery_images = JSON.stringify(updateData.gallery_images);
 
-    if (updateError) {
+    const setColumns = Object.keys(updateData);
+    const setValues = Object.values(updateData);
+    const setClause = setColumns.map((col, i) => `${col} = $${i + 1}`).join(', ');
+
+    let updated: Record<string, unknown> | undefined;
+    try {
+      const rows = await query<Record<string, unknown>>(
+        `UPDATE events SET ${setClause} WHERE id = $${setColumns.length + 1} RETURNING *`,
+        [...setValues, id],
+      );
+      updated = rows[0];
+    } catch {
       return NextResponse.json(
         { success: false, error: 'Failed to update event' },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ success: true, data: updated, message: 'Event updated successfully' });
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to update event' },
+        { status: 500 }
+      );
+    }
+
+    const updatedTiers = await query<Record<string, unknown>>(
+      `SELECT * FROM event_ticket_types WHERE event_id = $1`,
+      [id],
+    );
+
+    return NextResponse.json({
+      success: true,
+      data: { ...updated, event_ticket_types: updatedTiers },
+      message: 'Event updated successfully',
+    });
   } catch (error) {
     return NextResponse.json(
       { success: false, error: error instanceof Error ? error.message : 'Internal server error' },
@@ -224,13 +238,13 @@ export async function DELETE(
 
     const isAdmin = profileResponse.data?.role === 'admin' || profileResponse.data?.role === 'super_admin';
 
-    const { data: event, error: fetchError } = await supabase
-      .from('events')
-      .select('id, organizer_id, tickets_sold')
-      .eq('id', id)
-      .single();
+    const eventRows = await query<{ id: string; organizer_id: string; tickets_sold: number }>(
+      `SELECT id, organizer_id, tickets_sold FROM events WHERE id = $1 LIMIT 1`,
+      [id],
+    );
+    const event = eventRows[0];
 
-    if (fetchError || !event) {
+    if (!event) {
       return NextResponse.json(
         { success: false, error: 'Event not found' },
         { status: 404 }
@@ -245,39 +259,49 @@ export async function DELETE(
     }
 
     if (event.tickets_sold > 0) {
-      const { error: cancelError } = await supabase
-        .from('events')
-        .update({
-          status: 'cancelled',
-          cancelled_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', id);
-
-      if (cancelError) {
+      try {
+        await query(
+          `UPDATE events SET status = 'cancelled', cancelled_at = $1, updated_at = $1 WHERE id = $2`,
+          [new Date().toISOString(), id],
+        );
+      } catch {
         return NextResponse.json(
           { success: false, error: 'Failed to cancel event' },
           { status: 500 }
         );
       }
 
-      const { data: paidRegistrations } = await supabase
-        .from('ticket_purchases')
-        .select('id, buyer_id, total, buyer_name, buyer_email')
-        .eq('event_id', id)
-        .eq('order_status', 'confirmed')
-        .gt('total', 0);
+      const paidRegistrations = await query<{ id: string; buyer_id: string | null; total: number; buyer_name: string; buyer_email: string }>(
+        `SELECT id, buyer_id, total, buyer_name, buyer_email FROM ticket_purchases
+         WHERE event_id = $1 AND order_status = 'confirmed' AND total > 0`,
+        [id],
+      );
 
-      const notifications = (paidRegistrations ?? []).map((r) => ({
-        user_id: r.buyer_id ?? '',
-        type: 'event_cancelled',
-        title: 'Event Cancelled',
-        body: `The event has been cancelled. A refund of ${(r.total ?? 0) > 0 ? 'your purchase' : 'N/A'} will be processed.`,
-        data: { event_id: id, registration_id: r.id },
-      })).filter((n) => n.user_id);
+      const notifications = paidRegistrations
+        .map((r) => ({
+          user_id: r.buyer_id ?? '',
+          type: 'event_cancelled',
+          title: 'Event Cancelled',
+          body: `The event has been cancelled. A refund of ${(r.total ?? 0) > 0 ? 'your purchase' : 'N/A'} will be processed.`,
+          data: { event_id: id, registration_id: r.id },
+        }))
+        .filter((n) => n.user_id);
 
       if (notifications.length > 0) {
-        await supabase.from('notifications').insert(notifications);
+        const columns = ['user_id', 'type', 'title', 'body', 'data'];
+        const values: unknown[] = [];
+        const placeholders = notifications.map((n, rowIndex) => {
+          const row = [n.user_id, n.type, n.title, n.body, JSON.stringify(n.data)];
+          const rowPlaceholders = row.map((v, colIndex) => {
+            values.push(v);
+            return `$${rowIndex * columns.length + colIndex + 1}`;
+          });
+          return `(${rowPlaceholders.join(', ')})`;
+        });
+        await query(
+          `INSERT INTO notifications (${columns.join(', ')}) VALUES ${placeholders.join(', ')}`,
+          values,
+        );
       }
 
       return NextResponse.json({
@@ -285,21 +309,18 @@ export async function DELETE(
         data: {
           eventId: id,
           status: 'cancelled',
-          affectedRegistrations: paidRegistrations?.length ?? 0,
+          affectedRegistrations: paidRegistrations.length,
           message: 'Event cancelled. Refunds will be processed for paid registrations.',
         },
       });
     }
 
-    await supabase.from('event_ticket_types').delete().eq('event_id', id);
-    await supabase.from('event_promo_codes').delete().eq('event_id', id);
+    await query(`DELETE FROM event_ticket_types WHERE event_id = $1`, [id]);
+    await query(`DELETE FROM event_promo_codes WHERE event_id = $1`, [id]);
 
-    const { error } = await supabase
-      .from('events')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
+    try {
+      await query(`DELETE FROM events WHERE id = $1`, [id]);
+    } catch {
       return NextResponse.json(
         { success: false, error: 'Failed to delete event' },
         { status: 500 }

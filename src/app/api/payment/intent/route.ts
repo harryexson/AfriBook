@@ -3,7 +3,7 @@ import { createPaymentIntent, getPaymentOrchestrator } from '@/lib/payments';
 import { isMethodAvailableForCountry } from '@/lib/payments/capabilities';
 
 export async function POST(req: NextRequest) {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

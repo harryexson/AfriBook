@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(searchParams.get('page') ?? 1) || 1)
   const limit = Math.min(48, Math.max(1, Number(searchParams.get('limit') ?? 12) || 12))
 
-  const db = getStaysDb()
+  const db = await getStaysDb()
   let data: StayHotel[] | null = null
   let source: 'db' | 'mock' = 'mock'
   let total = 0

@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn, formatCurrency } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+import { createClient } from '@/lib/neon/client'
 import {
   Plus, Search, Edit3, Trash2, Eye, EyeOff, GripVertical,
   Utensils, DollarSign, X, Upload, Download, Grid3X3, List,

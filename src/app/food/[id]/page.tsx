@@ -17,7 +17,7 @@ import {
   Leaf,
 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
-import { formatMoneySymbol } from "@/lib/money";
+import { useLocalPrice } from "@/lib/use-local-price";
 import type { MenuItem } from "@/types";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -58,6 +58,7 @@ export default function RestaurantMenuPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const store = useCartStore();
+  const { price } = useLocalPrice();
 
   const [restaurant, setRestaurant] = useState<RestaurantDetail | null>(null);
   const [menu, setMenu] = useState<MenuCategory[]>([]);
@@ -223,7 +224,7 @@ export default function RestaurantMenuPage() {
                 <span className="inline-flex items-center gap-1.5">
                   <Truck className="h-4 w-4" />
                   {restaurant.deliveryFee > 0
-                    ? formatMoneySymbol(restaurant.deliveryFee, restaurant.currency)
+                    ? price(restaurant.deliveryFee, restaurant.currency).display
                     : "Free"}{" "}
                   delivery
                 </span>
@@ -321,9 +322,21 @@ export default function RestaurantMenuPage() {
                           Allergens: {item.allergens.join(", ")}
                         </p>
                       )}
-                      <p className="mt-2 text-lg font-bold text-amber-600">
-                        {formatMoneySymbol(item.price, item.currencyCode)}
-                      </p>
+                      {/* The vendor's own currency is always the bold, primary
+                          price — that's what's actually charged. An opted-in
+                          currency estimate (CountryNotice toggle) adds a
+                          secondary line; it never replaces this figure. */}
+                      {(() => {
+                        const p = price(item.price, item.currencyCode)
+                        return (
+                          <>
+                            <p className="mt-2 text-lg font-bold text-amber-600">{p.display}</p>
+                            {p.hasEstimate && (
+                              <p className="text-xs text-text-tertiary">≈ {p.estimate}</p>
+                            )}
+                          </>
+                        )
+                      })()}
                     </div>
 
                     <div className="shrink-0">
@@ -393,7 +406,7 @@ export default function RestaurantMenuPage() {
                 <p className="text-sm font-semibold">
                   {cartCount} item{cartCount !== 1 ? "s" : ""}
                 </p>
-                <p className="text-xs text-white/60">{formatMoneySymbol(cartTotal, cartCurrency)}</p>
+                <p className="text-xs text-white/60">{price(cartTotal, cartCurrency).display}</p>
               </div>
             </div>
             <Button onClick={() => router.push("/checkout")} size="lg">

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 import { handleSOSAlert } from '@/lib/pickup/safety-manager';
+import { getEmergencyNumber } from '@/lib/localization/emergency-numbers';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -19,7 +21,7 @@ export async function POST(req: NextRequest) {
   const { data: driver } = await supabase
     .from('drivers')
     .select('id')
-    .eq('userId', user.id)
+    .eq('profile_id', user.id)
     .single() as unknown as { data: { id: string } | null };
 
   if (!driver) {
@@ -34,5 +36,22 @@ export async function POST(req: NextRequest) {
     description,
   });
 
-  return NextResponse.json(result);
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('country_code')
+    .eq('id', user.id)
+    .maybeSingle();
+  const emergencyNumber = getEmergencyNumber(profile?.country_code ?? 'NG');
+
+  await query(
+    `INSERT INTO emergency_escalations
+       (ride_id, delivery_id, triggered_by_user_id, triggered_by_role, lat, lng, emergency_number, notes)
+     VALUES ($1, $2, $3, 'driver', $4, $5, $6, $7)`,
+    [rideId ?? null, deliveryId ?? null, user.id, lat, lng, emergencyNumber, description ?? null],
+  ).catch(() => {
+    // The driver-safety-events record above is the primary log; this is a
+    // secondary cross-role log and must never block the SOS response itself.
+  });
+
+  return NextResponse.json({ ...result, emergencyNumber });
 }

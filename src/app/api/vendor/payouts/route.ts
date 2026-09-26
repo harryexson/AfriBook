@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 import { resolveVendorBusinessId } from '@/lib/vendor/analytics';
 import { getVendorWallet, getVendorPayoutHistory, requestVendorPayout } from '@/lib/vendor/payouts';
 import type { BankAccount } from '@/lib/payments/types';

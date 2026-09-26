@@ -18,8 +18,8 @@
 // vendor-facing dashboard to that already-working payment core.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createClient } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 import { processVendorPayout } from '@/lib/payments';
 import type { BankAccount } from '@/lib/payments/types';
 
@@ -127,37 +127,37 @@ export async function requestVendorPayout(
   // Record the payout and debit the wallet together. Both writes need the
   // admin client — vendor_wallets_write / payouts_write are admin-only by
   // RLS, by design, since this is money movement.
-  const adminDb = createAdminClient();
-
-  const { error: insertError } = await (adminDb.from('payouts') as any).insert({
-    id: result.payoutId,
-    vendor_id: vendorId,
-    business_id: businessId,
-    amount,
-    currency: wallet.currencyCode,
-    status: result.status ?? 'processing',
-    period_start: new Date().toISOString().slice(0, 10),
-    period_end: new Date().toISOString().slice(0, 10),
-    provider_payout_id: result.providerPayoutId ?? null,
-    net_amount: amount,
-    bank_account: destination,
-  });
-
-  if (insertError) {
+  try {
+    await query(
+      `INSERT INTO payouts
+         (id, vendor_id, business_id, amount, currency, status, period_start, period_end, provider_payout_id, net_amount, bank_account)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        result.payoutId,
+        vendorId,
+        businessId,
+        amount,
+        wallet.currencyCode,
+        result.status ?? 'processing',
+        new Date().toISOString().slice(0, 10),
+        new Date().toISOString().slice(0, 10),
+        result.providerPayoutId ?? null,
+        amount,
+        JSON.stringify(destination),
+      ],
+    );
+  } catch {
     // The provider already moved money at this point — a failed local
     // insert here is a reconciliation issue, not something to silently
     // swallow. Surfacing it rather than reporting false success.
     return { success: false, error: 'Payout was processed but failed to record — contact support' };
   }
 
-  await (adminDb.from('vendor_wallets') as any)
-    .update({
-      available_balance: wallet.availableBalance - amount,
-      pending_balance: wallet.pendingBalance + amount,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('vendor_id', vendorId)
-    .eq('business_id', businessId);
+  await query(
+    `UPDATE vendor_wallets SET available_balance = $1, pending_balance = $2, updated_at = now()
+     WHERE vendor_id = $3 AND business_id = $4`,
+    [wallet.availableBalance - amount, wallet.pendingBalance + amount, vendorId, businessId],
+  );
 
   return { success: true, payoutId: result.payoutId, status: result.status };
 }

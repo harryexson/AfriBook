@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { createRestaurantOrder, getRestaurantOrders } from '@/lib/retrobuddy/order-manager';
 import type { CreateOrderParams, RestaurantOrderStatus } from '@/lib/retrobuddy/types';
 
@@ -21,18 +21,31 @@ export async function GET(req: NextRequest) {
   }
 
   const { data: profile } = await supabase
-    .from('users')
+    .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single() as unknown as { data: { role: string } | null };
 
   if (profile?.role !== 'admin' && profile?.role !== 'super_admin') {
-    const { data: owns } = await supabase
-      .from('restaurant_configs' as never)
-      .select('id')
+    // NOTE: original code queried a nonexistent `restaurant_configs` table
+    // filtered by `business_id = user.id` (treating a business's id as if it
+    // were the owning user's id) — a pre-existing bug that made this check
+    // fail (and return 403) for every non-admin caller. The real ownership
+    // chain is restaurants.business_id -> businesses.owner_id.
+    const { data: restaurant } = await supabase
+      .from('restaurants')
+      .select('business_id')
       .eq('id', restaurantId)
-      .eq('business_id', user.id)
-      .single() as unknown as { data: { id: string } | null };
+      .single() as unknown as { data: { business_id: string } | null };
+
+    const { data: owns } = restaurant?.business_id
+      ? await supabase
+          .from('businesses')
+          .select('id')
+          .eq('id', restaurant.business_id)
+          .eq('owner_id', user.id)
+          .single() as unknown as { data: { id: string } | null }
+      : { data: null };
 
     if (!owns) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

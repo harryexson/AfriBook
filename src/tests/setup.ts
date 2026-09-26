@@ -2,6 +2,9 @@ import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 import { TextDecoder, TextEncoder } from 'node:util';
 
+// Still mocked: a number of routes/libs haven't been migrated off
+// @/lib/supabase/server yet (e.g. the upload route, which needs
+// `.storage` — not available on the Neon client below).
 vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn().mockResolvedValue({
     auth: {
@@ -28,6 +31,37 @@ vi.mock('@/lib/supabase/server', () => ({
     },
   }),
 }));
+
+// @/lib/neon/server is the Supabase replacement (see src/lib/neon/server.ts)
+// — same auth.getUser()/from()/rpc() shape, but deliberately no `.storage`.
+vi.mock('@/lib/neon/server', () => {
+  const client = {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user-id', email: 'test@test.com' } }, error: null }),
+    },
+    from: vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnThis(),
+      insert: vi.fn().mockReturnThis(),
+      update: vi.fn().mockReturnThis(),
+      delete: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
+      order: vi.fn().mockReturnThis(),
+      range: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+    }),
+    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+  };
+
+  return {
+    createClient: vi.fn().mockResolvedValue(client),
+    requireAuthenticatedUser: vi.fn().mockResolvedValue({
+      supabase: client,
+      user: { id: 'test-user-id', email: 'test@test.com' },
+    }),
+  };
+});
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn().mockReturnValue({

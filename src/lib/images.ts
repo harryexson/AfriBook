@@ -23,6 +23,48 @@ const CUISINE_ASSETS: Array<[RegExp, string]> = [
   [/continental|european|fine/i, '/food/continental.jpg'],
 ]
 
+/**
+ * Committed people photography, served from public/. Mirrors mobile's bundled
+ * set, and takes priority over the stock pools below.
+ *
+ * These are the service verticals where the person doing the work *is* the
+ * product — someone choosing a barber is choosing a person, not a storefront —
+ * so they get art-directed assets rather than stock that drifts toward
+ * airbrushed studio work. The direction is candid and in-context: a real
+ * working moment, in the kind of room the work actually happens in, lit by a
+ * window rather than a softbox.
+ *
+ * They depict no real or identifiable individual, and are art direction rather
+ * than evidence about any particular vendor — a vendor's own upload always wins.
+ */
+const PEOPLE_ASSETS: Record<string, string[]> = {
+  beauty: ['/people/barber.jpg', '/people/salon.jpg', '/people/spa.jpg'],
+  home: ['/people/cleaning.jpg'],
+  events: ['/people/photography.jpg'],
+  rides: ['/people/rides.jpg'],
+  fashion: ['/people/tailoring.jpg'],
+  automotive: ['/people/automotive.jpg'],
+  logistics: ['/people/logistics.jpg'],
+  generic: ['/people/community.jpg'],
+}
+
+/**
+ * Subject matchers, checked before the hash.
+ *
+ * The stock pools are interchangeable within a bucket, so hashing across them
+ * is fine. These are not: a barbershop, a braiding salon and a massage room
+ * are three different rooms, and `beauty` holds one photo of each. Hashing
+ * alone put a spa treatment table on "Victory Barbers". So read whatever text
+ * we have — usually the business name, since the category is often just
+ * "Beauty & Wellness" and the actual trade shows up in the name — and fall
+ * back to the hash only when it says nothing useful.
+ */
+const PEOPLE_SUBJECTS: Array<[RegExp, string]> = [
+  [/barber|fade|grooming|shave/i, '/people/barber.jpg'],
+  [/salon|hair|braid|nail|lash|makeup|cosmet|stylist|beauty/i, '/people/salon.jpg'],
+  [/spa|massage|wellness|therap|skin/i, '/people/spa.jpg'],
+]
+
 const CATEGORY_PHOTOS: Record<string, string[]> = {
   food: [
     '1504674900247-0877df9cc836',
@@ -70,7 +112,13 @@ const CATEGORY_MATCHERS: Array<[RegExp, string]> = [
   [/logistic|delivery|freight|courier|shipping/i, 'logistics'],
 ]
 
-function bucketFor(category?: string): string {
+/**
+ * Which vertical a free-text category string belongs to. Exported because
+ * it doubles as the one classifier other business-type-aware UI (which tabs
+ * a business page shows, what its accent treatment looks like) should read
+ * from, rather than each surface inventing its own category matching.
+ */
+export function bucketFor(category?: string): string {
   if (!category) return 'generic'
   const direct = category.toLowerCase().trim()
   if (CATEGORY_PHOTOS[direct]) return direct
@@ -80,6 +128,11 @@ function bucketFor(category?: string): string {
   return 'generic'
 }
 
+
+function matchSubject(text: string | undefined, pool: string[]): string | undefined {
+  if (!text) return undefined
+  return PEOPLE_SUBJECTS.find(([pattern, asset]) => pool.includes(asset) && pattern.test(text))?.[1]
+}
 /** Stable hash so a record keeps its photo instead of reshuffling per render. */
 function hash(seed: string): number {
   let h = 0
@@ -98,16 +151,75 @@ export function imageFor(
   id: string,
   category?: string,
   existing?: string | null,
-  { width = 800, ratio = 0.66 }: { width?: number; ratio?: number } = {},
+  {
+    width = 800,
+    ratio = 0.66,
+    subject,
+  }: { width?: number; ratio?: number; subject?: string } = {},
 ): string {
   if (existing) return existing
 
   const bundled = CUISINE_ASSETS.find(([pattern]) => category && pattern.test(category))
   if (bundled) return bundled[1]
 
-  const pool = CATEGORY_PHOTOS[bucketFor(category)] ?? CATEGORY_PHOTOS.generic
+  const bucket = bucketFor(category)
+
+  // Committed people photography beats stock for the service verticals it
+  // covers. Prefer a subject match on the caller-supplied text (the business
+  // name), then fall back to the hash, which keeps a business on one photo
+  // across renders instead of reshuffling per list refresh.
+  const people = PEOPLE_ASSETS[bucket]
+  if (people) {
+    // Name before category, and deliberately so: 'Beauty & Wellness' is the
+    // category on barbershops, salons and spas alike, so letting it match
+    // would drag every one of them onto the same photo. The name is the
+    // specific signal; the category is only a last resort before the hash.
+    const matched = matchSubject(subject, people) ?? matchSubject(category, people)
+    return matched ?? people[hash(id) % people.length]
+  }
+
+  const pool = CATEGORY_PHOTOS[bucket] ?? CATEGORY_PHOTOS.generic
   const photo = pool[hash(id) % pool.length]
   const w = Math.round(width * 2)
   const h = Math.round(width * ratio * 2)
   return `${UNSPLASH}${photo}?w=${w}&h=${h}&q=80&auto=format&fit=crop`
+}
+
+/**
+ * A small gallery for a business: real uploaded photos first, otherwise a
+ * category-appropriate set from the same pools `imageFor` draws from.
+ *
+ * This exists because the business detail page's hero carousel used to keep
+ * its own separate, hand-maintained category → photo map — incomplete (no
+ * entry for Automotive, Logistics, Fashion, Agriculture, Legal, Real Estate,
+ * Rides...) and its "fallback" for anything missing was, verbatim, the Food &
+ * Dining photo set. An automotive shop with no exact category match rendered
+ * a hero banner of vegetables. Routing the gallery through the one resolver
+ * everything else already uses closes that gap and keeps every surface
+ * (cards, dialogs, hero galleries) agreeing on what a category looks like.
+ */
+export function galleryFor(
+  id: string,
+  category: string | undefined,
+  existingUrls: string[] | undefined,
+  count = 4,
+): string[] {
+  if (existingUrls && existingUrls.length > 0) return existingUrls
+
+  const bundled = CUISINE_ASSETS.find(([pattern]) => category && pattern.test(category))
+  if (bundled) return [bundled[1]]
+
+  const bucket = bucketFor(category)
+
+  const people = PEOPLE_ASSETS[bucket]
+  if (people) return people
+
+  const pool = CATEGORY_PHOTOS[bucket] ?? CATEGORY_PHOTOS.generic
+  // Rotate the pool by id so different businesses in the same category don't
+  // all open on the same lead photo, same trick imageFor uses via hash().
+  const offset = hash(id) % pool.length
+  const rotated = [...pool.slice(offset), ...pool.slice(0, offset)].slice(0, count)
+  return rotated.map(
+    (photo) => `${UNSPLASH}${photo}?w=1600&h=1056&q=80&auto=format&fit=crop`,
+  )
 }

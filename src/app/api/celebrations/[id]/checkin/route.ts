@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-
-const admin = createAdminClient() as any;
+import { requireAuthenticatedUser } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 
 export async function POST(
   req: NextRequest,
@@ -12,22 +10,28 @@ export async function POST(
     const { id: eventId } = await params;
     const { user } = await requireAuthenticatedUser();
 
-    const { data: evt } = await admin
-      .from('events')
-      .select('id, organizer_id, title, celebration_type, status')
-      .eq('id', eventId)
-      .single();
+    const evtRows = await query<{
+      id: string;
+      organizer_id: string;
+      title: string;
+      celebration_type: string | null;
+      status: string;
+    }>(
+      `SELECT id, organizer_id, title, celebration_type, status FROM events WHERE id = $1 LIMIT 1`,
+      [eventId],
+    );
+    const evt = evtRows[0] ?? null;
 
     if (!evt || evt.celebration_type == null) {
       return NextResponse.json({ success: false, error: 'Celebration not found' }, { status: 404 });
     }
 
     const isOrganizer = evt.organizer_id === user.id;
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const profileRows = await query<{ role: string | null }>(
+      `SELECT role FROM profiles WHERE id = $1 LIMIT 1`,
+      [user.id],
+    );
+    const profile = profileRows[0] ?? null;
 
     const role = profile?.role ?? '';
     if (!isOrganizer && !['admin', 'super_admin', 'staff'].includes(role)) {
@@ -46,14 +50,20 @@ export async function POST(
       );
     }
 
-    const { data: guest } = await admin
-      .from('event_guests')
-      .select(
-        'id, guest_name, guest_email, rsvp_status, attending_count, check_in_status, checked_in_at',
-      )
-      .eq('event_id', eventId)
-      .eq('ticket_code', ticketCode)
-      .maybeSingle();
+    const guestRows = await query<{
+      id: string;
+      guest_name: string;
+      guest_email: string | null;
+      rsvp_status: string;
+      attending_count: number | null;
+      check_in_status: string | null;
+      checked_in_at: string | null;
+    }>(
+      `SELECT id, guest_name, guest_email, rsvp_status, attending_count, check_in_status, checked_in_at
+       FROM event_guests WHERE event_id = $1 AND ticket_code = $2 LIMIT 1`,
+      [eventId, ticketCode],
+    );
+    const guest = guestRows[0] ?? null;
 
     if (!guest) {
       return NextResponse.json(
@@ -74,15 +84,12 @@ export async function POST(
       });
     }
 
-    await admin
-      .from('event_guests')
-      .update({
-        rsvp_status: 'attended',
-        check_in_status: 'checked_in',
-        checked_in_at: new Date().toISOString(),
-        checked_in_by: user.id,
-      })
-      .eq('id', guest.id);
+    await query(
+      `UPDATE event_guests
+       SET rsvp_status = 'attended', check_in_status = 'checked_in', checked_in_at = $1, checked_in_by = $2
+       WHERE id = $3`,
+      [new Date().toISOString(), user.id, guest.id],
+    );
 
     return NextResponse.json({
       success: true,

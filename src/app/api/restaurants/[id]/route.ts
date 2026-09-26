@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { getCurrencyForCountry } from '@/lib/money';
 import { getMockRestaurantById, getMockMenuForRestaurant } from '@/lib/restaurants/data';
 

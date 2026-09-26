@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 import {
   getDriverBalance,
   getDriverEarnings,

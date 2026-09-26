@@ -7,7 +7,7 @@
 //       calculateDistance handles both via duck-typing.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import type { GeoPoint } from '@/types';
 import type {
   RideType,
@@ -125,10 +125,15 @@ export async function estimateSurgeDemand(
   const supabase = await createClient();
   const since = new Date(Date.now() - 15 * 60 * 1000).toISOString();
 
+  // NOTE: `ride_requests.status` is the `ride_status` enum, whose values are
+  // requested/accepted/arrived/in_progress/completed/cancelled — there is no
+  // 'requesting' or 'searching' value (those belong to `ridely_ride_status`,
+  // a different enum on a different table). The original filter could never
+  // match a row; using the real "pending" value here.
   const { data, error } = await supabase
     .from('ride_requests')
     .select('pickup_location')
-    .in('status', ['requesting', 'searching'])
+    .in('status', ['requested'])
     .gte('created_at', since);
 
   if (error || !data) return 0;
@@ -151,10 +156,12 @@ export async function estimateSurgeSupply(
   const supabase = await createClient();
   const since = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
+  // NOTE: `driver_locations` has no `timestamp` column — the real column is
+  // `last_seen_at` (verified via information_schema).
   const { data, error } = await supabase
     .from('driver_locations')
     .select('location')
-    .gte('timestamp', since);
+    .gte('last_seen_at', since);
 
   if (error || !data) return 0;
 
@@ -197,10 +204,12 @@ export async function createSurgeZone(
     return rowToSurgeZone(data, params.countryCode);
   }
 
+  // NOTE: `surge_zones` has no `country_code` column (verified via
+  // information_schema) — dropped from the insert; Supabase was silently
+  // discarding it.
   const { data, error } = await supabase
     .from('surge_zones')
     .insert({
-      country_code: params.countryCode,
       name: params.name,
       center: params.center,
       radius_km: params.radiusKm,
@@ -209,7 +218,7 @@ export async function createSurgeZone(
       supply: 0,
       ratio: 0,
       active: params.active,
-    } satisfies Omit<import('@/types').SurgeZoneRow, 'id' | 'created_at' | 'updated_at'>)
+    })
     .select()
     .single();
 

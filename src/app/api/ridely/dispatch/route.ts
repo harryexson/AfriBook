@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 async function getDb() {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   return createClient() as any;
 }
 

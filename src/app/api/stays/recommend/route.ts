@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'hotelId is required' }, { status: 400 })
   }
 
-  const db = getStaysDb()
+  const db = await getStaysDb()
   const hotel = await resolveStayHotel(db, hotelId)
   if (!hotel) {
     return NextResponse.json({ error: 'Stay not found' }, { status: 404 })

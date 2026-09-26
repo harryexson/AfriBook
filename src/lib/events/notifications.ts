@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { query } from '@/lib/neon/admin';
 import type {
   TicketPurchase,
   NotificationPayload,
@@ -17,28 +17,41 @@ function formatCurrency(amount: number, currency: string = 'USD'): string {
   return formatMoney(amount, currency);
 }
 
+// `notification_logs` does not exist — the real table is `notifications`
+// (user_id, type, title, body, data jsonb, channel, read, sent_at, read_at).
+// It has no event_id/registration_id/recipient_email/recipient_phone/status
+// columns, so those are folded into `data` jsonb, and a `userId` is
+// required at each call site since the table is keyed by recipient user.
 async function logNotification(
-  sb: SupabaseClient,
   payload: NotificationPayload,
-  refs: { eventId?: string; registrationId?: string; status?: 'queued' | 'sent' | 'delivered' | 'failed' },
+  refs: { userId: string | null; eventId?: string; registrationId?: string },
 ): Promise<void> {
-  await sb.from('notification_logs').insert({
-    event_id: refs.eventId ?? null,
-    registration_id: refs.registrationId ?? null,
-    recipient_email: payload.recipientEmail ?? null,
-    recipient_phone: payload.recipientPhone ?? null,
-    channel: payload.channel,
-    type: payload.type,
-    status: refs.status ?? 'queued',
-    payload,
-    created_at: new Date().toISOString(),
-  });
+  if (!refs.userId) return; // no known recipient user — nothing to log
+
+  await query(
+    `INSERT INTO notifications (user_id, type, title, body, data, channel, sent_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [
+      refs.userId,
+      payload.type,
+      payload.subject ?? payload.type,
+      payload.body,
+      JSON.stringify({
+        ...(payload.metadata ?? {}),
+        eventId: refs.eventId ?? null,
+        registrationId: refs.registrationId ?? null,
+        recipientEmail: payload.recipientEmail ?? null,
+        recipientPhone: payload.recipientPhone ?? null,
+      }),
+      payload.channel,
+      new Date().toISOString(),
+    ],
+  );
 }
 
 // ─── Registration Confirmation ────────────────────────────────
 
 export async function sendRegistrationConfirmation(
-  sb: SupabaseClient,
   registration: TicketPurchase,
   event: { title: string; startDate: string; venueName?: string; currencyCode: string },
 ): Promise<NotificationPayload[]> {
@@ -69,7 +82,11 @@ export async function sendRegistrationConfirmation(
   };
 
   notifications.push(emailPayload);
-  await logNotification(sb, emailPayload, { eventId: registration.eventId, registrationId: registration.id });
+  await logNotification(emailPayload, {
+    userId: registration.buyerId,
+    eventId: registration.eventId,
+    registrationId: registration.id,
+  });
 
   // SMS notification
   if (registration.buyerPhone) {
@@ -90,7 +107,11 @@ export async function sendRegistrationConfirmation(
     };
 
     notifications.push(smsPayload);
-    await logNotification(sb, smsPayload, { eventId: registration.eventId, registrationId: registration.id });
+    await logNotification(smsPayload, {
+      userId: registration.buyerId,
+      eventId: registration.eventId,
+      registrationId: registration.id,
+    });
   }
 
   // WhatsApp notification
@@ -112,7 +133,11 @@ export async function sendRegistrationConfirmation(
     };
 
     notifications.push(whatsappPayload);
-    await logNotification(sb, whatsappPayload, { eventId: registration.eventId, registrationId: registration.id });
+    await logNotification(whatsappPayload, {
+      userId: registration.buyerId,
+      eventId: registration.eventId,
+      registrationId: registration.id,
+    });
   }
 
   return notifications;
@@ -121,7 +146,6 @@ export async function sendRegistrationConfirmation(
 // ─── Event Reminder ───────────────────────────────────────────
 
 export async function sendEventReminder(
-  sb: SupabaseClient,
   registration: TicketPurchase,
   event: { title: string; startDate: string; venueName?: string; venueAddress?: string },
   reminderType: '24h' | '1h',
@@ -151,7 +175,11 @@ export async function sendEventReminder(
     },
   };
 
-  await logNotification(sb, payload, { eventId: registration.eventId, registrationId: registration.id });
+  await logNotification(payload, {
+    userId: registration.buyerId,
+    eventId: registration.eventId,
+    registrationId: registration.id,
+  });
 
   return payload;
 }
@@ -159,18 +187,17 @@ export async function sendEventReminder(
 // ─── Event Update Notification ────────────────────────────────
 
 export async function sendEventUpdate(
-  sb: SupabaseClient,
   event: { id: string; title: string },
   updateMessage: string,
 ): Promise<{ notificationsSent: number }> {
   // Get all confirmed registrations for this event
-  const { data: registrations } = await sb
-    .from('ticket_purchases')
-    .select('buyer_name, buyer_email, buyer_phone')
-    .eq('event_id', event.id)
-    .eq('order_status', 'confirmed');
+  const registrations = await query<{ buyer_id: string; buyer_name: string; buyer_email: string; buyer_phone: string | null }>(
+    `SELECT buyer_id, buyer_name, buyer_email, buyer_phone FROM ticket_purchases
+     WHERE event_id = $1 AND order_status = 'confirmed'`,
+    [event.id],
+  );
 
-  if (!registrations || registrations.length === 0) {
+  if (registrations.length === 0) {
     return { notificationsSent: 0 };
   }
 
@@ -188,7 +215,7 @@ export async function sendEventUpdate(
       metadata: { eventId: event.id },
     };
 
-    await logNotification(sb, payload, { eventId: event.id });
+    await logNotification(payload, { userId: reg.buyer_id, eventId: event.id });
 
     count++;
   }
@@ -199,7 +226,6 @@ export async function sendEventUpdate(
 // ─── Refund Confirmation ──────────────────────────────────────
 
 export async function sendRefundConfirmation(
-  sb: SupabaseClient,
   registration: TicketPurchase,
   event: { title: string },
   refundAmount: number,
@@ -224,7 +250,11 @@ export async function sendRefundConfirmation(
     },
   };
 
-  await logNotification(sb, payload, { eventId: registration.eventId, registrationId: registration.id });
+  await logNotification(payload, {
+    userId: registration.buyerId,
+    eventId: registration.eventId,
+    registrationId: registration.id,
+  });
 
   return payload;
 }
@@ -232,8 +262,7 @@ export async function sendRefundConfirmation(
 // ─── Check-In Confirmation ────────────────────────────────────
 
 export async function sendCheckInConfirmation(
-  sb: SupabaseClient,
-  ticket: { ticketCode: string; attendeeName: string; attendeeEmail: string; ticketType: string },
+  ticket: { ticketCode: string; attendeeName: string; attendeeEmail: string; ticketType: string; userId?: string },
   event: { id: string; title: string; venueName?: string },
 ): Promise<NotificationPayload> {
   const body = `Welcome, ${ticket.attendeeName}! 🎉\n\n` +
@@ -253,7 +282,7 @@ export async function sendCheckInConfirmation(
     },
   };
 
-  await logNotification(sb, payload, { eventId: event.id });
+  await logNotification(payload, { userId: ticket.userId ?? null, eventId: event.id });
 
   return payload;
 }
@@ -261,7 +290,6 @@ export async function sendCheckInConfirmation(
 // ─── Invitation Email ─────────────────────────────────────────
 
 export async function sendInvitationEmail(
-  sb: SupabaseClient,
   invitation: {
     id: string;
     eventId: string;
@@ -300,7 +328,14 @@ export async function sendInvitationEmail(
     },
   };
 
-  await logNotification(sb, payload, { eventId: invitation.eventId });
+  // Invitees are not necessarily registered users — look up a matching
+  // profile by email so the notification can still be logged when possible.
+  const profileRows = await query<{ id: string }>(
+    `SELECT id FROM profiles WHERE email = $1 LIMIT 1`,
+    [invitation.inviteeEmail],
+  );
+
+  await logNotification(payload, { userId: profileRows[0]?.id ?? null, eventId: invitation.eventId });
 
   return payload;
 }
@@ -308,7 +343,6 @@ export async function sendInvitationEmail(
 // ─── Invitation SMS ───────────────────────────────────────────
 
 export async function sendInvitationSMS(
-  sb: SupabaseClient,
   invitation: {
     id: string;
     eventId: string;
@@ -340,7 +374,12 @@ export async function sendInvitationSMS(
     },
   };
 
-  await logNotification(sb, payload, { eventId: invitation.eventId });
+  const profileRows = await query<{ id: string }>(
+    `SELECT id FROM profiles WHERE phone = $1 LIMIT 1`,
+    [invitation.inviteePhone],
+  );
+
+  await logNotification(payload, { userId: profileRows[0]?.id ?? null, eventId: invitation.eventId });
 
   return payload;
 }
@@ -348,7 +387,6 @@ export async function sendInvitationSMS(
 // ─── Host Notification ────────────────────────────────────────
 
 export async function sendHostNotification(
-  sb: SupabaseClient,
   event: { id: string; title: string; organizerEmail: string; organizerName: string },
   stats: {
     type: 'milestone' | 'sold_out' | 'first_registration' | 'event_starting';
@@ -406,7 +444,12 @@ export async function sendHostNotification(
     },
   };
 
-  await logNotification(sb, payload, { eventId: event.id });
+  const eventRows = await query<{ organizer_id: string }>(
+    `SELECT organizer_id FROM events WHERE id = $1 LIMIT 1`,
+    [event.id],
+  );
+
+  await logNotification(payload, { userId: eventRows[0]?.organizer_id ?? null, eventId: event.id });
 
   return payload;
 }

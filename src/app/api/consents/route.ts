@@ -7,7 +7,7 @@ type LooseQuery = any;
 
 // GET /api/consents — list the signed-in user's consent records.
 export async function GET() {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -31,7 +31,7 @@ export async function GET() {
 // POST /api/consents — record one or more consent grants (or revocations).
 // Body: { consents: [{ consentType, granted?, context?, consentVersion?, metadata? }] }
 export async function POST(req: NextRequest) {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -101,9 +101,12 @@ export async function POST(req: NextRequest) {
       import('@/lib/email'),
       import('@/lib/localization/email'),
     ]);
+    // Neon Auth's user object has no `user_metadata` bag (unlike Supabase) —
+    // it exposes profile fields directly. `name` is the closest match;
+    // country isn't on the auth user at all, so this falls back to the
+    // email template's own default locale.
     const email = welcomeEmail({
-      name: user.user_metadata?.name,
-      countryCode: user.user_metadata?.countryCode,
+      name: user.name,
     });
     sendEmail({
       to: user.email,

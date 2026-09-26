@@ -1,14 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { query, withTransaction } from '@/lib/neon/admin';
 import {
   DELIVERY_STATUS_TRANSITIONS,
   type DeliveryStatus,
 } from '@/types/ridely';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+interface DeliveryRow {
+  [key: string]: unknown;
+  id: string;
+  status: string;
+  driver_id: string | null;
+  customer_id: string;
+}
+
+interface DriverEmbed {
+  id: string;
+  user_id: string;
+  name: string | null;
+  phone: string | null;
+  avatar_url: string | null;
+  vehicle_type: string | null;
+  vehicle_make: string | null;
+  vehicle_model: string | null;
+  vehicle_color: string | null;
+  license_plate: string | null;
+  rating: number | null;
+  total_trips: number | null;
+}
+
+// NOTE: same driver-embed rebuild as src/app/api/ridely/rides/[id]/route.ts —
+// `drivers` has no user_id/name/phone/avatar_url/vehicle_* columns; those
+// live on `profiles` and the driver's active `vehicles` row.
+async function fetchDelivery(id: string): Promise<(DeliveryRow & { driver: DriverEmbed | null }) | null> {
+  const rows = await query<DeliveryRow & {
+    driver_pk: string | null;
+    driver_profile_id: string | null;
+    driver_name: string | null;
+    driver_phone: string | null;
+    driver_avatar_url: string | null;
+    driver_vehicle_type: string | null;
+    driver_vehicle_make: string | null;
+    driver_vehicle_model: string | null;
+    driver_vehicle_color: string | null;
+    driver_license_plate: string | null;
+    driver_rating: number | null;
+    driver_total_trips: number | null;
+  }>(
+    `SELECT r.*,
+            d.id AS driver_pk,
+            d.profile_id AS driver_profile_id,
+            p.full_name AS driver_name,
+            p.phone AS driver_phone,
+            p.avatar_url AS driver_avatar_url,
+            v.type AS driver_vehicle_type,
+            v.make AS driver_vehicle_make,
+            v.model AS driver_vehicle_model,
+            v.color AS driver_vehicle_color,
+            v.plate_number AS driver_license_plate,
+            d.rating AS driver_rating,
+            d.total_trips AS driver_total_trips
+     FROM ridely_deliveries r
+     LEFT JOIN drivers d ON d.id = r.driver_id
+     LEFT JOIN profiles p ON p.id = d.profile_id
+     LEFT JOIN LATERAL (
+       SELECT * FROM vehicles v WHERE v.driver_id = d.id AND v.is_active = true
+       ORDER BY v.id LIMIT 1
+     ) v ON true
+     WHERE r.id = $1`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return null;
+
+  const {
+    driver_pk, driver_profile_id, driver_name, driver_phone, driver_avatar_url,
+    driver_vehicle_type, driver_vehicle_make, driver_vehicle_model, driver_vehicle_color,
+    driver_license_plate, driver_rating, driver_total_trips,
+    ...delivery
+  } = row;
+
+  const driver: DriverEmbed | null = driver_pk
+    ? {
+        id: driver_pk,
+        user_id: driver_profile_id as string,
+        name: driver_name,
+        phone: driver_phone,
+        avatar_url: driver_avatar_url,
+        vehicle_type: driver_vehicle_type,
+        vehicle_make: driver_vehicle_make,
+        vehicle_model: driver_vehicle_model,
+        vehicle_color: driver_vehicle_color,
+        license_plate: driver_license_plate,
+        rating: driver_rating,
+        total_trips: driver_total_trips,
+      }
+    : null;
+
+  return { ...(delivery as DeliveryRow), driver };
+}
 
 export async function GET(
   _req: NextRequest,
@@ -24,20 +113,9 @@ export async function GET(
       );
     }
 
-    const { data: delivery, error } = await supabase
-      .from('ridely_deliveries')
-      .select(`
-        *,
-        driver:drivers!ridely_deliveries_driver_id_fkey (
-          id, user_id, name, phone, avatar_url,
-          vehicle_type, vehicle_make, vehicle_model, vehicle_color, license_plate,
-          rating, total_trips
-        )
-      `)
-      .eq('id', id)
-      .single();
+    const delivery = await fetchDelivery(id);
 
-    if (error || !delivery) {
+    if (!delivery) {
       return NextResponse.json(
         { success: false, error: 'Delivery not found' },
         { status: 404 },
@@ -46,14 +124,21 @@ export async function GET(
 
     let driverLocation = null;
     if (delivery.driver_id) {
-      const { data: loc } = await supabase
-        .from('ridely_driver_locations')
-        .select('lat, lng, heading, speed, updated_at')
-        .eq('driver_id', delivery.driver_id)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      driverLocation = loc;
+      // NOTE: original code queried a nonexistent `ridely_driver_locations`
+      // table with plain lat/lng columns; the real table is
+      // `driver_locations` with a PostGIS `geography` column.
+      const locRows = await query<{
+        lat: number; lng: number; heading: number | null; speed: number | null; updated_at: string;
+      }>(
+        `SELECT ST_Y(location::geometry) AS lat, ST_X(location::geometry) AS lng,
+                heading, speed, last_seen_at AS updated_at
+         FROM driver_locations
+         WHERE driver_id = $1
+         ORDER BY last_seen_at DESC
+         LIMIT 1`,
+        [delivery.driver_id],
+      );
+      driverLocation = locRows[0] ?? null;
     }
 
     return NextResponse.json({
@@ -92,13 +177,13 @@ export async function PATCH(
       );
     }
 
-    const { data: existing, error: fetchError } = await supabase
-      .from('ridely_deliveries')
-      .select('status, driver_id, pricing, customer_id')
-      .eq('id', id)
-      .single();
+    const existingRows = await query<{ status: string; driver_id: string | null; pricing: unknown; customer_id: string }>(
+      'SELECT status, driver_id, pricing, customer_id FROM ridely_deliveries WHERE id = $1',
+      [id],
+    );
+    const existing = existingRows[0];
 
-    if (fetchError || !existing) {
+    if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Delivery not found' },
         { status: 404 },
@@ -113,56 +198,56 @@ export async function PATCH(
       );
     }
 
-    const updateData: Record<string, unknown> = {
-      status,
-      updated_at: new Date().toISOString(),
-    };
-
-    if (metadata) {
-      updateData.metadata = metadata;
-    }
-
-    if (status === 'delivered') {
-      updateData.delivered_at = new Date().toISOString();
-    }
-
-    if (status === 'cancelled') {
-      updateData.cancelled_at = new Date().toISOString();
-      if (existing.driver_id) {
-        await supabase
-          .from('drivers')
-          .update({ status: 'available', current_trip_id: null })
-          .eq('id', existing.driver_id);
+    const delivery = await withTransaction(async (txQuery) => {
+      if (status === 'cancelled' && existing.driver_id) {
+        // NOTE: `current_trip_id` dropped — no such column on `drivers`
+        // (verified via information_schema); see rides/[id]/route.ts.
+        await txQuery(
+          `UPDATE drivers SET status = 'available' WHERE id = $1`,
+          [existing.driver_id],
+        );
       }
-    }
 
-    if (status === 'in_transit' && existing.driver_id) {
-      await supabase
-        .from('drivers')
-        .update({ status: 'on_trip' })
-        .eq('id', existing.driver_id);
-    }
+      if (status === 'in_transit' && existing.driver_id) {
+        await txQuery(
+          `UPDATE drivers SET status = 'on_trip' WHERE id = $1`,
+          [existing.driver_id],
+        );
+      }
 
-    const { data: delivery, error } = await supabase
-      .from('ridely_deliveries')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single();
+      const setClauses = ['status = $2', 'updated_at = now()'];
+      const values: unknown[] = [id, status];
+      let idx = 3;
 
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to update delivery' },
-        { status: 500 },
+      if (metadata) {
+        setClauses.push(`metadata = $${idx}`);
+        values.push(JSON.stringify(metadata));
+        idx += 1;
+      }
+      if (status === 'delivered') {
+        setClauses.push('delivered_at = now()');
+      }
+      if (status === 'cancelled') {
+        setClauses.push('cancelled_at = now()');
+      }
+
+      const updated = await txQuery<DeliveryRow>(
+        `UPDATE ridely_deliveries SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
+        values,
       );
-    }
 
-    await supabase.from('notifications').insert({
-      user_id: existing.customer_id,
-      type: 'system',
-      title: `Delivery ${status.replace(/_/g, ' ')}`,
-      body: `Your delivery status has been updated to ${status.replace(/_/g, ' ')}.`,
-      data: { delivery_id: id, status },
+      await txQuery(
+        `INSERT INTO notifications (user_id, type, title, body, data)
+         VALUES ($1, 'system', $2, $3, $4)`,
+        [
+          existing.customer_id,
+          `Delivery ${String(status).replace(/_/g, ' ')}`,
+          `Your delivery status has been updated to ${String(status).replace(/_/g, ' ')}.`,
+          JSON.stringify({ delivery_id: id, status }),
+        ],
+      );
+
+      return updated[0];
     });
 
     return NextResponse.json({ success: true, data: delivery });
@@ -188,13 +273,13 @@ export async function DELETE(
       );
     }
 
-    const { data: existing, error: fetchError } = await supabase
-      .from('ridely_deliveries')
-      .select('status, driver_id, customer_id')
-      .eq('id', id)
-      .single();
+    const existingRows = await query<{ status: string; driver_id: string | null; customer_id: string }>(
+      'SELECT status, driver_id, customer_id FROM ridely_deliveries WHERE id = $1',
+      [id],
+    );
+    const existing = existingRows[0];
 
-    if (fetchError || !existing) {
+    if (!existing) {
       return NextResponse.json(
         { success: false, error: 'Delivery not found' },
         { status: 404 },
@@ -208,38 +293,37 @@ export async function DELETE(
       );
     }
 
-    const { error } = await supabase
-      .from('ridely_deliveries')
-      .update({
-        status: 'cancelled',
-        cancelled_by: cancelledBy ?? 'customer',
-        cancel_reason: reason ?? null,
-        cancelled_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id);
-
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: 'Failed to cancel delivery' },
-        { status: 500 },
+    await withTransaction(async (txQuery) => {
+      // NOTE: `ridely_deliveries` has no `cancelled_by`/`cancel_reason`
+      // columns (verified via information_schema, unlike `ridely_rides`
+      // which does) — the original update to those columns was silently
+      // dropped by Supabase. Preserved here inside `metadata` instead of
+      // inventing new columns.
+      await txQuery(
+        `UPDATE ridely_deliveries
+         SET status = 'cancelled', cancelled_at = now(), updated_at = now(),
+             metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('cancelled_by', $2::text, 'cancel_reason', $3::text)
+         WHERE id = $1`,
+        [id, cancelledBy ?? 'customer', reason ?? null],
       );
-    }
 
-    if (existing.driver_id) {
-      await supabase
-        .from('drivers')
-        .update({ status: 'available', current_trip_id: null })
-        .eq('id', existing.driver_id);
+      if (existing.driver_id) {
+        await txQuery(
+          `UPDATE drivers SET status = 'available' WHERE id = $1`,
+          [existing.driver_id],
+        );
 
-      await supabase.from('notifications').insert({
-        user_id: existing.driver_id,
-        type: 'system',
-        title: 'Delivery Cancelled',
-        body: `Delivery has been cancelled.${reason ? ` Reason: ${reason}` : ''}`,
-        data: { delivery_id: id },
-      });
-    }
+        await txQuery(
+          `INSERT INTO notifications (user_id, type, title, body, data)
+           VALUES ($1, 'system', 'Delivery Cancelled', $2, $3)`,
+          [
+            existing.driver_id,
+            `Delivery has been cancelled.${reason ? ` Reason: ${reason}` : ''}`,
+            JSON.stringify({ delivery_id: id }),
+          ],
+        );
+      }
+    });
 
     return NextResponse.json({ success: true, data: { id, status: 'cancelled' } });
   } catch (err) {

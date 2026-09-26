@@ -10,8 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * re-transitioned).
  */
 export async function POST(req: NextRequest) {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  const supabase = createAdminClient() as any;
+  const { query } = await import('@/lib/neon/admin');
 
   let payload: Record<string, unknown>;
   try {
@@ -46,26 +45,18 @@ export async function POST(req: NextRequest) {
   const mpesaReceipt = getMeta('MpesaReceiptNumber');
 
   // Record the raw event for the reconciliation ledger.
-  await supabase
-    .from('webhook_events')
-    .insert({
-      provider: 'mpesa',
-      event_type: 'stk_callback',
-      event_id: checkoutRequestID,
-      idempotency_key: `stk:${checkoutRequestID}`,
-      raw_event: payload as unknown as Record<string, unknown>,
-      processed_at: new Date().toISOString(),
-    } as never)
-    .then(() => {})
-    .catch(() => {});
+  await query(
+    `INSERT INTO webhook_events (provider, event_type, event_id, idempotency_key, raw_event, processed_at)
+     VALUES ('mpesa', 'stk_callback', $1, $2, $3, now())`,
+    [checkoutRequestID, `stk:${checkoutRequestID}`, JSON.stringify(payload)],
+  ).catch(() => {});
 
-  const txResult = await supabase
-    .from('payment_transactions')
-    .select('id, status')
-    .eq('provider_transaction_id', checkoutRequestID)
-    .maybeSingle();
+  const txRows = await query<{ id: string; status: string }>(
+    `SELECT id, status FROM payment_transactions WHERE provider_transaction_id = $1`,
+    [checkoutRequestID],
+  );
 
-  const tx = txResult.data as { id: string; status: string } | null;
+  const tx = txRows[0] ?? null;
   if (!tx) {
     return NextResponse.json({ received: true });
   }
@@ -76,38 +67,33 @@ export async function POST(req: NextRequest) {
 
   if (isSuccess) {
     const id = tx.id;
-    const updateResult = await supabase
-      .from('payment_transactions')
-      .update({
-        status: 'succeeded',
-        provider_transaction_id: mpesaReceipt ?? checkoutRequestID,
-        metadata: {
+    await query(
+      `UPDATE payment_transactions SET status = 'succeeded', provider_transaction_id = $2, metadata = $3, updated_at = now()
+       WHERE id = $1`,
+      [
+        id,
+        mpesaReceipt ?? checkoutRequestID,
+        JSON.stringify({
           mpesa_receipt: mpesaReceipt,
           mpesa_result_desc: String(stkCallback.ResultDesc ?? ''),
           paid_at: new Date().toISOString(),
-        },
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq('id', id);
+        }),
+      ],
+    );
 
-    if (!updateResult.error) {
-      await supabase.rpc('handle_payment_succeeded', {
-        p_transaction_id: id,
-      } as never);
-    }
+    await query(`SELECT handle_payment_succeeded($1::uuid)`, [id]);
   } else {
-    await supabase
-      .from('payment_transactions')
-      .update({
-        status: 'failed',
-        metadata: {
+    await query(
+      `UPDATE payment_transactions SET status = 'failed', metadata = $2, updated_at = now() WHERE id = $1`,
+      [
+        tx.id,
+        JSON.stringify({
           mpesa_result_code: resultCode,
           mpesa_result_desc: String(stkCallback.ResultDesc ?? ''),
           failed_at: new Date().toISOString(),
-        },
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq('id', tx.id);
+        }),
+      ],
+    );
   }
 
   return NextResponse.json({ received: true });

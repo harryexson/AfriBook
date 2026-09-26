@@ -10,7 +10,7 @@
 // dependency — and secrets only ever live in server env vars.
 // ─────────────────────────────────────────────────────────────────
 
-import { createAdminClient } from '@/lib/supabase/admin';
+import { query } from '@/lib/neon/admin';
 
 export type EmailProvider = 'resend' | 'sendgrid' | 'postmark' | 'console';
 
@@ -124,8 +124,23 @@ async function deliver(
 
 async function logEmail(insert: EmailLogInsert): Promise<void> {
   try {
-    const admin = createAdminClient() as any;
-    await admin.from('email_logs').insert(insert);
+    await query(
+      `INSERT INTO email_logs
+         (user_id, recipient, subject, template, provider, status, message_id, error, metadata, sent_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        insert.user_id,
+        insert.recipient,
+        insert.subject,
+        insert.template,
+        insert.provider,
+        insert.status,
+        insert.message_id,
+        insert.error,
+        JSON.stringify(insert.metadata),
+        insert.sent_at,
+      ],
+    );
   } catch {
     // Audit logging must never break email delivery.
   }

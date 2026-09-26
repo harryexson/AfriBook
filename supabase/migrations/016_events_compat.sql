@@ -68,10 +68,14 @@ CREATE TABLE event_ticket_types (
     CONSTRAINT chk_ett_price CHECK (price >= 0)
 );
 
-CREATE INDEX idx_ett_event ON event_ticket_types(event_id);
-CREATE INDEX idx_ett_event_active ON event_ticket_types(event_id, is_active);
-CREATE INDEX idx_ett_tier ON event_ticket_types(tier);
-CREATE INDEX idx_ett_sale_window ON event_ticket_types(sale_starts_at, sale_ends_at);
+-- Named idx_ett_types_* (not idx_ett_*) because migration 003 already
+-- claimed idx_ett_event/idx_ett_event_active/idx_ett_tier/idx_ett_sale_window
+-- for event_ticket_tiers — same "ett" abbreviation, different table
+-- (event_ticket_types), and Postgres index names must be unique per schema.
+CREATE INDEX idx_ett_types_event ON event_ticket_types(event_id);
+CREATE INDEX idx_ett_types_event_active ON event_ticket_types(event_id, is_active);
+CREATE INDEX idx_ett_types_tier ON event_ticket_types(tier);
+CREATE INDEX idx_ett_types_sale_window ON event_ticket_types(sale_starts_at, sale_ends_at);
 
 -- TICKET PURCHASES — an order placed against an event_ticket_types tier.
 CREATE TABLE ticket_purchases (

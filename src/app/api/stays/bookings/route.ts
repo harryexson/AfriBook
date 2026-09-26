@@ -9,7 +9,7 @@ import {
   saveMockBooking,
   generateMockBookingCode,
 } from '@/lib/stays/mock-store'
-import { requireAuthenticatedUser } from '@/lib/supabase/server'
+import { requireAuthenticatedUser } from '@/lib/neon/server'
 import type { StayBooking } from '@/lib/stays/types'
 
 export const runtime = 'nodejs'
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Missing required fields: ${missing.join(', ')}` }, { status: 400 })
   }
 
-  const db = getStaysDb()
+  const db = await getStaysDb()
   const hotel = await resolveStayHotel(db, hotelId)
   if (!hotel) {
     return NextResponse.json({ error: 'Stay not found' }, { status: 404 })

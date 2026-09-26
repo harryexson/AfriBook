@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
+import { query } from "@/lib/neon/admin";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 import { moderateEvent } from "@/lib/moderation";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
 
 export async function POST(
   _req: NextRequest,
@@ -16,7 +11,7 @@ export async function POST(
     const { id } = await params;
     const { supabase: authSupabase, user } = await requireAuthenticatedUser();
     const profileResponse = await authSupabase
-      .from("users")
+      .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
@@ -24,15 +19,21 @@ export async function POST(
       profileResponse.data?.role === "admin" ||
       profileResponse.data?.role === "super_admin";
 
-    const { data: event, error: fetchError } = await supabase
-      .from("events")
-      .select(
-        "id, organizer_id, status, title, description, category, start_date, ticket_types: event_ticket_types(id, name, price, quantity_available)",
-      )
-      .eq("id", id)
-      .single();
+    const eventRows = await query<{
+      id: string;
+      organizer_id: string;
+      status: string;
+      title: string;
+      description: string;
+      category: string;
+      start_date: string;
+    }>(
+      `SELECT id, organizer_id, status, title, description, category, start_date FROM events WHERE id = $1`,
+      [id],
+    );
+    const event = eventRows[0];
 
-    if (fetchError || !event) {
+    if (!event) {
       return NextResponse.json(
         { success: false, error: "Event not found" },
         { status: 404 },
@@ -48,16 +49,21 @@ export async function POST(
     if (screening.blocked) {
       // Best-effort audit log (table created by migration 007). Never throws.
       try {
-        await supabase.from("content_moderation_flags").insert({
-          entity_type: "event",
-          entity_id: id,
-          field: "publish",
-          matched_categories: screening.categories,
-          matched_terms: screening.matches.map((m) => m.term),
-          severity: "high",
-          action: "blocked",
-          created_at: new Date().toISOString(),
-        });
+        await query(
+          `INSERT INTO content_moderation_flags
+             (entity_type, entity_id, field, matched_categories, matched_terms, severity, action, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            "event",
+            id,
+            "publish",
+            screening.categories,
+            screening.matches.map((m) => m.term),
+            "high",
+            "blocked",
+            new Date().toISOString(),
+          ],
+        );
       } catch {
         /* logging is best-effort */
       }
@@ -108,35 +114,47 @@ export async function POST(
 
     const now = new Date().toISOString();
 
-    const { data: updated, error: updateError } = await supabase
-      .from("events")
-      .update({
-        status: "published",
-        published_at: now,
-        updated_at: now,
-      })
-      .eq("id", id)
-      .select("*, event_ticket_types(*)")
-      .single();
-
-    if (updateError) {
+    let updated: Record<string, unknown> | undefined;
+    try {
+      const rows = await query<Record<string, unknown>>(
+        `UPDATE events SET status = 'published', published_at = $1, updated_at = $1 WHERE id = $2 RETURNING *`,
+        [now, id],
+      );
+      updated = rows[0];
+    } catch {
       return NextResponse.json(
         { success: false, error: "Failed to publish event" },
         { status: 500 },
       );
     }
 
-    await supabase.from("notifications").insert({
-      user_id: event.organizer_id,
-      type: "event_published",
-      title: "Event Published",
-      body: `Your event "${event.title}" is now live and accepting registrations.`,
-      data: { event_id: id },
-    });
+    if (!updated) {
+      return NextResponse.json(
+        { success: false, error: "Failed to publish event" },
+        { status: 500 },
+      );
+    }
+
+    const ticketTypes = await query<Record<string, unknown>>(
+      `SELECT * FROM event_ticket_types WHERE event_id = $1`,
+      [id],
+    );
+
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        event.organizer_id,
+        "event_published",
+        "Event Published",
+        `Your event "${event.title}" is now live and accepting registrations.`,
+        JSON.stringify({ event_id: id }),
+      ],
+    );
 
     return NextResponse.json({
       success: true,
-      data: updated,
+      data: { ...updated, event_ticket_types: ticketTypes },
       message: "Event published successfully",
     });
   } catch (error) {

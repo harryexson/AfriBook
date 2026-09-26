@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 import { sendCelebrationReminders } from '@/lib/celebrations/service';
-
-const admin = createAdminClient() as any;
 
 export async function POST(
   _req: NextRequest,
@@ -13,11 +11,20 @@ export async function POST(
     const { id: eventId } = await params;
     const { user } = await requireAuthenticatedUser();
 
-    const { data: evt } = await admin
-      .from('events')
-      .select('id, organizer_id, title, slug, custom_domain, custom_domain_status, celebration_type')
-      .eq('id', eventId)
-      .single();
+    const evtRows = await query<{
+      id: string;
+      organizer_id: string;
+      title: string;
+      slug: string | null;
+      custom_domain: string | null;
+      custom_domain_status: string | null;
+      celebration_type: string | null;
+    }>(
+      `SELECT id, organizer_id, title, slug, custom_domain, custom_domain_status, celebration_type
+       FROM events WHERE id = $1 LIMIT 1`,
+      [eventId],
+    );
+    const evt = evtRows[0] ?? null;
 
     if (!evt || evt.celebration_type == null) {
       return NextResponse.json({ success: false, error: 'Celebration not found' }, { status: 404 });
@@ -29,7 +36,7 @@ export async function POST(
       );
     }
 
-    const result = await sendCelebrationReminders(admin, {
+    const result = await sendCelebrationReminders({
       id: evt.id,
       organizer_id: evt.organizer_id,
       title: evt.title,

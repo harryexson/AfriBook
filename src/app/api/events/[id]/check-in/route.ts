@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from "@/lib/neon/admin";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 
 export async function POST(
   req: NextRequest,
@@ -46,11 +41,18 @@ export async function POST(
       );
     }
 
-    const { data: event } = await supabase
-      .from("events")
-      .select("id, organizer_id, title, start_date, end_date, status")
-      .eq("id", eventId)
-      .single();
+    const eventRows = await query<{
+      id: string;
+      organizer_id: string;
+      title: string;
+      start_date: string;
+      end_date: string;
+      status: string;
+    }>(
+      `SELECT id, organizer_id, title, start_date, end_date, status FROM events WHERE id = $1 LIMIT 1`,
+      [eventId],
+    );
+    const event = eventRows[0];
 
     if (!event) {
       return NextResponse.json(
@@ -71,14 +73,13 @@ export async function POST(
     }
 
     if (guestId) {
-      const { data: guest, error: guestError } = await supabase
-        .from("event_guests")
-        .select("*")
-        .eq("id", guestId)
-        .eq("event_id", eventId)
-        .single();
+      const guestRows = await query<Record<string, unknown>>(
+        `SELECT * FROM event_guests WHERE id = $1 AND event_id = $2 LIMIT 1`,
+        [guestId, eventId],
+      );
+      const guest = guestRows[0];
 
-      if (guestError || !guest) {
+      if (!guest) {
         return NextResponse.json(
           { success: false, error: "Guest not found for this event" },
           { status: 404 },
@@ -98,30 +99,30 @@ export async function POST(
 
       const now = new Date().toISOString();
 
-      const { error: updateError } = await supabase
-        .from("event_guests")
-        .update({
-          check_in_status: "checked_in",
-          checked_in_at: now,
-          checked_in_by: scannedBy ?? null,
-        })
-        .eq("id", guestId);
-
-      if (updateError) {
+      try {
+        await query(
+          `UPDATE event_guests SET check_in_status = 'checked_in', checked_in_at = $1, checked_in_by = $2 WHERE id = $3`,
+          [now, scannedBy ?? null, guestId],
+        );
+      } catch {
         return NextResponse.json(
           { success: false, error: "Failed to check in guest" },
           { status: 500 },
         );
       }
 
-      await supabase.from("check_in_logs").insert({
-        event_id: eventId,
-        ticket_purchase_id: guest.ticket_purchase_id,
-        guest_id: guestId,
-        scanned_by: scannedBy ?? "system",
-        scanned_at: now,
-        method: checkInMethod,
-      });
+      await query(
+        `INSERT INTO check_in_logs (event_id, ticket_purchase_id, guest_id, scanned_by, scanned_at, method)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          eventId,
+          guest.ticket_purchase_id,
+          guestId,
+          scannedBy ?? "system",
+          now,
+          checkInMethod,
+        ],
+      );
 
       return NextResponse.json({
         success: true,
@@ -138,23 +139,19 @@ export async function POST(
       });
     }
 
-    let ticket;
+    let ticket: Record<string, unknown> | undefined;
     if (ticketCode) {
-      const { data } = await supabase
-        .from("ticket_purchases")
-        .select("*")
-        .eq("ticket_code", ticketCode)
-        .eq("event_id", eventId)
-        .single();
-      ticket = data;
+      const rows = await query<Record<string, unknown>>(
+        `SELECT * FROM ticket_purchases WHERE ticket_code = $1 AND event_id = $2 LIMIT 1`,
+        [ticketCode, eventId],
+      );
+      ticket = rows[0];
     } else if (ticketPurchaseId) {
-      const { data } = await supabase
-        .from("ticket_purchases")
-        .select("*")
-        .eq("id", ticketPurchaseId)
-        .eq("event_id", eventId)
-        .single();
-      ticket = data;
+      const rows = await query<Record<string, unknown>>(
+        `SELECT * FROM ticket_purchases WHERE id = $1 AND event_id = $2 LIMIT 1`,
+        [ticketPurchaseId, eventId],
+      );
+      ticket = rows[0];
     }
 
     if (!ticket) {
@@ -191,29 +188,23 @@ export async function POST(
 
     const now = new Date().toISOString();
 
-    const { error: updateError } = await supabase
-      .from("ticket_purchases")
-      .update({
-        check_in_status: "checked_in",
-        checked_in_at: now,
-      })
-      .eq("id", ticket.id);
-
-    if (updateError) {
+    try {
+      await query(
+        `UPDATE ticket_purchases SET check_in_status = 'checked_in', checked_in_at = $1 WHERE id = $2`,
+        [now, ticket.id],
+      );
+    } catch {
       return NextResponse.json(
         { success: false, error: "Failed to check in ticket" },
         { status: 500 },
       );
     }
 
-    await supabase.from("check_in_logs").insert({
-      event_id: eventId,
-      ticket_purchase_id: ticket.id,
-      guest_id: null,
-      scanned_by: scannedBy ?? "system",
-      scanned_at: now,
-      method: checkInMethod,
-    });
+    await query(
+      `INSERT INTO check_in_logs (event_id, ticket_purchase_id, guest_id, scanned_by, scanned_at, method)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [eventId, ticket.id, null, scannedBy ?? "system", now, checkInMethod],
+    );
 
     return NextResponse.json({
       success: true,
@@ -264,11 +255,16 @@ export async function GET(
     );
     const offset = (page - 1) * limit;
 
-    const { data: event } = await supabase
-      .from("events")
-      .select("id, organizer_id, tickets_sold, total_capacity")
-      .eq("id", eventId)
-      .single();
+    const eventRows = await query<{
+      id: string;
+      organizer_id: string;
+      tickets_sold: number;
+      total_capacity: number;
+    }>(
+      `SELECT id, organizer_id, tickets_sold, total_capacity FROM events WHERE id = $1 LIMIT 1`,
+      [eventId],
+    );
+    const event = eventRows[0];
 
     if (!event) {
       return NextResponse.json(
@@ -288,66 +284,74 @@ export async function GET(
       );
     }
 
-    const { count: totalCheckedIn } = await supabase
-      .from("ticket_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", eventId)
-      .eq("check_in_status", "checked_in")
-      .eq("order_status", "confirmed");
+    const totalCheckedInRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ticket_purchases WHERE event_id = $1 AND check_in_status = 'checked_in' AND order_status = 'confirmed'`,
+      [eventId],
+    );
+    const guestsCheckedInRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM event_guests WHERE event_id = $1 AND check_in_status = 'checked_in'`,
+      [eventId],
+    );
+    const totalGuestsRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM event_guests WHERE event_id = $1`,
+      [eventId],
+    );
+    const totalConfirmedRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ticket_purchases WHERE event_id = $1 AND order_status = 'confirmed'`,
+      [eventId],
+    );
+    const attendeeCountRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ticket_purchases WHERE event_id = $1 AND order_status = 'confirmed'`,
+      [eventId],
+    );
 
-    const { count: guestsCheckedIn } = await supabase
-      .from("event_guests")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", eventId)
-      .eq("check_in_status", "checked_in");
+    const attendeeRows = await query<Record<string, unknown>>(
+      `SELECT tp.id, tp.buyer_name, tp.buyer_email, tp.buyer_phone, tp.ticket_code, tp.quantity,
+              tp.check_in_status, tp.check_in_at, ett.name AS tier_name, ett.tier AS tier_tier
+       FROM ticket_purchases tp
+       LEFT JOIN event_ticket_types ett ON ett.id = tp.ticket_type_id
+       WHERE tp.event_id = $1 AND tp.order_status = 'confirmed'
+       ORDER BY tp.check_in_status ASC, tp.buyer_name ASC
+       LIMIT $2 OFFSET $3`,
+      [eventId, limit, offset],
+    );
 
-    const { count: totalGuests } = await supabase
-      .from("event_guests")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", eventId);
+    const attendees = attendeeRows.map((r) => {
+      const { tier_name, tier_tier, ...rest } = r;
+      return {
+        ...rest,
+        event_ticket_types: { name: tier_name, tier: tier_tier },
+      };
+    });
 
-    const { count: totalConfirmed } = await supabase
-      .from("ticket_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", eventId)
-      .eq("order_status", "confirmed");
-
-    const { data: attendees, count: attendeeCount } = await supabase
-      .from("ticket_purchases")
-      .select(
-        "id, buyer_name, buyer_email, buyer_phone, ticket_code, quantity, check_in_status, check_in_at, event_ticket_types(name, tier)",
-        { count: "exact" },
-      )
-      .eq("event_id", eventId)
-      .eq("order_status", "confirmed")
-      .order("check_in_status", { ascending: true })
-      .order("buyer_name", { ascending: true })
-      .range(offset, offset + limit - 1);
+    const totalCheckedIn = Number(totalCheckedInRows[0]?.count ?? 0);
+    const guestsCheckedIn = Number(guestsCheckedInRows[0]?.count ?? 0);
+    const totalGuests = Number(totalGuestsRows[0]?.count ?? 0);
+    const totalConfirmed = Number(totalConfirmedRows[0]?.count ?? 0);
+    const attendeeCount = Number(attendeeCountRows[0]?.count ?? 0);
 
     return NextResponse.json({
       success: true,
       data: {
         stats: {
           ticketsSold: event.tickets_sold,
-          ticketsConfirmed: totalConfirmed ?? 0,
-          ticketsCheckedIn: totalCheckedIn ?? 0,
-          guestsTotal: totalGuests ?? 0,
-          guestsCheckedIn: guestsCheckedIn ?? 0,
-          totalAttendees: (totalCheckedIn ?? 0) + (guestsCheckedIn ?? 0),
+          ticketsConfirmed: totalConfirmed,
+          ticketsCheckedIn: totalCheckedIn,
+          guestsTotal: totalGuests,
+          guestsCheckedIn: guestsCheckedIn,
+          totalAttendees: totalCheckedIn + guestsCheckedIn,
           attendanceRate:
-            (totalConfirmed ?? 0) > 0
-              ? Math.round(
-                  ((totalCheckedIn ?? 0) / (totalConfirmed ?? 1)) * 100,
-                )
+            totalConfirmed > 0
+              ? Math.round((totalCheckedIn / (totalConfirmed || 1)) * 100)
               : 0,
           capacity: event.total_capacity,
         },
-        attendees: attendees ?? [],
+        attendees,
         pagination: {
           page,
           limit,
-          total: attendeeCount ?? 0,
-          totalPages: Math.ceil((attendeeCount ?? 0) / limit),
+          total: attendeeCount,
+          totalPages: Math.ceil(attendeeCount / limit),
         },
       },
     });

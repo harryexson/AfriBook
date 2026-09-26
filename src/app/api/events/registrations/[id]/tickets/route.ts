@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from "@/lib/neon/admin";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 
 export async function GET(
   req: NextRequest,
@@ -15,21 +10,25 @@ export async function GET(
     const { id: registrationId } = await params;
     const { supabase: authSupabase, user } = await requireAuthenticatedUser();
 
-    const { data: registration, error: regError } = await supabase
-      .from("ticket_purchases")
-      .select(
-        `
-        id, event_id, buyer_id, buyer_name, buyer_email, buyer_phone,
-        quantity, ticket_code, qr_code_url, order_status, check_in_status,
-        check_in_at, ticket_tier_name,
-        event_ticket_types(name, tier, benefits),
-        events(title, slug, start_date, end_date, venue_name, venue_address, venue_city, timezone)
-      `,
-      )
-      .eq("id", registrationId)
-      .single();
+    const regRows = await query<Record<string, unknown>>(
+      `SELECT tp.id, tp.event_id, tp.buyer_id, tp.buyer_name, tp.buyer_email, tp.buyer_phone,
+              tp.quantity, tp.ticket_code, tp.qr_code_url, tp.order_status, tp.check_in_status,
+              tp.check_in_at, tp.ticket_tier_name,
+              et.name AS tier_name, et.benefits AS tier_benefits,
+              ev.title AS ev_title, ev.slug AS ev_slug, ev.start_date AS ev_start_date,
+              ev.end_date AS ev_end_date, ev.venue_name AS ev_venue_name,
+              ev.venue_address AS ev_venue_address, ev.venue_city AS ev_venue_city,
+              ev.timezone AS ev_timezone
+       FROM ticket_purchases tp
+       LEFT JOIN event_ticket_types et ON et.id = tp.ticket_type_id
+       LEFT JOIN events ev ON ev.id = tp.event_id
+       WHERE tp.id = $1
+       LIMIT 1`,
+      [registrationId],
+    );
+    const registration = regRows[0];
 
-    if (regError || !registration) {
+    if (!registration) {
       return NextResponse.json(
         { success: false, error: "Registration not found" },
         { status: 404 },
@@ -37,7 +36,7 @@ export async function GET(
     }
 
     const profileResponse = await authSupabase
-      .from("users")
+      .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
@@ -55,19 +54,18 @@ export async function GET(
       );
     }
 
-    const ticketCode = registration.ticket_code;
+    const ticketCode = registration.ticket_code as string;
     const qrCodeUrl =
-      registration.qr_code_url ??
+      (registration.qr_code_url as string | null) ??
       `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/events/${registration.event_id}/ticket/${ticketCode}`;
 
-    const tickets = Array.from({ length: registration.quantity }, (_, i) => ({
+    const quantity = registration.quantity as number;
+    const tickets = Array.from({ length: quantity }, (_, i) => ({
       id: `${registration.id}-${i + 1}`,
       registrationId: registration.id,
       eventId: registration.event_id,
-      ticketCode: `${ticketCode}${registration.quantity > 1 ? `-${i + 1}` : ""}`,
-      tierName:
-        (registration.event_ticket_types as unknown as Record<string, unknown>)
-          ?.name ?? registration.ticket_tier_name,
+      ticketCode: `${ticketCode}${quantity > 1 ? `-${i + 1}` : ""}`,
+      tierName: registration.tier_name ?? registration.ticket_tier_name,
       attendeeName: registration.buyer_name,
       attendeeEmail: registration.buyer_email,
       status: registration.order_status,
@@ -75,24 +73,15 @@ export async function GET(
       checkedIn: registration.check_in_status === "checked_in",
       checkedInAt: registration.check_in_at,
       event: {
-        title: (registration.events as unknown as Record<string, unknown>)
-          ?.title,
-        startDate: (registration.events as unknown as Record<string, unknown>)
-          ?.start_date,
-        endDate: (registration.events as unknown as Record<string, unknown>)
-          ?.end_date,
-        venue: (registration.events as unknown as Record<string, unknown>)
-          ?.venue_name,
-        address: (registration.events as unknown as Record<string, unknown>)
-          ?.venue_address,
-        city: (registration.events as unknown as Record<string, unknown>)
-          ?.venue_city,
-        timezone: (registration.events as unknown as Record<string, unknown>)
-          ?.timezone,
+        title: registration.ev_title,
+        startDate: registration.ev_start_date,
+        endDate: registration.ev_end_date,
+        venue: registration.ev_venue_name,
+        address: registration.ev_venue_address,
+        city: registration.ev_venue_city,
+        timezone: registration.ev_timezone,
       },
-      benefits:
-        (registration.event_ticket_types as unknown as Record<string, unknown>)
-          ?.benefits ?? [],
+      benefits: registration.tier_benefits ?? [],
     }));
 
     return NextResponse.json({
@@ -100,7 +89,7 @@ export async function GET(
       data: {
         registrationId,
         tickets,
-        totalTickets: registration.quantity,
+        totalTickets: quantity,
       },
     });
   } catch (error) {

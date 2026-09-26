@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { createStripeAccountLink, getStripeAccountStatus, getVendorOnboardingStatus } from '@/lib/payments/merchant-onboarding';
 import { COUNTRY_PROVIDER_MAP } from '@/lib/payments/types';
 import { DEFAULT_COUNTRY } from '@/lib/localization/market-context';

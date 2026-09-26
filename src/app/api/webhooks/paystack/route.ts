@@ -9,9 +9,9 @@ function verifySignature(body: string, signature: string, secret: string): boole
   return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }
 
-async function getSupabase() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient();
+async function getDb() {
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
 
 interface PaystackEventData {
@@ -35,92 +35,83 @@ interface PaystackEventData {
 }
 
 async function handleChargeSuccess(data: PaystackEventData) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const amount = data.amount / 100;
 
-  await supabase
-    .from('payment_transactions')
-    .update({
-      status: 'succeeded',
-      provider_transaction_id: data.reference,
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('provider_transaction_id', data.reference);
+  await query(
+    `UPDATE payment_transactions SET status = 'succeeded', provider_transaction_id = $1, updated_at = now()
+     WHERE provider_transaction_id = $1`,
+    [data.reference],
+  );
 
   const bookingId = data.metadata?.afribook_booking_id;
   if (bookingId) {
-    await supabase
-      .from('bookings')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', bookingId);
+    // payment_status enum has no 'completed' value; 'succeeded' is the closest fit.
+    await query(
+      `UPDATE bookings SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [bookingId],
+    );
   }
 
   const orderId = data.metadata?.afribook_order_id;
   if (orderId) {
-    await supabase
-      .from('orders')
-      .update({ paymentStatus: 'completed', updatedAt: new Date().toISOString() } as never)
-      .eq('id', orderId);
+    await query(
+      `UPDATE orders SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+      [orderId],
+    );
   }
 
   const customerId = data.metadata?.afribook_customer_id;
   if (customerId) {
-    await supabase.from('notifications').insert({
-      userId: customerId,
-      type: 'payment',
-      title: 'Payment Successful',
-      body: `Payment of ${amount.toFixed(2)} ${data.currency} via Paystack was successful.`,
-      data: { paystack_reference: data.reference, amount, currency: data.currency },
-    } as never);
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'payment', 'Payment Successful', $2, $3)`,
+      [
+        customerId,
+        `Payment of ${amount.toFixed(2)} ${data.currency} via Paystack was successful.`,
+        JSON.stringify({ paystack_reference: data.reference, amount, currency: data.currency }),
+      ],
+    );
   }
 }
 
 async function handleChargeFailed(data: PaystackEventData) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const failureMessage = data.failure_reason ?? data.gateway_response ?? 'Charge failed';
 
-  await supabase
-    .from('payment_transactions')
-    .update({
-      status: 'failed',
-      metadata: {
-        failure_message: failureMessage,
-        failed_at: new Date().toISOString(),
-      },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('provider_transaction_id', data.reference);
+  await query(
+    `UPDATE payment_transactions SET status = 'failed', metadata = $2, updated_at = now()
+     WHERE provider_transaction_id = $1`,
+    [
+      data.reference,
+      JSON.stringify({ failure_message: failureMessage, failed_at: new Date().toISOString() }),
+    ],
+  );
 }
 
 async function handleTransferSuccess(data: PaystackEventData) {
-  const supabase = await getSupabase();
+  const query = await getDb();
 
-  await supabase
-    .from('payouts')
-    .update({
-      status: 'completed',
-      provider_payout_id: String(data.id),
-      paid_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('metadata->>paystack_transfer_code', data.reference);
+  // payouts has no updated_at column — only created_at / paid_at.
+  await query(
+    `UPDATE payouts SET status = 'completed', provider_payout_id = $2, paid_at = now()
+     WHERE metadata->>'paystack_transfer_code' = $1`,
+    [data.reference, String(data.id)],
+  );
 }
 
 async function handleTransferFailed(data: PaystackEventData) {
-  const supabase = await getSupabase();
+  const query = await getDb();
   const failureMessage = data.failure_reason ?? 'Transfer failed';
 
-  await supabase
-    .from('payouts')
-    .update({
-      status: 'failed',
-      metadata: {
-        failure_message: failureMessage,
-        failed_at: new Date().toISOString(),
-      },
-      updated_at: new Date().toISOString(),
-    } as never)
-    .eq('metadata->>paystack_transfer_code', data.reference);
+  await query(
+    `UPDATE payouts SET status = 'failed', metadata = $2
+     WHERE metadata->>'paystack_transfer_code' = $1`,
+    [
+      data.reference,
+      JSON.stringify({ failure_message: failureMessage, failed_at: new Date().toISOString() }),
+    ],
+  );
 }
 
 export async function POST(req: NextRequest) {
@@ -168,4 +159,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ received: true });
 }
-

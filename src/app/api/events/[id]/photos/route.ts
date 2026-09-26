@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, requireAuthenticatedUser } from "@/lib/supabase/server";
+import { createClient, requireAuthenticatedUser } from "@/lib/neon/server";
 
 export async function POST(
   req: NextRequest,
@@ -7,7 +7,7 @@ export async function POST(
 ) {
   try {
     const { id: eventId } = await params;
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
 
     const {
       data: { user },
@@ -106,7 +106,7 @@ export async function GET(
     );
     const offset = (page - 1) * limit;
 
-    const supabase = (await createClient()) as any;
+    const supabase = await createClient();
 
     const { data: event } = await supabase
       .from("events")
@@ -121,19 +121,19 @@ export async function GET(
       );
     }
 
-    let query = supabase
+    let photosQuery = supabase
       .from("event_photos")
       .select("*", { count: "exact" })
       .eq("event_id", eventId);
 
     if (status !== "all") {
-      query = query.eq("status", status);
+      photosQuery = photosQuery.eq("status", status);
     }
 
     if (status !== "approved") {
       const { supabase: authSupabase, user } = await requireAuthenticatedUser();
       const profileResponse = await authSupabase
-        .from("users")
+        .from("profiles")
         .select("role")
         .eq("id", user.id)
         .single();
@@ -141,20 +141,13 @@ export async function GET(
         profileResponse.data?.role === "admin" ||
         profileResponse.data?.role === "super_admin";
 
-      const { data: event } = await supabase
+      const { data: fullEvent } = await supabase
         .from("events")
         .select("organizer_id")
         .eq("id", eventId)
         .single();
 
-      if (!event) {
-        return NextResponse.json(
-          { success: false, error: "Event not found" },
-          { status: 404 },
-        );
-      }
-
-      if (event.organizer_id !== user.id && !isAdmin) {
+      if (fullEvent?.organizer_id !== user.id && !isAdmin) {
         return NextResponse.json(
           {
             success: false,
@@ -166,20 +159,13 @@ export async function GET(
       }
     }
 
-    const { data, count, error } = await query
+    const { data, count } = await photosQuery
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error) {
-      return NextResponse.json(
-        { success: false, error: "Failed to fetch photos" },
-        { status: 500 },
-      );
-    }
-
     return NextResponse.json({
       success: true,
-      data: data ?? [],
+      data,
       pagination: {
         page,
         limit,

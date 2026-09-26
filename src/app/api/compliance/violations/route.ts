@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { createComplianceViolation, getOpenViolations, resolveViolation } from '@/lib/pickup/compliance-manager';
 
 export async function POST(req: NextRequest) {

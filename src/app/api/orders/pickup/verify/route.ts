@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { verifyPickupCodeAndHandoff } from '@/lib/pickup/pickup-manager';
 
 export async function POST(req: NextRequest) {

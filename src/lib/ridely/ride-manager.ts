@@ -7,7 +7,23 @@
 //       CancellationActor = "rider" | "driver" | "system"
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
+// NOTE (found during Supabase->Neon migration, not fixed — this module is
+// not imported anywhere in the codebase, verified via a repo-wide grep for
+// "ride-manager"): `ride_requests` is a real table, but its real columns
+// (verified via information_schema) are `customer_id`/`dropoff_location`/
+// `dropoff_address`/`feedback`, not `rider_id`/`destination_location`/
+// `destination_address`/`review`, and it has no `estimated_duration_min`,
+// `surge_multiplier`, `route_polyline`, `cancelled_by`, `cancel_reason`,
+// `matched_at`/`arrived_at`/`started_at`/`completed_at`/`cancelled_at`
+// columns at all. Its `status` is the `ride_status` enum
+// (requested/accepted/arrived/in_progress/completed/cancelled) — there is no
+// 'requesting'/'searching'/'matched'/'en_route' value. So every query here
+// has always errored/no-op'd under Supabase too (unchanged by this
+// migration). Left as dead code per the scope of this migration — a real
+// fix means rewriting the module against the real schema (or against
+// `ridely_rides`, which this app's live routes actually use), not a
+// find-and-replace; worth a follow-up if this module gets wired up.
 import type {
   RideRequest,
   RideStatus,

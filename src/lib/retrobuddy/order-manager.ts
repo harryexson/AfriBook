@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import type {
   RestaurantOrder,
   RestaurantOrderStatus,
@@ -104,33 +104,30 @@ function parseWktPoint(location: unknown): { lat: number; lng: number } | null {
   return { lng: parseFloat(match[1]), lat: parseFloat(match[2]) };
 }
 
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
+async function getAdminQuery() {
+  const { query } = await import('@/lib/neon/admin');
+  return query;
 }
 
 export async function isRestaurantOwner(
   userId: string,
   restaurantId: string,
 ): Promise<boolean> {
-  const adminDb = await getAdminDb();
-  const { data } = await adminDb
-    .from('restaurants')
-    .select('business_id, businesses!inner(owner_id)')
-    .eq('id', restaurantId)
-    .maybeSingle();
+  const query = await getAdminQuery();
+  const rows = await query<{ owner_id: string }>(
+    `SELECT b.owner_id FROM restaurants r
+     JOIN businesses b ON b.id = r.business_id
+     WHERE r.id = $1`,
+    [restaurantId],
+  );
 
-  const ownerId = (data?.businesses as { owner_id?: string } | null | undefined)?.owner_id;
-  return ownerId === userId;
+  return rows[0]?.owner_id === userId;
 }
 
 async function initRideLyDispatch(orderId: string): Promise<void> {
-  const adminDb = await getAdminDb();
+  const query = await getAdminQuery();
   Promise.resolve(
-    adminDb.rpc('ridely_dispatch_delivery' as never, {
-      p_delivery_id: orderId,
-      p_table: 'ridely_food_deliveries',
-    } as never),
+    query(`SELECT ridely_dispatch_delivery($1::uuid, $2)`, [orderId, 'ridely_food_deliveries']),
   ).catch((err: unknown) => {
     console.log(`[RideLy] Dispatch initiation failed for order ${orderId}:`, err);
   });
@@ -151,16 +148,44 @@ export async function createRestaurantOrder(
     throw new Error('Invalid payment method');
   }
 
-  const adminDb = await getAdminDb();
-  const { data: restaurantRow, error: restaurantError } = await adminDb
-    .from('restaurants')
-    .select('id, business_id, preparation_time, minimum_order, delivery_radius_km, businesses!inner(id, name, status, owner_id, location, address, metadata)')
-    .eq('id', params.restaurantId)
-    .single();
+  const query = await getAdminQuery();
+  const restaurantRows = await query<{
+    id: string;
+    business_id: string;
+    preparation_time: number | null;
+    minimum_order: number | null;
+    delivery_radius_km: number | null;
+    biz_id: string;
+    biz_name: string;
+    biz_status: string;
+    biz_owner_id: string;
+    biz_location: unknown;
+    biz_address: unknown;
+    biz_metadata: Record<string, unknown> | null;
+  }>(
+    `SELECT r.id, r.business_id, r.preparation_time, r.minimum_order, r.delivery_radius_km,
+            b.id AS biz_id, b.name AS biz_name, b.status AS biz_status, b.owner_id AS biz_owner_id,
+            b.location AS biz_location, b.address AS biz_address, b.metadata AS biz_metadata
+     FROM restaurants r
+     JOIN businesses b ON b.id = r.business_id
+     WHERE r.id = $1`,
+    [params.restaurantId],
+  );
 
-  const business = restaurantRow?.businesses ?? null;
+  const restaurantRow = restaurantRows[0];
+  const business = restaurantRow
+    ? {
+        id: restaurantRow.biz_id,
+        name: restaurantRow.biz_name,
+        status: restaurantRow.biz_status,
+        owner_id: restaurantRow.biz_owner_id,
+        location: restaurantRow.biz_location,
+        address: restaurantRow.biz_address,
+        metadata: restaurantRow.biz_metadata,
+      }
+    : null;
 
-  if (restaurantError || !restaurantRow || !business) {
+  if (!restaurantRow || !business) {
     throw new Error('Restaurant not found');
   }
 
@@ -186,10 +211,10 @@ export async function createRestaurantOrder(
   const maxPrepTime = Math.max(...estimates.map((e) => e.estimatedTimeMin), 0);
 
   const itemIds = [...new Set(params.items.map((i) => i.menuItemId))];
-  const { data: menuRows } = await adminDb
-    .from('menu_items')
-    .select('id, name, price, is_available, restaurant_id')
-    .in('id', itemIds);
+  const menuRows = await query(
+    `SELECT id, name, price, is_available, restaurant_id FROM menu_items WHERE id = ANY($1::uuid[])`,
+    [itemIds],
+  );
 
   interface MenuRow {
     id: string;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { sendEmail } from '@/lib/email';
 import { sendSms } from '@/lib/sms';
+import { query } from '@/lib/neon/admin';
 
 function escapeHtml(str: string): string {
   return str
@@ -13,25 +14,19 @@ function escapeHtml(str: string): string {
 }
 
 async function getDb() {
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   return createClient() as any;
-}
-
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 
 async function getOrganizerStripeAccountId(organizerId: string): Promise<string | null> {
-  const adminDb = await getAdminDb();
-  const { data } = await adminDb
-    .from('vendor_wallets')
-    .select('metadata')
-    .eq('vendor_id', organizerId)
-    .maybeSingle();
+  const rows = await query<{ metadata: Record<string, unknown> | null }>(
+    `SELECT metadata FROM vendor_wallets WHERE vendor_id = $1`,
+    [organizerId],
+  );
 
+  const data = rows[0];
   if (!data) return null;
   const acctId = (data.metadata as Record<string, unknown> | null)?.stripe_account_id as string | undefined;
   return acctId ?? null;
@@ -44,7 +39,6 @@ export async function POST(
   try {
     const { id: eventId } = await params;
     const supabase = await getDb();
-    const adminDb = await getAdminDb();
 
     const {
       data: { user },
@@ -81,7 +75,7 @@ export async function POST(
 
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .select('id, organizer_id, organizer_name, title, status, total_capacity, tickets_sold, ticket_type, currency_code, platform_fee_percent, platform_fee_fixed, tax_rate, waitlist_enabled, max_guests_per_registration, start_date, end_date')
+      .select('id, organizer_id, organizer_name, title, status, total_capacity, tickets_sold, ticket_type, currency_code, platform_fee_percent, platform_fee_fixed, tax_rate, waitlist_enabled, max_guests_per_registration, start_date, end_date, is_virtual, venue_name')
       .eq('id', eventId)
       .single();
 
@@ -163,13 +157,19 @@ export async function POST(
     let discountAmount = 0;
 
     if (promoCode) {
-      const { data: promo } = await adminDb
-        .from('event_promo_codes')
-        .select('*')
-        .eq('event_id', eventId)
-        .eq('code', String(promoCode).toUpperCase())
-        .eq('is_active', true)
-        .single();
+      const promoRows = await query<{
+        id: string;
+        discount_type: string;
+        discount_value: number;
+        max_uses: number;
+        used_count: number | null;
+        valid_from: string;
+        valid_until: string;
+      }>(
+        `SELECT * FROM event_promo_codes WHERE event_id = $1 AND code = $2 AND is_active = true`,
+        [eventId, String(promoCode).toUpperCase()],
+      );
+      const promo = promoRows[0];
 
       if (
         promo &&
@@ -183,10 +183,10 @@ export async function POST(
           discountAmount = Math.min(Number(promo.discount_value), unitPrice);
         }
         unitPrice = Math.max(0, unitPrice - discountAmount);
-        await adminDb
-          .from('event_promo_codes')
-          .update({ used_count: (promo.used_count ?? 0) + 1 })
-          .eq('id', promo.id);
+        await query(
+          `UPDATE event_promo_codes SET used_count = $1 WHERE id = $2`,
+          [(promo.used_count ?? 0) + 1, promo.id],
+        );
       }
     }
 
@@ -247,25 +247,21 @@ export async function POST(
     // Paid events get their tickets when the Stripe webhook confirms payment.
     let createdTickets: { id: string; ticket_code: string }[] = [];
     if (isFree) {
-      const ticketRows = Array.from({ length: quantity }).map(() => ({
-        registration_id: registration.id,
-        event_id: eventId,
-        user_id: user.id,
-        tier_name: ticketTier.name,
-        attendee_name: userName,
-        attendee_email: userEmail,
-        status: 'active',
-        qr_code_url: `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${eventId}/ticket/${registration.id}`,
-        valid_from: event.start_date,
-        valid_until: event.end_date,
-      }));
-
-      const { data } = await adminDb
-        .from('event_tickets')
-        .insert(ticketRows)
-        .select('id, ticket_code');
-
-      createdTickets = data ?? [];
+      const qrCodeUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? ''}/events/${eventId}/ticket/${registration.id}`;
+      for (let i = 0; i < quantity; i++) {
+        const rows = await query<{ id: string; ticket_code: string }>(
+          `INSERT INTO event_tickets
+             (registration_id, event_id, user_id, tier_name, attendee_name, attendee_email, status, qr_code_url, valid_from, valid_until)
+           VALUES ($1, $2, $3, $4, $5, $6, 'active', $7, $8, $9)
+           RETURNING id, ticket_code`,
+          [
+            registration.id, eventId, user.id, ticketTier.name,
+            userName, userEmail, qrCodeUrl,
+            event.start_date, event.end_date,
+          ],
+        );
+        createdTickets.push(rows[0]);
+      }
     }
 
     const createdGuests: Record<string, unknown>[] = [];
@@ -332,19 +328,22 @@ export async function POST(
         .eq('id', registration.id);
     }
 
-    await adminDb.from('notifications').insert({
-      user_id: user.id,
-      type: 'system',
-      title: isFree ? 'Registration Confirmed' : 'Registration Pending Payment',
-      body: isFree
-        ? `You're registered for "${event.title}".`
-        : `Complete payment for "${event.title}".`,
-      data: {
-        event_id: eventId,
-        registration_id: registration.id,
-        ticket_codes: createdTickets.map((t) => t.ticket_code),
-      },
-    });
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5)`,
+      [
+        user.id,
+        'system',
+        isFree ? 'Registration Confirmed' : 'Registration Pending Payment',
+        isFree
+          ? `You're registered for "${event.title}".`
+          : `Complete payment for "${event.title}".`,
+        JSON.stringify({
+          event_id: eventId,
+          registration_id: registration.id,
+          ticket_codes: createdTickets.map((t) => t.ticket_code),
+        }),
+      ],
+    );
 
     // Dispatch confirmation email + SMS for confirmed (free) registrations.
     if (isFree && userEmail) {
@@ -428,7 +427,6 @@ export async function GET(
   try {
     const { id: eventId } = await params;
     const supabase = await getDb();
-    const adminDb = await getAdminDb();
 
     const {
       data: { user },
@@ -446,11 +444,11 @@ export async function GET(
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)));
     const offset = (page - 1) * limit;
 
-    const { data: event } = await adminDb
-      .from('events')
-      .select('id, organizer_id')
-      .eq('id', eventId)
-      .single();
+    const eventRows = await query<{ id: string; organizer_id: string }>(
+      `SELECT id, organizer_id FROM events WHERE id = $1`,
+      [eventId],
+    );
+    const event = eventRows[0];
 
     if (!event) {
       return NextResponse.json(
@@ -461,20 +459,20 @@ export async function GET(
 
     const isOrganizer = event.organizer_id === user.id;
 
-    let query = supabase
+    let registrationsQuery = supabase
       .from('event_registrations')
       .select('*, event_ticket_tiers(name, tier), event_tickets(ticket_code, status, attendee_name)', { count: 'exact' })
       .eq('event_id', eventId);
 
     if (!isOrganizer) {
-      query = query.eq('user_id', user.id);
+      registrationsQuery = registrationsQuery.eq('user_id', user.id);
     }
 
     if (status) {
-      query = query.eq('status', status);
+      registrationsQuery = registrationsQuery.eq('status', status);
     }
 
-    const { data, count, error } = await query
+    const { data, count, error } = await registrationsQuery
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 

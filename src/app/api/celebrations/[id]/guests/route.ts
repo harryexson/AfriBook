@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 import {
   createCelebrationGuests,
   countCelebrationGuests,
@@ -8,14 +8,12 @@ import {
   getCelebrationPlan,
 } from '@/lib/celebrations/service';
 
-const admin = createAdminClient() as any;
-
 async function assertOrganizer(userId: string, eventId: string): Promise<void> {
-  const { data: evt } = await admin
-    .from('events')
-    .select('id, organizer_id, celebration_type')
-    .eq('id', eventId)
-    .single();
+  const rows = await query<{ id: string; organizer_id: string; celebration_type: string | null }>(
+    `SELECT id, organizer_id, celebration_type FROM events WHERE id = $1 LIMIT 1`,
+    [eventId],
+  );
+  const evt = rows[0] ?? null;
 
   if (!evt || evt.celebration_type == null) {
     throw Object.assign(new Error('Not found: not a celebration'), { status: 404 });
@@ -35,21 +33,33 @@ export async function GET(
     await assertOrganizer(user.id, eventId);
 
     const [guests, total] = await Promise.all([
-      admin
-        .from('event_guests')
-        .select(
-          'id, guest_name, guest_email, guest_phone, relationship, rsvp_status, rsvp_response_date, attending_count, dietary_notes, notes, ticket_code, created_at',
-        )
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: false }),
-      countCelebrationGuests(admin, eventId),
+      query<{
+        id: string;
+        guest_name: string;
+        guest_email: string | null;
+        guest_phone: string | null;
+        relationship: string | null;
+        rsvp_status: string;
+        rsvp_response_date: string | null;
+        attending_count: number | null;
+        dietary_notes: string | null;
+        notes: string | null;
+        ticket_code: string;
+        created_at: string;
+      }>(
+        `SELECT id, guest_name, guest_email, guest_phone, relationship, rsvp_status, rsvp_response_date,
+                attending_count, dietary_notes, notes, ticket_code, created_at
+         FROM event_guests WHERE event_id = $1 ORDER BY created_at DESC`,
+        [eventId],
+      ),
+      countCelebrationGuests(eventId),
     ]);
 
-    const planCode = await resolveEventPlanCode(admin, user.id);
-    const plan = await getCelebrationPlan(admin, planCode);
+    const planCode = await resolveEventPlanCode(user.id);
+    const plan = await getCelebrationPlan(planCode);
 
     const statusCounts = { invited: 0, confirmed: 0, declined: 0, attended: 0 };
-    for (const g of guests ?? []) {
+    for (const g of guests) {
       const key = g.rsvp_status as keyof typeof statusCounts;
       if (key in statusCounts) statusCounts[key] += 1;
     }
@@ -57,10 +67,10 @@ export async function GET(
     return NextResponse.json({
       success: true,
       data: {
-        guests: guests ?? [],
+        guests,
         counts: {
           ...statusCounts,
-          totalGuests: (guests ?? []).length,
+          totalGuests: guests.length,
         },
         capacity: {
           planCode,
@@ -103,13 +113,23 @@ export async function POST(
       );
     }
 
-    const { data: evt } = await admin
-      .from('events')
-      .select(
-        'id, organizer_id, title, slug, custom_domain, custom_domain_status, start_date, venue_name, billing_mode, billing_status',
-      )
-      .eq('id', eventId)
-      .single();
+    const evtRows = await query<{
+      id: string;
+      organizer_id: string;
+      title: string;
+      slug: string | null;
+      custom_domain: string | null;
+      custom_domain_status: string | null;
+      start_date: string | null;
+      venue_name: string | null;
+      billing_mode: string | null;
+      billing_status: string | null;
+    }>(
+      `SELECT id, organizer_id, title, slug, custom_domain, custom_domain_status, start_date, venue_name, billing_mode, billing_status
+       FROM events WHERE id = $1 LIMIT 1`,
+      [eventId],
+    );
+    const evt = evtRows[0];
 
     if (evt.billing_mode === 'per_event' && evt.billing_status !== 'paid') {
       return NextResponse.json(
@@ -119,7 +139,6 @@ export async function POST(
     }
 
     const created = await createCelebrationGuests(
-      admin,
       {
         id: evt.id,
         organizer_id: evt.organizer_id,

@@ -1,12 +1,13 @@
 'use client'
 
-import { createContext, useCallback, useContext, useSyncExternalStore, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { COUNTRIES } from '@/lib/localization/countries'
 import type { CountryConfig } from '@/lib/localization/countries'
 
 const COUNTRY_COOKIE = 'country'
 const COUNTRY_STORAGE_KEY = 'afribook-country'
+const CURRENCY_ESTIMATE_STORAGE_KEY = 'afribook-show-currency-estimate'
 
 interface SetCountryOptions {
   /** Hard-navigate to /CODE. Default true. Pass false when the caller
@@ -18,6 +19,15 @@ interface CountryContextValue {
   countryCode: string
   country: CountryConfig
   setCountry: (code: string, options?: SetCountryOptions) => void
+  /**
+   * Opt-in only — never toggled automatically from geolocation. Every
+   * platform we looked at (Uber, Airbnb, Amazon) treats a converted price in
+   * the viewer's own currency as an estimate the viewer asks to see, not the
+   * default. The bound, charged amount is always the listing's own currency;
+   * this only controls whether an indicative estimate is shown alongside it.
+   */
+  showCurrencyEstimate: boolean
+  setShowCurrencyEstimate: (value: boolean) => void
 }
 
 const CountryContext = createContext<CountryContextValue | null>(null)
@@ -115,8 +125,37 @@ export function CountryProvider({ children }: { children: ReactNode }) {
 
   const country = COUNTRIES[countryCode] ?? COUNTRIES.NG
 
+  // Plain component state, not the pathname-driven external store above:
+  // this preference has nothing to do with the URL, so it doesn't need
+  // useSyncExternalStore's SSR-snapshot machinery. Defaults to false on
+  // first paint (server and client agree, no hydration mismatch) and reads
+  // the stored preference right after mount, same pattern useLocalPrice
+  // already uses for the detected-currency cookie.
+  const [showCurrencyEstimate, setShowCurrencyEstimateState] = useState(false)
+
+  useEffect(() => {
+    try {
+      setShowCurrencyEstimateState(
+        window.localStorage.getItem(CURRENCY_ESTIMATE_STORAGE_KEY) === 'true',
+      )
+    } catch {
+      // ignore storage errors — stays off
+    }
+  }, [])
+
+  const setShowCurrencyEstimate = useCallback((value: boolean) => {
+    setShowCurrencyEstimateState(value)
+    try {
+      window.localStorage.setItem(CURRENCY_ESTIMATE_STORAGE_KEY, String(value))
+    } catch {
+      // ignore storage errors — the toggle still works for this session
+    }
+  }, [])
+
   return (
-    <CountryContext.Provider value={{ countryCode, country, setCountry }}>
+    <CountryContext.Provider
+      value={{ countryCode, country, setCountry, showCurrencyEstimate, setShowCurrencyEstimate }}
+    >
       {children}
     </CountryContext.Provider>
   )

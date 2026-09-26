@@ -20,63 +20,42 @@ import MapEmbed from '@/components/shared/MapEmbed'
 import Button from '@/components/ui/Button'
 import type { Business, Service, Review } from '@/types'
 import { getCountryBusinesses, getCountryServices, getStaffForBusiness } from '@/lib/countries-data'
+import { galleryFor, bucketFor } from '@/lib/images'
 import { getWeekdayKey, formatInTimezone } from '@/lib/time'
 
-const CATEGORY_IMAGES: Record<string, string[]> = {
-  'Food & Dining': [
-    'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
-    'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800',
-    'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800',
-    'https://images.unsplash.com/photo-1590779033100-9f8a05c1b5e6?w=800',
-  ],
-  'Beauty & Wellness': [
-    'https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=800',
-    'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=800',
-    'https://images.unsplash.com/photo-1519415510236-718bdfcd89c8?w=800',
-    'https://images.unsplash.com/photo-1487412947147-5cebf100ffc2?w=800',
-  ],
-  Healthcare: [
-    'https://images.unsplash.com/photo-1516574187841-cb9cc2ca948b?w=800',
-    'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800',
-    'https://images.unsplash.com/photo-1587351021759-3e566b6af7cc?w=800',
-    'https://images.unsplash.com/photo-1538108149393-fbbd81895907?w=800',
-  ],
-  'Home Services': [
-    'https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800',
-    'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?w=800',
-    'https://images.unsplash.com/photo-1558002038-1055907df827?w=800',
-    'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800',
-  ],
-  'Technology': [
-    'https://images.unsplash.com/photo-1518770660439-4636190af475?w=800',
-    'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800',
-    'https://images.unsplash.com/photo-1551650975-87deedd944c3?w=800',
-    'https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=800',
-  ],
-  'Education': [
-    'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800',
-    'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=800',
-    'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800',
-    'https://images.unsplash.com/photo-1509062522246-3755977927d7?w=800',
-  ],
-  'Sports & Fitness': [
-    'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800',
-    'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=800',
-    'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?w=800',
-    'https://images.unsplash.com/photo-1526506118085-60ce8714f8c5?w=800',
-  ],
-}
-
-const FALLBACK_IMAGES = [
-  'https://images.unsplash.com/photo-1542838132-92c53300491e?w=800',
-  'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=800',
-  'https://images.unsplash.com/photo-1488459716781-31db52582fe9?w=800',
-  'https://images.unsplash.com/photo-1590779033100-9f8a05c1b5e6?w=800',
-]
 
 const DAY_LABELS: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
 const NOW = Date.now()
+
+/**
+ * Which tabs make sense for a given vertical. 'Products' and 'Menu' are
+ * still 'coming soon' placeholders platform-wide (no product/menu backend
+ * wired to this page yet), so an unrelated business type — an automotive
+ * shop, a driver, a lawyer — showing an always-empty 'Menu coming soon' tab
+ * read as unfinished rather than genuinely empty. Filtering by business
+ * type fixes that without inventing fake content. Unknown/uncategorized
+ * businesses (generic) get everything, so nothing that might apply is ever
+ * hidden by a classification gap.
+ */
+const TABS_BY_BUCKET: Record<string, string[]> = {
+  food: ['menu', 'services', 'reviews'],
+  stays: ['services', 'portfolio', 'reviews'],
+  beauty: ['services', 'staff', 'portfolio', 'reviews'],
+  home: ['services', 'staff', 'portfolio', 'reviews'],
+  automotive: ['services', 'staff', 'portfolio', 'reviews'],
+  technology: ['services', 'products', 'reviews'],
+  education: ['services', 'staff', 'reviews'],
+  healthcare: ['services', 'staff', 'reviews'],
+  events: ['services', 'portfolio', 'reviews'],
+  rides: ['services', 'reviews'],
+  fashion: ['products', 'portfolio', 'reviews'],
+  agriculture: ['products', 'reviews'],
+  realestate: ['services', 'portfolio', 'reviews'],
+  legal: ['services', 'reviews'],
+  logistics: ['services', 'reviews'],
+  generic: ['services', 'portfolio', 'products', 'menu', 'staff', 'reviews'],
+}
 
 export default function BusinessDetailPage() {
   const params = useParams()
@@ -143,7 +122,7 @@ export default function BusinessDetailPage() {
     },
   ]
 
-  const galleryImages = CATEGORY_IMAGES[business.category] ?? FALLBACK_IMAGES
+  const galleryImages = galleryFor(business.id, business.category, business.media?.galleryUrls)
   const startingPrice = services.length > 0 ? Math.min(...services.map((s) => s.price)) : 0
 
   const todayLabel = DAY_LABELS[getWeekdayKey(new Date(), country?.timezone)]
@@ -151,7 +130,7 @@ export default function BusinessDetailPage() {
   const isOpen = todayHours && !todayHours.isClosed
   const localTime = formatInTimezone(new Date(), country?.timezone)
 
-  const tabs = [
+  const ALL_TABS = [
     { id: 'services', label: 'Services', icon: Scissors },
     { id: 'portfolio', label: 'Portfolio', icon: Image },
     { id: 'products', label: 'Products', icon: ShoppingBag },
@@ -159,6 +138,13 @@ export default function BusinessDetailPage() {
     { id: 'staff', label: 'Staff', icon: Users },
     { id: 'reviews', label: 'Reviews', icon: MessageCircle },
   ]
+  const businessBucket = bucketFor(business.category)
+  const visibleTabIds = TABS_BY_BUCKET[businessBucket] ?? TABS_BY_BUCKET.generic
+  const tabs = ALL_TABS.filter((t) => visibleTabIds.includes(t.id))
+  // If a stale activeTab (e.g. left over from a previously viewed business
+  // of a different type) isn't in this business's tab set, fall back to the
+  // first one rather than rendering a selected-but-hidden tab's empty panel.
+  const currentTab = tabs.some((t) => t.id === activeTab) ? activeTab : tabs[0]?.id
 
   const handleShare = async () => {
     const url = window.location.href
@@ -269,7 +255,7 @@ export default function BusinessDetailPage() {
                     onClick={() => setActiveTab(tab.id)}
                     className={cn(
                       'flex items-center gap-2 px-5 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-all',
-                      activeTab === tab.id ? 'border-amber-500 text-amber-500' : 'border-transparent text-text-secondary hover:text-text-primary'
+                      currentTab === tab.id ? 'border-amber-500 text-amber-500' : 'border-transparent text-text-secondary hover:text-text-primary'
                     )}
                   >
                     <tab.icon className="w-4 h-4" />
@@ -280,7 +266,7 @@ export default function BusinessDetailPage() {
 
               <div className="p-6">
                 {/* Services Tab */}
-                {activeTab === 'services' && (
+                {currentTab === 'services' && (
                   <div className="space-y-4">
                     {services.length > 0 ? (
                       services.map((service, i) => (
@@ -304,7 +290,7 @@ export default function BusinessDetailPage() {
                 )}
 
                 {/* Portfolio Tab */}
-                {activeTab === 'portfolio' && (
+                {currentTab === 'portfolio' && (
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-lg font-bold font-heading text-text-primary mb-3">Our Work</h3>
@@ -345,7 +331,7 @@ export default function BusinessDetailPage() {
                 )}
 
                 {/* Products Tab */}
-                {activeTab === 'products' && (
+                {currentTab === 'products' && (
                   <div className="text-center py-12 text-text-secondary">
                     <ShoppingBag className="w-12 h-12 mx-auto text-text-tertiary" />
                     <p className="mt-3 font-medium">Products coming soon</p>
@@ -354,7 +340,7 @@ export default function BusinessDetailPage() {
                 )}
 
                 {/* Menu Tab (for restaurants) */}
-                {activeTab === 'menu' && (
+                {currentTab === 'menu' && (
                   <div className="text-center py-12 text-text-secondary">
                     <Timer className="w-12 h-12 mx-auto text-text-tertiary" />
                     <p className="mt-3 font-medium">Menu coming soon</p>
@@ -363,7 +349,7 @@ export default function BusinessDetailPage() {
                 )}
 
                 {/* Staff Tab */}
-                {activeTab === 'staff' && (
+                {currentTab === 'staff' && (
                   <div className="space-y-4">
                     {staff.length > 0 ? (
                       staff.map((s) => (
@@ -389,7 +375,7 @@ export default function BusinessDetailPage() {
                 )}
 
                 {/* Reviews Tab */}
-                {activeTab === 'reviews' && (
+                {currentTab === 'reviews' && (
                   <div className="space-y-6">
                     {/* Rating summary */}
                     <div className="flex items-start gap-6 pb-6 border-b border-border">

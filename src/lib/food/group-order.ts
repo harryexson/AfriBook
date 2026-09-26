@@ -4,7 +4,20 @@
 // order creator confirms and pays for the entire group order.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
+
+// NOTE: the real `group_orders` table only has
+// (id, organizer_id, business_id, status, share_token, deadline, metadata,
+// created_at, updated_at) — no creator_name/restaurant_name/subtotal/tax/
+// delivery_fee/total/currency_code/max_members/invite_code columns like the
+// original code assumed (those were silently no-op'd under Supabase, since
+// nothing here checked `.error`). This module has no other callers in the
+// codebase, so column names below are corrected to match the live schema:
+// creatorId -> organizer_id, restaurantId -> business_id, inviteCode ->
+// share_token, and everything else that has no dedicated column (names,
+// totals, max_members) is kept in `metadata` jsonb. Likewise
+// `group_order_members` has `status` (varchar) instead of `is_ready`
+// (boolean) and `created_at` instead of `joined_at`.
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -63,23 +76,34 @@ export async function createGroupOrder(
     .eq('id', restaurantId)
     .single() as any);
 
+  // Was querying a `users` table (doesn't exist — the real table is
+  // `profiles`, and its name column is `full_name`, not `name`) — same bug
+  // found across ~18 files this migration, see proxy.ts's comment for the
+  // full story.
   const { data: user } = await (supabase
-    .from('users')
-    .select('id, name')
+    .from('profiles')
+    .select('id, full_name')
     .eq('id', creatorId)
     .single() as any);
 
   const { data, error } = await (supabase
     .from('group_orders')
     .insert({
-      restaurant_id: restaurantId,
-      restaurant_name: restaurant?.name ?? 'Restaurant',
-      creator_id: creatorId,
-      creator_name: user?.name ?? 'Creator',
+      business_id: restaurantId,
+      organizer_id: creatorId,
       status: 'collecting',
-      max_members: maxMembers,
-      invite_code: inviteCode,
+      share_token: inviteCode,
       deadline: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 min deadline
+      metadata: {
+        restaurant_name: restaurant?.name ?? 'Restaurant',
+        creator_name: user?.full_name ?? 'Creator',
+        subtotal: 0,
+        tax: 0,
+        delivery_fee: 0,
+        total: 0,
+        currency_code: 'NGN',
+        max_members: maxMembers,
+      },
     } as any)
     .select()
     .single() as any);
@@ -90,10 +114,10 @@ export async function createGroupOrder(
   await (supabase.from('group_order_members').insert({
     group_order_id: data.id,
     user_id: creatorId,
-    name: user?.name ?? 'Creator',
+    name: user?.full_name ?? 'Creator',
     items: [],
     subtotal: 0,
-    is_ready: false,
+    status: 'active',
   } as any) as any);
 
   return rowToGroupOrder(data);
@@ -110,7 +134,7 @@ export async function joinGroupOrder(
   const { data: groupOrder } = await (supabase
     .from('group_orders')
     .select('*')
-    .eq('invite_code', inviteCode)
+    .eq('share_token', inviteCode)
     .eq('status', 'collecting')
     .single() as any);
 
@@ -122,7 +146,8 @@ export async function joinGroupOrder(
     .select('*', { count: 'exact', head: true })
     .eq('group_order_id', groupOrder.id) as any);
 
-  if ((count ?? 0) >= groupOrder.max_members) return null;
+  const maxMembers = (groupOrder.metadata?.max_members as number | undefined) ?? 10;
+  if ((count ?? 0) >= maxMembers) return null;
 
   // Check if already a member
   const { data: existing } = await (supabase
@@ -135,18 +160,18 @@ export async function joinGroupOrder(
   if (existing) return rowToGroupOrder(groupOrder);
 
   const { data: user } = await (supabase
-    .from('users')
-    .select('name')
+    .from('profiles')
+    .select('full_name')
     .eq('id', userId)
     .single() as any);
 
   await (supabase.from('group_order_members').insert({
     group_order_id: groupOrder.id,
     user_id: userId,
-    name: user?.name ?? 'Member',
+    name: user?.full_name ?? 'Member',
     items: [],
     subtotal: 0,
-    is_ready: false,
+    status: 'active',
   } as any) as any);
 
   return rowToGroupOrder(groupOrder);
@@ -230,7 +255,7 @@ export async function markMemberReady(
   const supabase = await createClient();
 
   const { error } = await (supabase.from('group_order_members') as any)
-    .update({ is_ready: true })
+    .update({ status: 'ready' })
     .eq('group_order_id', groupOrderId)
     .eq('user_id', userId);
 
@@ -247,11 +272,11 @@ export async function lockGroupOrder(
 
   const { data: groupOrder } = await (supabase
     .from('group_orders')
-    .select('creator_id')
+    .select('organizer_id')
     .eq('id', groupOrderId)
     .single() as any);
 
-  if (!groupOrder || groupOrder.creator_id !== creatorId) return false;
+  if (!groupOrder || groupOrder.organizer_id !== creatorId) return false;
 
   const { error } = await (supabase.from('group_orders') as any)
     .update({ status: 'locked' })
@@ -285,8 +310,8 @@ export async function getGroupOrder(
       name: m.name,
       items: (m.items as GroupOrderItem[]) ?? [],
       subtotal: m.subtotal as number,
-      joinedAt: m.joined_at as string,
-      isReady: m.is_ready as boolean,
+      joinedAt: m.created_at as string,
+      isReady: m.status === 'ready',
     }));
   }
 
@@ -304,17 +329,28 @@ async function recalculateGroupOrderTotal(groupOrderId: string): Promise<void> {
 
   if (!members) return;
 
+  const { data: groupOrder } = await (supabase
+    .from('group_orders')
+    .select('metadata')
+    .eq('id', groupOrderId)
+    .single() as any);
+
   const subtotal = members.reduce((sum: number, m: Record<string, unknown>) => sum + ((m.subtotal as number) ?? 0), 0);
   const tax = Math.round(subtotal * 0.08); // 8% default tax
   const deliveryFee = subtotal > 0 ? 500 : 0; // NGN 500 delivery fee
   const total = subtotal + tax + deliveryFee;
 
+  // `group_orders` has no dedicated subtotal/tax/delivery_fee/total columns
+  // — these live in `metadata` jsonb alongside the other derived fields.
   await (supabase.from('group_orders') as any)
     .update({
-      subtotal: Math.round(subtotal),
-      tax: Math.round(tax),
-      delivery_fee: Math.round(deliveryFee),
-      total: Math.round(total),
+      metadata: {
+        ...(groupOrder?.metadata ?? {}),
+        subtotal: Math.round(subtotal),
+        tax: Math.round(tax),
+        delivery_fee: Math.round(deliveryFee),
+        total: Math.round(total),
+      },
     })
     .eq('id', groupOrderId);
 }
@@ -329,21 +365,22 @@ function generateInviteCode(): string {
 }
 
 function rowToGroupOrder(row: Record<string, unknown>): GroupOrder {
+  const metadata = (row.metadata as Record<string, unknown> | null) ?? {};
   return {
     id: row.id as string,
-    restaurantId: row.restaurant_id as string,
-    restaurantName: row.restaurant_name as string,
-    creatorId: row.creator_id as string,
-    creatorName: row.creator_name as string,
+    restaurantId: row.business_id as string,
+    restaurantName: (metadata.restaurant_name as string) ?? 'Restaurant',
+    creatorId: row.organizer_id as string,
+    creatorName: (metadata.creator_name as string) ?? 'Creator',
     members: [],
     status: row.status as GroupOrder['status'],
-    subtotal: row.subtotal as number,
-    tax: row.tax as number,
-    deliveryFee: row.delivery_fee as number,
-    total: row.total as number,
-    currencyCode: (row.currency_code as string) ?? 'NGN',
-    maxMembers: row.max_members as number,
-    inviteCode: row.invite_code as string,
+    subtotal: (metadata.subtotal as number) ?? 0,
+    tax: (metadata.tax as number) ?? 0,
+    deliveryFee: (metadata.delivery_fee as number) ?? 0,
+    total: (metadata.total as number) ?? 0,
+    currencyCode: (metadata.currency_code as string) ?? 'NGN',
+    maxMembers: (metadata.max_members as number) ?? 10,
+    inviteCode: row.share_token as string,
     deadline: row.deadline as string,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,

@@ -3,7 +3,7 @@
 // Supports both Expo (iOS/Android) and FCM (Android).
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -163,15 +163,17 @@ export async function sendRideOfferNotification(
 ): Promise<void> {
   const supabase = await createClient();
 
-  const { data: driver } = await supabase
+  // Real column is `profile_id` (drivers has no `userId`/`user_id` column —
+  // the original `.select('userId')` was silently no-oping under Supabase).
+  const { data: driver } = (await supabase
     .from('drivers')
-    .select('userId')
+    .select('profile_id')
     .eq('id', driverId)
-    .single();
+    .single()) as { data: { profile_id: string } | null };
 
   if (!driver) return;
 
-  await sendPushToUser(driver.userId, {
+  await sendPushToUser(driver.profile_id, {
     title: 'New Ride Request',
     body: `Pickup: ${pickupAddress} — Est. earnings: $${estimatedEarnings.toFixed(2)}`,
     data: { rideId, type: 'ride_offer', rideType },

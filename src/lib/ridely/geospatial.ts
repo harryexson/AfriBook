@@ -6,9 +6,19 @@
 // instead of JavaScript brute-force filtering.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import type { GeoPoint } from '@/types';
 import type { DriverCandidate, GeoLocation } from '@/types/ridely';
+
+// NOTE (found during Supabase->Neon migration, not fixed — out of scope for
+// a client swap): the driver-candidate mapping below reads
+// `driver.userId`/`driver.vehicle` off rows selected with `.from('drivers')
+// .select('*')`. The real `drivers` table has no `userId` or `vehicle`
+// columns — it's `profile_id` and a `vehicle_info` jsonb column (verified
+// via information_schema) — so these have always read as `undefined` here,
+// both before and after this migration. Flagging as a pre-existing bug for
+// a follow-up, since fixing it means rewriting the candidate-mapping logic,
+// not just correcting a query.
 
 // ─── Constants ────────────────────────────────────────────────
 

@@ -51,6 +51,71 @@ export function cuisineAsset(cuisine?: string): number | null {
   return match ? match[1] : null;
 }
 
+/**
+ * Bundled people photography, mirrored into the web app's public/people.
+ *
+ * Same reasoning as the cuisine set, applied to the service verticals where
+ * the person doing the work *is* the product: choosing a barber means choosing
+ * a person, and the stock pools resolve those to airbrushed studio work that
+ * looks nothing like the shops in this catalogue. Shot to one brief — a real
+ * working moment, in the room the work happens in, lit by a window.
+ *
+ * They depict no real or identifiable individual, and are art direction rather
+ * than evidence about any particular vendor. A vendor's upload always wins.
+ */
+const PEOPLE_ASSETS: Record<string, number[]> = {
+  beauty: [
+    require('../../assets/people/barber.jpg'),
+    require('../../assets/people/salon.jpg'),
+    require('../../assets/people/spa.jpg'),
+  ],
+  home: [require('../../assets/people/cleaning.jpg')],
+  events: [require('../../assets/people/photography.jpg')],
+  rides: [require('../../assets/people/rides.jpg')],
+  fashion: [require('../../assets/people/tailoring.jpg')],
+  automotive: [require('../../assets/people/automotive.jpg')],
+  logistics: [require('../../assets/people/logistics.jpg')],
+  generic: [require('../../assets/people/community.jpg')],
+};
+
+/**
+ * Subject matchers, checked before the hash.
+ *
+ * The stock pools are interchangeable within a bucket, so hashing across them
+ * is fine. These are not: a barbershop, a braiding salon and a massage room
+ * are three different rooms, and `beauty` holds one photo of each. Hashing
+ * alone put a spa treatment table on a barbershop. So read whatever text we
+ * have — usually the business name, since the category is often just
+ * "Beauty & Wellness" and the actual trade shows up in the name — and fall
+ * back to the hash only when it says nothing useful.
+ */
+const PEOPLE_SUBJECTS: Array<[RegExp, number]> = [
+  [/barber|fade|grooming|shave/i, require('../../assets/people/barber.jpg')],
+  [/salon|hair|braid|nail|lash|makeup|cosmet|stylist|beauty/i, require('../../assets/people/salon.jpg')],
+  [/spa|massage|wellness|therap|skin/i, require('../../assets/people/spa.jpg')],
+];
+
+/**
+ * Bundled people photo for a category, or null to fall through to stock.
+ * Prefers a subject match on `subject` (the business name); otherwise hashes
+ * on the entity id, which keeps a business on one photo across renders.
+ */
+export function peopleAsset(
+  id: string,
+  category?: string,
+  subject?: string,
+): number | null {
+  const pool = PEOPLE_ASSETS[bucketFor(category)];
+  if (!pool) return null;
+
+  // Name before category, and deliberately so: 'Beauty & Wellness' is the
+  // category on barbershops, salons and spas alike, so letting it match would
+  // drag every one of them onto the same photo. The name is the specific
+  // signal; the category is only a last resort before the hash.
+  const matched = matchSubject(subject, pool) ?? matchSubject(category, pool);
+  return matched ?? pool[hash(id) % pool.length];
+}
+
 // Curated per category. Multiple options per bucket so a list of same-category
 // businesses doesn't render as a wall of identical photos.
 const CATEGORY_PHOTOS: Record<string, string[]> = {
@@ -128,6 +193,12 @@ function bucketFor(category?: string): string {
   return 'generic';
 }
 
+function matchSubject(text: string | undefined, pool: number[]): number | undefined {
+  if (!text) return undefined;
+  return PEOPLE_SUBJECTS.find(
+    ([pattern, asset]) => pool.includes(asset) && pattern.test(text),
+  )?.[1];
+}
 /** Small stable string hash — keeps a given id on a given photo. */
 function hash(seed: string): number {
   let h = 0;
@@ -143,6 +214,9 @@ export interface PhotoOptions {
   width?: number;
   /** Aspect ratio as height/width. 1 for the circular thumbnails. */
   ratio?: number;
+  /** Free text (usually the business name) used to pick among
+   *  subject-specific bundled photos — see PEOPLE_SUBJECTS. */
+  subject?: string;
 }
 
 /**
@@ -180,6 +254,8 @@ export function imageSourceFor(
   if (existing) return { uri: existing };
   const bundled = cuisineAsset(category);
   if (bundled) return bundled;
+  const people = peopleAsset(id, category, options.subject);
+  if (people) return people;
   return { uri: photoFor(id, category, null, options) };
 }
 

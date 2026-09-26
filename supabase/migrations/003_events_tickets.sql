@@ -1020,7 +1020,7 @@ RETURNS TRIGGER AS $$
 BEGIN
     -- Confirmed → cancelled/refunded: decrease count
     IF OLD.status = 'confirmed'
-       AND NEW.status IN ('cancelled',) THEN
+       AND NEW.status IN ('cancelled', 'refunded') THEN
 
         UPDATE event_ticket_tiers
         SET sold = GREATEST(sold - OLD.quantity, 0)
@@ -1031,7 +1031,7 @@ BEGIN
         WHERE id = OLD.event_id;
 
     -- Cancelled → confirmed: increase count
-    ELSIF OLD.status IN ('cancelled',)
+    ELSIF OLD.status IN ('cancelled', 'refunded')
           AND NEW.status = 'confirmed' THEN
 
         UPDATE event_ticket_tiers

@@ -5,7 +5,7 @@
 // buddy system, check-in requirements.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import type {
   DriverSafetyEvent,
   DriverCheckIn,

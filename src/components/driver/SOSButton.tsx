@@ -6,22 +6,28 @@ import { AlertTriangle, Phone, X, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface SOSButtonProps {
-  driverId: string
+  driverId?: string
   currentLocation?: { lat: number; lng: number }
   rideId?: string
   deliveryId?: string
+  /** 'driver' hits /api/safety/sos (needs a drivers row); 'rider' hits /api/rides/{rideId}/sos. */
+  role?: 'driver' | 'rider'
 }
 
-export default function SOSButton({ currentLocation, rideId, deliveryId }: SOSButtonProps) {
+export default function SOSButton({ currentLocation, rideId, deliveryId, role = 'driver' }: SOSButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [emergencyNumber, setEmergencyNumber] = useState<string | null>(null)
 
   const handleSOS = async () => {
     if (!currentLocation) return
     setIsSending(true)
     try {
-      const res = await fetch('/api/safety/sos', {
+      const endpoint = role === 'rider' && rideId
+        ? `/api/rides/${rideId}/sos`
+        : '/api/safety/sos'
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -29,10 +35,12 @@ export default function SOSButton({ currentLocation, rideId, deliveryId }: SOSBu
           lng: currentLocation.lng,
           rideId,
           deliveryId,
-          description: 'SOS alert triggered by driver',
+          description: `SOS alert triggered by ${role}`,
         }),
       })
-      if (res.ok) setSent(true)
+      const body = await res.json().catch(() => null)
+      if (body?.emergencyNumber) setEmergencyNumber(body.emergencyNumber)
+      setSent(true)
     } catch {
       setSent(true)
     } finally {
@@ -80,11 +88,21 @@ export default function SOSButton({ currentLocation, rideId, deliveryId }: SOSBu
                     </div>
                     <h3 className="text-lg font-bold text-text-primary">SOS Alert Sent</h3>
                     <p className="text-sm text-text-secondary mt-2">
-                      Emergency contacts have been notified. Help is on the way.
+                      Your location and alert have been logged.
+                      {emergencyNumber ? ' If you need immediate help, call emergency services now:' : ''}
                     </p>
+                    {emergencyNumber && (
+                      <a
+                        href={`tel:${emergencyNumber}`}
+                        className="mt-4 flex items-center justify-center gap-2 w-full py-3.5 rounded-xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 transition-colors"
+                      >
+                        <Phone className="w-4 h-4" />
+                        Call {emergencyNumber}
+                      </a>
+                    )}
                     <button
                       onClick={() => { setIsOpen(false); setSent(false) }}
-                      className="mt-4 px-6 py-2.5 rounded-xl bg-surface-secondary text-text-primary font-medium text-sm"
+                      className="mt-3 px-6 py-2.5 rounded-xl bg-surface-secondary text-text-primary font-medium text-sm"
                     >
                       Close
                     </button>

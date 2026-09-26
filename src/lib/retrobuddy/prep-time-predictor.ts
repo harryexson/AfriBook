@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 
 const PEAK_HOUR_MODIFIERS: Record<number, number> = {
   11: 0.2,

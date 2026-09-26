@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-
-async function getAdminDb() {
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  return createAdminClient() as any;
-}
+import { createClient } from '@/lib/neon/server';
+import { query } from '@/lib/neon/admin';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient() as any;
@@ -71,14 +67,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 });
   }
 
-  const adminDb = await getAdminDb();
-  await adminDb.from('notifications').insert({
-    user_id: user.id,
-    type: 'booking',
-    title: 'Booking Created',
-    body: `Your booking for ${service.name} has been created.`,
-    data: { booking_id: booking.id, service_id: serviceId, business_id: businessId },
-  });
+  await query(
+    `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5)`,
+    [
+      user.id,
+      'booking',
+      'Booking Created',
+      `Your booking for ${service.name} has been created.`,
+      JSON.stringify({ booking_id: booking.id, service_id: serviceId, business_id: businessId }),
+    ],
+  );
 
   return NextResponse.json(booking, { status: 201 });
 }

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { query } from '@/lib/neon/admin';
 import type { EventPhoto, ShareChannel } from '@/types/events';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -20,10 +20,28 @@ export interface PhotoGalleryStats {
   topPhotos: { id: string; url: string; likes: number; shares: number }[];
 }
 
+// The real `event_photos` table (status enum pending/approved/rejected,
+// is_cover, download_count, share_count) has no `tags`/`likes` columns —
+// those are dropped rather than faked. `uploaded_by`/`url`/`is_approved`
+// map to `user_id`/`image_url`/`status = 'approved'`.
+interface EventPhotoRow {
+  id: string;
+  event_id: string;
+  user_id: string;
+  user_name: string | null;
+  image_url: string;
+  thumbnail_url: string | null;
+  caption: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  is_cover: boolean | null;
+  download_count: number | null;
+  share_count: number | null;
+  created_at: string;
+}
+
 // ─── Upload Photo ─────────────────────────────────────────────
 
 export async function uploadPhoto(
-  sb: SupabaseClient,
   eventId: string,
   userId: string,
   imageUrl: string,
@@ -32,41 +50,27 @@ export async function uploadPhoto(
   const now = new Date().toISOString();
 
   // Get user profile info
-  const { data: profile } = await sb
-    .from('profiles')
-    .select('full_name, avatar_url')
-    .eq('id', userId)
-    .single();
+  const profileRows = await query<{ full_name: string | null }>(
+    `SELECT full_name FROM profiles WHERE id = $1 LIMIT 1`,
+    [userId],
+  );
+  const profile = profileRows[0];
 
-  const photo = {
-    event_id: eventId,
-    uploaded_by: userId,
-    uploader_name: profile?.full_name ?? 'Anonymous',
-    uploader_avatar: profile?.avatar_url ?? null,
-    url: imageUrl,
-    thumbnail_url: imageUrl,
-    caption: caption ?? null,
-    tags: [],
-    likes: 0,
-    is_approved: false,
-    created_at: now,
-  };
+  const rows = await query<EventPhotoRow>(
+    `INSERT INTO event_photos (event_id, user_id, user_name, image_url, thumbnail_url, caption, status, created_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [eventId, userId, profile?.full_name ?? 'Anonymous', imageUrl, imageUrl, caption ?? null, 'pending', now],
+  );
 
-  const { data, error } = await sb
-    .from('event_photos')
-    .insert(photo)
-    .select()
-    .single();
-
-  if (error) throw new Error(`Failed to upload photo: ${error.message}`);
-
+  const data = rows[0];
+  if (!data) throw new Error('Failed to upload photo');
   return mapPhoto(data);
 }
 
 // ─── Get Event Photos ─────────────────────────────────────────
 
 export async function getEventPhotos(
-  sb: SupabaseClient,
   eventId: string,
   page: number = 1,
   limit: number = 20,
@@ -74,127 +78,108 @@ export async function getEventPhotos(
 ): Promise<PaginatedResult<EventPhoto>> {
   const offset = (page - 1) * limit;
 
-  let query = sb
-    .from('event_photos')
-    .select('*', { count: 'exact' })
-    .eq('event_id', eventId);
+  const conditions = ['event_id = $1'];
+  const values: unknown[] = [eventId];
 
-  if (filter === 'approved') query = query.eq('is_approved', true);
-  if (filter === 'pending') query = query.eq('is_approved', false);
+  if (filter === 'approved') conditions.push(`status = 'approved'`);
+  if (filter === 'pending') conditions.push(`status = 'pending'`);
 
-  const { data, error, count } = await query
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
 
-  if (error) throw new Error(`Failed to get photos: ${error.message}`);
+  const countRows = await query<{ count: string }>(
+    `SELECT COUNT(*) AS count FROM event_photos ${whereClause}`,
+    values,
+  );
+  const total = Number(countRows[0]?.count ?? 0);
+
+  const dataRows = await query<EventPhotoRow>(
+    `SELECT * FROM event_photos ${whereClause} ORDER BY created_at DESC LIMIT $${values.length + 1} OFFSET $${values.length + 2}`,
+    [...values, limit, offset],
+  );
 
   return {
-    data: (data ?? []).map(mapPhoto),
-    total: count ?? 0,
+    data: dataRows.map(mapPhoto),
+    total,
     page,
     limit,
-    totalPages: Math.ceil((count ?? 0) / limit),
+    totalPages: Math.ceil(total / limit),
   };
 }
 
 // ─── Delete Photo ─────────────────────────────────────────────
 
 export async function deletePhoto(
-  sb: SupabaseClient,
   photoId: string,
   userId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const { data: photo, error: fetchError } = await sb
-    .from('event_photos')
-    .select('uploaded_by')
-    .eq('id', photoId)
-    .single();
+  const photoRows = await query<{ user_id: string }>(
+    `SELECT user_id FROM event_photos WHERE id = $1 LIMIT 1`,
+    [photoId],
+  );
+  const photo = photoRows[0];
 
-  if (fetchError || !photo) {
+  if (!photo) {
     return { success: false, error: 'Photo not found' };
   }
 
   // Check if user is the uploader or an admin
-  const { data: profile } = await sb
-    .from('profiles')
-    .select('role')
-    .eq('id', userId)
-    .single();
+  const profileRows = await query<{ role: string | null }>(
+    `SELECT role FROM profiles WHERE id = $1 LIMIT 1`,
+    [userId],
+  );
+  const profile = profileRows[0];
 
-  if (photo.uploaded_by !== userId && profile?.role !== 'admin') {
+  if (photo.user_id !== userId && profile?.role !== 'admin') {
     return { success: false, error: 'Not authorized to delete this photo' };
   }
 
-  const { error: deleteError } = await sb
-    .from('event_photos')
-    .delete()
-    .eq('id', photoId);
-
-  if (deleteError) {
-    return { success: false, error: deleteError.message };
-  }
+  await query(`DELETE FROM event_photos WHERE id = $1`, [photoId]);
 
   return { success: true };
 }
 
 // ─── Approve Photo ────────────────────────────────────────────
 
-export async function approvePhoto(
-  sb: SupabaseClient,
-  photoId: string,
-): Promise<EventPhoto> {
-  const { data, error } = await sb
-    .from('event_photos')
-    .update({ is_approved: true })
-    .eq('id', photoId)
-    .select()
-    .single();
-
-  if (error) throw new Error(`Failed to approve photo: ${error.message}`);
+export async function approvePhoto(photoId: string): Promise<EventPhoto> {
+  const rows = await query<EventPhotoRow>(
+    `UPDATE event_photos SET status = 'approved' WHERE id = $1 RETURNING *`,
+    [photoId],
+  );
+  const data = rows[0];
+  if (!data) throw new Error('Failed to approve photo');
   return mapPhoto(data);
 }
 
 // ─── Get Photo Gallery (approved only) ────────────────────────
 
-export async function getPhotoGallery(
-  sb: SupabaseClient,
-  eventId: string,
-): Promise<EventPhoto[]> {
-  const { data, error } = await sb
-    .from('event_photos')
-    .select('*')
-    .eq('event_id', eventId)
-    .eq('is_approved', true)
-    .order('likes', { ascending: false })
-    .order('created_at', { ascending: false });
-
-  if (error) throw new Error(`Failed to get gallery: ${error.message}`);
-  return (data ?? []).map(mapPhoto);
+export async function getPhotoGallery(eventId: string): Promise<EventPhoto[]> {
+  const rows = await query<EventPhotoRow>(
+    `SELECT * FROM event_photos WHERE event_id = $1 AND status = 'approved' ORDER BY created_at DESC`,
+    [eventId],
+  );
+  return rows.map(mapPhoto);
 }
 
 // ─── Generate Share Link ──────────────────────────────────────
 
-export async function generateShareLink(
-  sb: SupabaseClient,
-  photoId: string,
-  platform: ShareChannel,
-): Promise<string> {
-  const { data: photo } = await sb
-    .from('event_photos')
-    .select('url, event_id, events!inner(slug, title)')
-    .eq('id', photoId)
-    .single();
+export async function generateShareLink(photoId: string, platform: ShareChannel): Promise<string> {
+  const rows = await query<{ image_url: string; event_id: string; slug: string; title: string }>(
+    `SELECT p.image_url, p.event_id, e.slug, e.title
+     FROM event_photos p JOIN events e ON e.id = p.event_id
+     WHERE p.id = $1 LIMIT 1`,
+    [photoId],
+  );
+  const photo = rows[0];
 
   if (!photo) throw new Error('Photo not found');
 
-  const relatedEvent = Array.isArray(photo.events) ? photo.events[0] : photo.events;
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? 'https://afribook.app';
-  const eventUrl = `${origin}/events/${relatedEvent.slug}/gallery`;
+  const eventUrl = `${origin}/events/${photo.slug}/gallery`;
   const photoUrl = `${eventUrl}#photo-${photoId}`;
-  const text = `Check out this photo from "${relatedEvent.title}" on AfriBook`;
+  const text = `Check out this photo from "${photo.title}" on AfriBook`;
 
   // Track the share
-  await trackPhotoShare(sb, photoId, platform);
+  await trackPhotoShare(photoId, platform);
 
   switch (platform) {
     case 'facebook':
@@ -218,53 +203,48 @@ export async function generateShareLink(
 
 // ─── Track Photo Share ────────────────────────────────────────
 
-export async function trackPhotoShare(
-  sb: SupabaseClient,
-  photoId: string,
-  platform: ShareChannel,
-): Promise<void> {
-  // Log share event
-  await sb.from('photo_shares').insert({
-    photo_id: photoId,
-    channel: platform,
-    created_at: new Date().toISOString(),
-  });
+// `photo_shares` does not exist. The closest real equivalent is
+// `event_shares`, which has no photo_id column, so the photo id is
+// encoded into `share_url` as `photo:<photoId>` and event_photos'
+// own share_count/download_count counters are bumped directly.
+export async function trackPhotoShare(photoId: string, platform: ShareChannel): Promise<void> {
+  const photoRows = await query<{ event_id: string }>(
+    `SELECT event_id FROM event_photos WHERE id = $1 LIMIT 1`,
+    [photoId],
+  );
+  const photo = photoRows[0];
+  if (!photo) return;
+
+  await query(
+    `INSERT INTO event_shares (event_id, platform, share_url, clicked, created_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [photo.event_id, platform, `photo:${photoId}`, false, new Date().toISOString()],
+  );
+
+  await query(
+    `UPDATE event_photos SET share_count = COALESCE(share_count, 0) + 1 WHERE id = $1`,
+    [photoId],
+  );
 }
 
 // ─── Photo Stats ──────────────────────────────────────────────
 
-export async function getPhotoStats(
-  sb: SupabaseClient,
-  eventId: string,
-): Promise<PhotoGalleryStats> {
-  const { data: photos, error } = await sb
-    .from('event_photos')
-    .select('id, url, likes, is_approved')
-    .eq('event_id', eventId);
+export async function getPhotoStats(eventId: string): Promise<PhotoGalleryStats> {
+  const photos = await query<{ id: string; image_url: string; share_count: number | null; status: string }>(
+    `SELECT id, image_url, share_count, status FROM event_photos WHERE event_id = $1`,
+    [eventId],
+  );
 
-  if (error) throw new Error(`Failed to get photo stats: ${error.message}`);
-
-  const allPhotos = photos ?? [];
-  const approvedPhotos = allPhotos.filter((p) => p.is_approved);
-  const pendingPhotos = allPhotos.filter((p) => !p.is_approved);
-
-  // Get share counts
-  const { data: shares } = await sb
-    .from('photo_shares')
-    .select('photo_id')
-    .in('photo_id', allPhotos.map((p) => p.id));
-
-  const shareCounts: Record<string, number> = {};
-  for (const share of shares ?? []) {
-    shareCounts[share.photo_id] = (shareCounts[share.photo_id] ?? 0) + 1;
-  }
+  const allPhotos = photos;
+  const approvedPhotos = allPhotos.filter((p) => p.status === 'approved');
+  const pendingPhotos = allPhotos.filter((p) => p.status === 'pending');
 
   const topPhotos = approvedPhotos
     .map((p) => ({
       id: p.id,
-      url: p.url,
-      likes: p.likes ?? 0,
-      shares: shareCounts[p.id] ?? 0,
+      url: p.image_url,
+      likes: 0, // event_photos has no likes column
+      shares: p.share_count ?? 0,
     }))
     .sort((a, b) => (b.likes + b.shares) - (a.likes + a.shares))
     .slice(0, 10);
@@ -274,97 +254,67 @@ export async function getPhotoStats(
     approvedPhotos: approvedPhotos.length,
     pendingPhotos: pendingPhotos.length,
     totalDownloads: 0, // Would need a downloads table
-    totalShares: Object.values(shareCounts).reduce((sum, c) => sum + c, 0),
+    totalShares: allPhotos.reduce((sum, p) => sum + (p.share_count ?? 0), 0),
     topPhotos,
   };
 }
 
 // ─── Pre-Event Photos ─────────────────────────────────────────
 
-export async function getPreEventPhotos(
-  sb: SupabaseClient,
-  eventId: string,
-): Promise<EventPhoto[]> {
-  const { data: event } = await sb
-    .from('events')
-    .select('start_date')
-    .eq('id', eventId)
-    .single();
+export async function getPreEventPhotos(eventId: string): Promise<EventPhoto[]> {
+  const eventRows = await query<{ start_date: string }>(`SELECT start_date FROM events WHERE id = $1 LIMIT 1`, [eventId]);
+  const event = eventRows[0];
 
   if (!event) throw new Error('Event not found');
 
-  const { data, error } = await sb
-    .from('event_photos')
-    .select('*')
-    .eq('event_id', eventId)
-    .eq('is_approved', true)
-    .lt('created_at', event.start_date)
-    .order('created_at', { ascending: false });
+  const rows = await query<EventPhotoRow>(
+    `SELECT * FROM event_photos WHERE event_id = $1 AND status = 'approved' AND created_at < $2 ORDER BY created_at DESC`,
+    [eventId, event.start_date],
+  );
 
-  if (error) throw new Error(`Failed to get pre-event photos: ${error.message}`);
-  return (data ?? []).map(mapPhoto);
+  return rows.map(mapPhoto);
 }
 
 // ─── Post-Event Photos ────────────────────────────────────────
 
-export async function getPostEventPhotos(
-  sb: SupabaseClient,
-  eventId: string,
-): Promise<EventPhoto[]> {
-  const { data: event } = await sb
-    .from('events')
-    .select('start_date')
-    .eq('id', eventId)
-    .single();
+export async function getPostEventPhotos(eventId: string): Promise<EventPhoto[]> {
+  const eventRows = await query<{ start_date: string }>(`SELECT start_date FROM events WHERE id = $1 LIMIT 1`, [eventId]);
+  const event = eventRows[0];
 
   if (!event) throw new Error('Event not found');
 
-  const { data, error } = await sb
-    .from('event_photos')
-    .select('*')
-    .eq('event_id', eventId)
-    .eq('is_approved', true)
-    .gte('created_at', event.start_date)
-    .order('created_at', { ascending: false });
+  const rows = await query<EventPhotoRow>(
+    `SELECT * FROM event_photos WHERE event_id = $1 AND status = 'approved' AND created_at >= $2 ORDER BY created_at DESC`,
+    [eventId, event.start_date],
+  );
 
-  if (error) throw new Error(`Failed to get post-event photos: ${error.message}`);
-  return (data ?? []).map(mapPhoto);
+  return rows.map(mapPhoto);
 }
 
 // ─── Mark as Cover Photo ──────────────────────────────────────
 
 export async function markAsCover(
-  sb: SupabaseClient,
   photoId: string,
   eventId: string,
 ): Promise<{ success: boolean; error?: string }> {
   // Unset any existing cover
-  await sb
-    .from('event_photos')
-    .update({ is_featured: false })
-    .eq('event_id', eventId)
-    .eq('is_featured', true);
+  await query(
+    `UPDATE event_photos SET is_cover = false WHERE event_id = $1 AND is_cover = true`,
+    [eventId],
+  );
 
   // Set new cover
-  const { error } = await sb
-    .from('event_photos')
-    .update({ is_featured: true })
-    .eq('id', photoId);
-
-  if (error) return { success: false, error: error.message };
+  await query(`UPDATE event_photos SET is_cover = true WHERE id = $1`, [photoId]);
 
   // Also update event cover image
-  const { data: photo } = await sb
-    .from('event_photos')
-    .select('url')
-    .eq('id', photoId)
-    .single();
+  const photoRows = await query<{ image_url: string }>(
+    `SELECT image_url FROM event_photos WHERE id = $1 LIMIT 1`,
+    [photoId],
+  );
+  const photo = photoRows[0];
 
   if (photo) {
-    await sb
-      .from('events')
-      .update({ cover_image_url: photo.url })
-      .eq('id', eventId);
+    await query(`UPDATE events SET cover_image_url = $1 WHERE id = $2`, [photo.image_url, eventId]);
   }
 
   return { success: true };
@@ -372,19 +322,19 @@ export async function markAsCover(
 
 // ─── Mapper ───────────────────────────────────────────────────
 
-function mapPhoto(row: Record<string, unknown>): EventPhoto {
+function mapPhoto(row: EventPhotoRow): EventPhoto {
   return {
-    id: row.id as string,
-    eventId: row.event_id as string,
-    uploadedBy: row.uploaded_by as string,
-    uploaderName: (row.uploader_name as string) ?? 'Anonymous',
-    uploaderAvatar: (row.uploader_avatar as string) ?? undefined,
-    url: row.url as string,
-    thumbnailUrl: (row.thumbnail_url as string) ?? undefined,
-    caption: (row.caption as string) ?? undefined,
-    tags: (row.tags as string[]) ?? [],
-    likes: (row.likes as number) ?? 0,
-    isApproved: (row.is_approved as boolean) ?? false,
-    createdAt: row.created_at as string,
+    id: row.id,
+    eventId: row.event_id,
+    uploadedBy: row.user_id,
+    uploaderName: row.user_name ?? 'Anonymous',
+    uploaderAvatar: undefined,
+    url: row.image_url,
+    thumbnailUrl: row.thumbnail_url ?? row.image_url,
+    caption: row.caption ?? undefined,
+    tags: [],
+    likes: 0,
+    isApproved: row.status === 'approved',
+    createdAt: row.created_at,
   };
 }

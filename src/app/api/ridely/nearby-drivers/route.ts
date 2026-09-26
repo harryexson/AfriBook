@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from '@/lib/neon/admin';
 
 function estimateEta(distanceKm: number): number {
   const avgSpeedKmh = 25;
@@ -50,23 +45,20 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase.rpc('ridely_find_nearby_drivers', {
-      p_lat: lat,
-      p_lng: lng,
-      p_radius_km: radiusKm,
-      p_vehicle_type: vehicleType,
-      p_country_code: countryCode,
-    });
-
-    if (error) {
+    let rows: NearbyDriverRow[];
+    try {
+      rows = await query<NearbyDriverRow>(
+        'SELECT * FROM ridely_find_nearby_drivers($1, $2, $3, $4, $5)',
+        [lat, lng, radiusKm, vehicleType, countryCode],
+      );
+    } catch {
       return NextResponse.json(
         { success: false, error: 'Failed to fetch drivers' },
         { status: 500 },
       );
     }
 
-    const rows = (data ?? []) as NearbyDriverRow[];
-    const drivers = rows.map((d) => ({
+    const drivers = (rows ?? []).map((d) => ({
       driverId: d.driver_id,
       userId: d.user_id,
       name: d.name,

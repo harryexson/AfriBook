@@ -3,7 +3,7 @@
 // pricing. Uses PostGIS-backed H3 indexes stored in the DB.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import type { GeoPoint } from '@/types';
 import type { GeoLocation } from '@/types/ridely';
 
@@ -87,16 +87,23 @@ export async function getH3DemandSupply(
   const since = new Date(Date.now() - DEMAND_WINDOW_MS).toISOString();
   const supplySince = new Date(Date.now() - SUPPLY_WINDOW_MS).toISOString();
 
-  // Get demand: ride requests in the area
+  // NOTE: `ride_requests` has no `h3_index` column (verified via
+  // information_schema) — selecting it would error via the Data API, so
+  // it's dropped here. Rows without a tracked h3 cell are skipped below,
+  // same net effect as the original (always-erroring) query. Status values
+  // also corrected: `ride_requests.status` is the `ride_status` enum
+  // (requested/accepted/arrived/in_progress/completed/cancelled), not
+  // 'requesting'/'searching'.
   const { data: demandRows } = (await (supabase.from('ride_requests') as any)
-    .select('pickup_location, h3_index')
-    .in('status', ['requesting', 'searching'])
+    .select('pickup_location')
+    .in('status', ['requested'])
     .gte('created_at', since)) as { data: any[] | null };
 
-  // Get supply: available drivers in the area
+  // NOTE: `driver_locations` has no `timestamp` column — the real column is
+  // `last_seen_at`.
   const { data: supplyRows } = (await (supabase.from('driver_locations') as any)
     .select('driver_id, h3_index')
-    .gte('timestamp', supplySince)) as { data: any[] | null };
+    .gte('last_seen_at', supplySince)) as { data: any[] | null };
 
   // Build H3 cell map
   const cellMap = new Map<string, H3DemandCell>();
@@ -169,25 +176,28 @@ export async function getSurgeMultiplierForLocation(
 ): Promise<{ multiplier: number; ratio: number; h3Index: string | null }> {
   const supabase = await createClient();
 
-  const point = {
-    type: 'Point' as const,
-    coordinates: [location.lng, location.lat],
-  };
-
+  // NOTE: the real `get_surge_multiplier` function (verified via
+  // pg_get_functiondef) takes `(p_lat double precision, p_lng double
+  // precision)` and returns a plain numeric multiplier — not the
+  // `{p_location, p_resolution}` / `{multiplier, ratio, h3_index}` shape
+  // this code assumed (which doesn't match any function in the schema, and
+  // would have always errored under Supabase too). Calling it correctly
+  // here; ratio/h3Index aren't computed by this function, so they stay at
+  // their fallback values and callers fall back to the legacy demand/supply
+  // computation, same as when this call used to fail outright.
   const { data, error } = await supabase.rpc('get_surge_multiplier' as any, {
-    p_location: point,
-    p_resolution: H3_RESOLUTION,
+    p_lat: location.lat,
+    p_lng: location.lng,
   } as any);
 
-  if (error || !data) {
+  if (error || data == null) {
     return { multiplier: 1.0, ratio: 0, h3Index: null };
   }
 
-  const result = data as { multiplier: number; ratio: number; h3_index: string };
   return {
-    multiplier: result.multiplier,
-    ratio: result.ratio,
-    h3Index: result.h3_index,
+    multiplier: data as number,
+    ratio: 0,
+    h3Index: null,
   };
 }
 

@@ -4,7 +4,7 @@
 // for event-driven acceptance instead of blocking poll loops.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import type { GeoPoint } from '@/types';
 import type {
   RideRequest,
@@ -298,47 +298,55 @@ async function offerWithRealtime(
     ),
   );
 
-  // Subscribe to Realtime for the first acceptance
-  return new Promise<string | null>((resolve) => {
-    let resolved = false;
+  // NOTE: original code waited for the first acceptance via Supabase
+  // Realtime (`.channel().on('postgres_changes', ...)`). `@/lib/neon/server`
+  // has no realtime/channel primitive (only auth/from/rpc) — there is no
+  // documented Neon equivalent for this migration, so the wait is
+  // implemented as short-interval polling on `driver_offers` instead. This
+  // is a real behavior change (push -> poll), flagged here rather than
+  // silently left broken; a proper realtime channel is a follow-up.
+  const acceptedDriverId = await pollForOfferStatus(
+    supabase,
+    { ride_id: rideId, status: 'accepted' },
+    timeoutMs,
+  );
 
-    const channel = supabase
-      .channel(`dispatch:${rideId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'driver_offers',
-          filter: `ride_id=eq.${rideId}`,
-        },
-        (payload) => {
-          if (resolved) return;
-          if (payload.new && (payload.new as any).status === 'accepted') {
-            resolved = true;
-            supabase.removeChannel(channel);
-            resolve((payload.new as any).driver_id as string);
-          }
-        },
-      )
-      .subscribe();
+  if (acceptedDriverId) {
+    return acceptedDriverId;
+  }
 
-    // Timeout fallback
-    setTimeout(async () => {
-      if (resolved) return;
-      resolved = true;
-      supabase.removeChannel(channel);
+  // Expire all pending offers
+  await supabase
+    .from('driver_offers')
+    .update({ status: 'expired' })
+    .eq('ride_id', rideId)
+    .eq('status', 'pending');
 
-      // Expire all pending offers
-      await supabase
-        .from('driver_offers')
-        .update({ status: 'expired' })
-        .eq('ride_id', rideId)
-        .eq('status', 'pending');
+  return null;
+}
 
-      resolve(null);
-    }, timeoutMs);
-  });
+/** Polls `driver_offers` for a row matching `match` until found or `timeoutMs` elapses; returns its `driver_id`. */
+async function pollForOfferStatus(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  match: { ride_id: string; status: string; driver_id?: string },
+  timeoutMs: number,
+  pollIntervalMs = 1000,
+): Promise<string | null> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    let q = supabase
+      .from('driver_offers')
+      .select('driver_id, status')
+      .eq('ride_id', match.ride_id)
+      .eq('status', match.status);
+    if (match.driver_id) q = q.eq('driver_id', match.driver_id);
+
+    const { data } = await q.limit(1).maybeSingle();
+    if (data) return (data as { driver_id: string }).driver_id;
+
+    await sleep(pollIntervalMs);
+  }
+  return null;
 }
 
 // ─── Send Driver Offer (with delay for food delivery) ─────────
@@ -370,51 +378,32 @@ async function sendOfferWithDelay(
     data: { rideId, type: 'food_delivery_offer' },
   });
 
-  // Wait for acceptance via Realtime
-  return new Promise<boolean>((resolve) => {
-    let resolved = false;
+  // NOTE: same Realtime -> polling substitution as offerWithRealtime above
+  // (no channel/postgres_changes primitive on the Neon server client).
+  const deadline = Date.now() + OFFER_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const { data } = await supabase
+      .from('driver_offers')
+      .select('status')
+      .eq('ride_id', rideId)
+      .eq('driver_id', driverId)
+      .maybeSingle();
 
-    const channel = supabase
-      .channel(`offer:${rideId}:${driverId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'driver_offers',
-          filter: `ride_id=eq.${rideId}&driver_id=eq.${driverId}`,
-        },
-        (payload) => {
-          if (resolved) return;
-          const status = (payload.new as any)?.status;
-          if (status === 'accepted') {
-            resolved = true;
-            supabase.removeChannel(channel);
-            resolve(true);
-          } else if (status === 'declined' || status === 'expired') {
-            resolved = true;
-            supabase.removeChannel(channel);
-            resolve(false);
-          }
-        },
-      )
-      .subscribe();
+    const currentStatus = (data as { status?: string } | null)?.status;
+    if (currentStatus === 'accepted') return true;
+    if (currentStatus === 'declined' || currentStatus === 'expired') return false;
 
-    setTimeout(async () => {
-      if (resolved) return;
-      resolved = true;
-      supabase.removeChannel(channel);
+    await sleep(1000);
+  }
 
-      await supabase
-        .from('driver_offers')
-        .update({ status: 'expired' })
-        .eq('ride_id', rideId)
-        .eq('driver_id', driverId)
-        .eq('status', 'pending');
+  await supabase
+    .from('driver_offers')
+    .update({ status: 'expired' })
+    .eq('ride_id', rideId)
+    .eq('driver_id', driverId)
+    .eq('status', 'pending');
 
-      resolve(false);
-    }, OFFER_TIMEOUT_MS);
-  });
+  return false;
 }
 
 // ─── Handle Offer Response ────────────────────────────────────
@@ -583,29 +572,33 @@ async function sendPushNotification(
 ): Promise<void> {
   const supabase = await createClient();
 
+  // NOTE: `drivers` has no `userId` column — the real column is
+  // `profile_id` (verified via information_schema). `notifications` columns
+  // are also all snake_case (`user_id`, `read`), not `userId`/`isRead`.
   const { data: driver } = await supabase
     .from('drivers')
-    .select('userId')
+    .select('profile_id')
     .eq('id', driverId)
     .single();
 
   if (!driver) return;
+  const driverUserId = (driver as { profile_id: string }).profile_id;
 
   // Insert notification record
   await supabase.from('notifications').insert({
-    userId: driver.userId,
+    user_id: driverUserId,
     type: 'booking',
     title: notification.title,
     body: notification.body,
     data: notification.data,
-    isRead: false,
+    read: false,
   } as any);
 
   // Send push notification via Expo Push / FCM
   try {
     const { data: tokens } = await (supabase.from('push_tokens') as any)
       .select('token, platform')
-      .eq('user_id', driver.userId)
+      .eq('user_id', driverUserId)
       .eq('is_active', true);
 
     if (tokens?.length) {

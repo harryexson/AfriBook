@@ -12,8 +12,7 @@ export async function GET(req: NextRequest) {
   const txRef = searchParams.get('tx_ref');
   const status = searchParams.get('status');
 
-  const { createAdminClient } = await import('@/lib/supabase/admin');
-  const supabase = createAdminClient();
+  const { query } = await import('@/lib/neon/admin');
 
   if (txRef) {
     const { PayChanguProvider } = await import(
@@ -35,51 +34,40 @@ export async function GET(req: NextRequest) {
       status === 'success' ||
       status === 'successful';
 
-    const txResult = (await supabase
-      .from('payment_transactions')
-      .select('id, metadata, booking_id, order_id')
-      .eq('provider_transaction_id', txRef)
-      .maybeSingle()) as unknown as {
-      data: {
-        id: string;
-        metadata: Record<string, unknown>;
-        booking_id: string | null;
-        order_id: string | null;
-      } | null;
-    };
+    const txRows = await query<{
+      id: string;
+      metadata: Record<string, unknown> | null;
+      booking_id: string | null;
+      order_id: string | null;
+    }>(
+      `SELECT id, metadata, booking_id, order_id FROM payment_transactions WHERE provider_transaction_id = $1`,
+      [txRef],
+    );
+    const tx = txRows[0] ?? null;
 
-    if (txResult.data) {
-      const tx = txResult.data;
-      await supabase
-        .from('payment_transactions')
-        .update({
-          status: isSuccess ? 'succeeded' : 'failed',
-          updated_at: new Date().toISOString(),
-        } as never)
-        .eq('id', tx.id);
+    if (tx) {
+      await query(
+        `UPDATE payment_transactions SET status = $2, updated_at = now() WHERE id = $1`,
+        [tx.id, isSuccess ? 'succeeded' : 'failed'],
+      );
 
       const meta = tx.metadata ?? {};
       const bookingId = (meta.afribook_booking_id as string) ?? tx.booking_id;
       const orderId = (meta.afribook_order_id as string) ?? tx.order_id;
 
       if (isSuccess && bookingId) {
-        await supabase
-          .from('bookings')
-          .update({
-            paymentStatus: 'completed',
-            updatedAt: new Date().toISOString(),
-          } as never)
-          .eq('id', bookingId);
+        // payment_status enum has no 'completed' value; 'succeeded' is the closest fit.
+        await query(
+          `UPDATE bookings SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+          [bookingId],
+        );
       }
 
       if (isSuccess && orderId) {
-        await supabase
-          .from('orders')
-          .update({
-            paymentStatus: 'completed',
-            updatedAt: new Date().toISOString(),
-          } as never)
-          .eq('id', orderId);
+        await query(
+          `UPDATE orders SET payment_status = 'succeeded', updated_at = now() WHERE id = $1`,
+          [orderId],
+        );
       }
     }
   }

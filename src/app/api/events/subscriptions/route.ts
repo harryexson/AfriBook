@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient as createServiceRoleClient } from "@supabase/supabase-js";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
 import Stripe from "stripe";
-
-const supabase = createServiceRoleClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+import { query } from "@/lib/neon/admin";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 
@@ -15,14 +10,16 @@ export async function GET(_req: NextRequest) {
     const { user } = await requireAuthenticatedUser();
     const userId = user.id;
 
-    const { data: subscription, error } = await supabase
-      .from("organizer_subscriptions")
-      .select("*")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .single();
+    // organizer_subscriptions is keyed by organizer_id (see src/app/api/events/route.ts,
+    // which reads the same column) — using user_id here would silently desync from the
+    // subscription events/route.ts looks up when checking event-creation limits.
+    const subRows = await query<Record<string, unknown>>(
+      `SELECT * FROM organizer_subscriptions WHERE organizer_id = $1 AND status = 'active' LIMIT 1`,
+      [userId],
+    );
+    const subscription = subRows[0];
 
-    if (error || !subscription) {
+    if (!subscription) {
       return NextResponse.json({
         success: true,
         data: null,
@@ -30,26 +27,28 @@ export async function GET(_req: NextRequest) {
       });
     }
 
-    const { count: eventsCreated } = await supabase
-      .from("events")
-      .select("id", { count: "exact", head: true })
-      .eq("organizer_id", userId)
-      .neq("status", "cancelled");
+    const eventsCreatedRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM events WHERE organizer_id = $1 AND status <> 'cancelled'`,
+      [userId],
+    );
+    const eventsCreated = Number(eventsCreatedRows[0]?.count ?? 0);
 
-    const { count: totalTicketsSold } = await supabase
-      .from("ticket_purchases")
-      .select("id", { count: "exact", head: true })
-      .eq("events(organizer_id)", userId)
-      .eq("order_status", "confirmed");
+    const totalTicketsSoldRows = await query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM ticket_purchases tp
+       JOIN events ev ON ev.id = tp.event_id
+       WHERE ev.organizer_id = $1 AND tp.order_status = 'confirmed'`,
+      [userId],
+    );
+    const totalTicketsSold = Number(totalTicketsSoldRows[0]?.count ?? 0);
 
     return NextResponse.json({
       success: true,
       data: {
         ...subscription,
         usage: {
-          eventsCreated: eventsCreated ?? 0,
+          eventsCreated,
           maxEvents: subscription.max_events ?? -1,
-          totalTicketsSold: totalTicketsSold ?? 0,
+          totalTicketsSold,
         },
       },
     });
@@ -90,51 +89,46 @@ export async function POST(req: NextRequest) {
     }
 
     if (plan === "free") {
-      const { data: existing } = await supabase
-        .from("organizer_subscriptions")
-        .select("id, status")
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .single();
+      const existingRows = await query<{ id: string; status: string }>(
+        `SELECT id, status FROM organizer_subscriptions WHERE organizer_id = $1 AND status = 'active' LIMIT 1`,
+        [userId],
+      );
+      const existing = existingRows[0];
 
       if (existing) {
-        await supabase
-          .from("organizer_subscriptions")
-          .update({
-            status: "cancelled",
-            cancelled_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existing.id);
+        await query(
+          `UPDATE organizer_subscriptions SET status = 'cancelled', cancelled_at = now(), updated_at = now() WHERE id = $1`,
+          [existing.id],
+        );
       }
 
-      const { data: freeSub, error: freeError } = await supabase
-        .from("organizer_subscriptions")
-        .insert({
-          user_id: userId,
-          plan: "free",
-          status: "active",
-          max_events: 3,
-          max_tickets_per_event: 100,
-          max_guests_per_registration: 2,
-          monthly_price: 0,
-          annual_price: 0,
-          is_annual: false,
-          commission_rate: 5,
-          platform_fee_fixed: 1,
-          stripe_subscription_id: null,
-          stripe_customer_id: null,
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(
-            Date.now() + 365 * 24 * 60 * 60 * 1000,
-          ).toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      const freeSubRows = await query<Record<string, unknown>>(
+        `INSERT INTO organizer_subscriptions
+           (organizer_id, plan, status, max_events, max_tickets_per_event, max_guests_per_registration,
+            monthly_price, annual_price, is_annual, commission_rate, platform_fee_fixed,
+            stripe_subscription_id, stripe_customer_id, current_period_start, current_period_end,
+            created_at, updated_at)
+         VALUES ($1, 'free', 'active', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, now(), now())
+         RETURNING *`,
+        [
+          userId,
+          3,
+          100,
+          2,
+          0,
+          0,
+          false,
+          5,
+          1,
+          null,
+          null,
+          new Date().toISOString(),
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        ],
+      );
+      const freeSub = freeSubRows[0];
 
-      if (freeError) {
+      if (!freeSub) {
         return NextResponse.json(
           { success: false, error: "Failed to create free subscription" },
           { status: 500 },
@@ -180,13 +174,17 @@ export async function POST(req: NextRequest) {
     const isAnnual = billingPeriod === "annual";
     const priceConfig = planPrices[plan];
 
-    const { data: existing } = await supabase
-      .from("organizer_subscriptions")
-      .select("id, stripe_subscription_id, status")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .neq("plan", "free")
-      .single();
+    const existingRows = await query<{
+      id: string;
+      stripe_subscription_id: string | null;
+      stripe_customer_id: string | null;
+      status: string;
+    }>(
+      `SELECT id, stripe_subscription_id, stripe_customer_id, status FROM organizer_subscriptions
+       WHERE organizer_id = $1 AND status = 'active' AND plan <> 'free' LIMIT 1`,
+      [userId],
+    );
+    const existing = existingRows[0];
 
     if (existing?.stripe_subscription_id) {
       try {
@@ -198,15 +196,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { data: userData } = await supabase
-      .from("users")
-      .select("email, full_name")
-      .eq("id", userId)
-      .single();
+    const userRows = await query<{ email: string | null; full_name: string | null }>(
+      `SELECT email, full_name FROM profiles WHERE id = $1 LIMIT 1`,
+      [userId],
+    );
+    const userData = userRows[0];
 
-    let customerId =
-      (existing as { stripe_customer_id?: string } | null)
-        ?.stripe_customer_id ?? null;
+    let customerId = existing?.stripe_customer_id ?? null;
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -282,46 +278,51 @@ export async function POST(req: NextRequest) {
 
     const limits = planLimits[plan];
 
-    const { data: newSub, error: subError } = await supabase
-      .from("organizer_subscriptions")
-      .insert({
-        user_id: userId,
+    const newSubRows = await query<Record<string, unknown>>(
+      `INSERT INTO organizer_subscriptions
+         (organizer_id, plan, status, max_events, max_tickets_per_event, max_guests_per_registration,
+          monthly_price, annual_price, is_annual, commission_rate, platform_fee_fixed,
+          stripe_subscription_id, stripe_customer_id, current_period_start, current_period_end,
+          created_at, updated_at)
+       VALUES ($1, $2, 'active', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, now(), now())
+       RETURNING *`,
+      [
+        userId,
         plan,
-        status: "active",
-        max_events: limits.maxEvents,
-        max_tickets_per_event: limits.maxTickets,
-        max_guests_per_registration: limits.maxGuests,
-        monthly_price: isAnnual ? priceConfig.annual : priceConfig.monthly,
-        annual_price: priceConfig.annual,
-        is_annual: isAnnual,
-        commission_rate: limits.commission,
-        platform_fee_fixed: limits.feeFixed,
-        stripe_subscription_id: stripeSubscription.id,
-        stripe_customer_id: customerId,
-        current_period_start: new Date().toISOString(),
-        current_period_end: new Date(
+        limits.maxEvents,
+        limits.maxTickets,
+        limits.maxGuests,
+        isAnnual ? priceConfig.annual : priceConfig.monthly,
+        priceConfig.annual,
+        isAnnual,
+        limits.commission,
+        limits.feeFixed,
+        stripeSubscription.id,
+        customerId,
+        new Date().toISOString(),
+        new Date(
           Date.now() + (isAnnual ? 365 : 30) * 24 * 60 * 60 * 1000,
         ).toISOString(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+      ],
+    );
+    const newSub = newSubRows[0];
 
-    if (subError) {
+    if (!newSub) {
       return NextResponse.json(
         { success: false, error: "Failed to create subscription" },
         { status: 500 },
       );
     }
 
-    await supabase.from("notifications").insert({
-      user_id: userId,
-      type: "subscription_created",
-      title: "Subscription Activated",
-      body: `Your ${plan} subscription is now active.`,
-      data: { plan, subscription_id: newSub.id, billing_period: billingPeriod },
-    });
+    await query(
+      `INSERT INTO notifications (user_id, type, title, body, data)
+       VALUES ($1, 'subscription_created', 'Subscription Activated', $2, $3)`,
+      [
+        userId,
+        `Your ${plan} subscription is now active.`,
+        JSON.stringify({ plan, subscription_id: newSub.id, billing_period: billingPeriod }),
+      ],
+    );
 
     return NextResponse.json(
       {

@@ -3,13 +3,31 @@
 // food orders, and marketplace purchases. Redeems for discounts.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import {
   LOYALTY_TIERS,
   getTierForPoints,
   getPointsMultiplier,
   type LoyaltyTier,
 } from './tiers';
+
+// NOTE: the real `loyalty_members` table is (id, user_id, business_id,
+// points_balance, lifetime_points, tier [enum loyalty_tier: bronze/silver/
+// gold/platinum], visit_count, last_visit_date, created_at, updated_at) —
+// no total_points/available_points/points_to_next_tier columns like the
+// original code assumed (silently no-op'd under Supabase). `lifetime_points`
+// is the closest match for "total ever earned" and `points_balance` for
+// "currently available"; points-to-next-tier isn't persisted, it's derived
+// on read (already was, via getNextTierPoints).
+//
+// `points_transactions` is even further off: (id, loyalty_member_id,
+// points_amount, transaction_type, description, order_id, previous_balance,
+// new_balance, created_at) — it's keyed by loyalty_member_id (not user_id)
+// and has no `source` column at all. This module has no callers anywhere
+// else in the codebase. `source` therefore can't be persisted or recovered
+// on read; write functions still accept it for API compatibility but it's
+// dropped rather than jammed into `description` text (see
+// getTransactionHistory's comment).
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -58,10 +76,9 @@ export async function getLoyaltyAccount(userId: string): Promise<LoyaltyAccount>
       .from('loyalty_members')
       .insert({
         user_id: userId,
-        total_points: SIGNUP_BONUS,
-        available_points: SIGNUP_BONUS,
+        points_balance: SIGNUP_BONUS,
+        lifetime_points: SIGNUP_BONUS,
         tier: 'bronze',
-        points_to_next_tier: LOYALTY_TIERS.silver.threshold - SIGNUP_BONUS,
       } as any)
       .select()
       .single();
@@ -70,12 +87,12 @@ export async function getLoyaltyAccount(userId: string): Promise<LoyaltyAccount>
 
     // Record signup bonus
     if (loyalty) {
-      await recordPointsTransaction(userId, SIGNUP_BONUS, 'earned', 'bonus', 'Welcome bonus', SIGNUP_BONUS);
+      await recordPointsTransaction(loyalty.id, userId, SIGNUP_BONUS, 'earned', 'Welcome bonus', 0, SIGNUP_BONUS);
     }
   }
 
-  const totalPoints = loyalty?.total_points ?? SIGNUP_BONUS;
-  const availablePoints = loyalty?.available_points ?? SIGNUP_BONUS;
+  const totalPoints = loyalty?.lifetime_points ?? SIGNUP_BONUS;
+  const availablePoints = loyalty?.points_balance ?? SIGNUP_BONUS;
   const tier = getTierForPoints(totalPoints);
   const pointsToNextTier = getNextTierPoints(tier, totalPoints);
 
@@ -84,14 +101,17 @@ export async function getLoyaltyAccount(userId: string): Promise<LoyaltyAccount>
   startOfMonth.setDate(1);
   startOfMonth.setHours(0, 0, 0, 0);
 
-  const { data: monthlyTx } = (await supabase
-    .from('points_transactions')
-    .select('points')
-    .eq('user_id', userId)
-    .eq('type', 'earned')
-    .gte('created_at', startOfMonth.toISOString())) as { data: any };
+  let monthlyEarnings = 0;
+  if (loyalty?.id) {
+    const { data: monthlyTx } = (await supabase
+      .from('points_transactions')
+      .select('points_amount')
+      .eq('loyalty_member_id', loyalty.id)
+      .eq('transaction_type', 'earned')
+      .gte('created_at', startOfMonth.toISOString())) as { data: any };
 
-  const monthlyEarnings = (monthlyTx ?? []).reduce((sum: number, tx: any) => sum + ((tx.points as number) ?? 0), 0);
+    monthlyEarnings = (monthlyTx ?? []).reduce((sum: number, tx: any) => sum + ((tx.points_amount as number) ?? 0), 0);
+  }
 
   return {
     userId,
@@ -123,35 +143,36 @@ export async function earnPoints(
   // Update loyalty account
   const { data: loyalty } = (await supabase
     .from('loyalty_members')
-    .select('total_points, available_points')
+    .select('id, lifetime_points, points_balance')
     .eq('user_id', userId)
     .single()) as { data: any };
 
-  const previousTotal = loyalty?.total_points ?? 0;
-  const previousAvailable = loyalty?.available_points ?? 0;
+  const previousTotal = loyalty?.lifetime_points ?? 0;
+  const previousAvailable = loyalty?.points_balance ?? 0;
   const newTotal = previousTotal + totalPoints;
   const newAvailable = previousAvailable + totalPoints;
   const newTier = getTierForPoints(newTotal);
-  const pointsToNextTier = getNextTierPoints(newTier, newTotal);
 
   await (supabase.from('loyalty_members') as any)
     .update({
-      total_points: newTotal,
-      available_points: newAvailable,
+      lifetime_points: newTotal,
+      points_balance: newAvailable,
       tier: newTier.name,
-      points_to_next_tier: pointsToNextTier,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId);
 
-  // Record transaction
+  // Record transaction (source is accepted for API compatibility but can't
+  // be persisted — see the module-level comment on points_transactions).
   return recordPointsTransaction(
+    loyalty?.id,
     userId,
     totalPoints,
     'earned',
-    source,
     description,
+    previousAvailable,
     newAvailable,
+    source,
   );
 }
 
@@ -173,22 +194,31 @@ export async function redeemPoints(
   // Convert points to discount (100 points = 1 unit of currency)
   const discountAmount = points / 100;
 
-  const newAvailable = account.availablePoints - points;
+  const { data: loyalty } = (await supabase
+    .from('loyalty_members')
+    .select('id, points_balance')
+    .eq('user_id', userId)
+    .single()) as { data: any };
+
+  const previousAvailable = loyalty?.points_balance ?? account.availablePoints;
+  const newAvailable = previousAvailable - points;
 
   await (supabase.from('loyalty_members') as any)
     .update({
-      available_points: newAvailable,
+      points_balance: newAvailable,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId);
 
   await recordPointsTransaction(
+    loyalty?.id,
     userId,
     -points,
     'redeemed',
-    'redemption',
     description,
+    previousAvailable,
     newAvailable,
+    'redemption',
   );
 
   return { success: true, discountAmount };
@@ -203,10 +233,18 @@ export async function getTransactionHistory(
 ): Promise<PointsTransaction[]> {
   const supabase = await createClient();
 
+  const { data: loyalty } = (await supabase
+    .from('loyalty_members')
+    .select('id')
+    .eq('user_id', userId)
+    .single()) as { data: any };
+
+  if (!loyalty?.id) return [];
+
   const { data, error } = (await supabase
     .from('points_transactions')
     .select('*')
-    .eq('user_id', userId)
+    .eq('loyalty_member_id', loyalty.id)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)) as { data: any; error: any };
 
@@ -214,12 +252,14 @@ export async function getTransactionHistory(
 
   return data.map((row: any) => ({
     id: row.id as string,
-    userId: row.user_id as string,
-    points: row.points as number,
-    type: row.type as PointsTransaction['type'],
-    source: row.source as PointsTransaction['source'],
+    userId,
+    points: row.points_amount as number,
+    type: row.transaction_type as PointsTransaction['type'],
+    // `source` isn't persisted in the real schema (see module-level
+    // comment) — it can't be recovered on read.
+    source: 'bonus' as PointsTransaction['source'],
     description: row.description as string,
-    balanceAfter: row.balance_after as number,
+    balanceAfter: row.new_balance as number,
     createdAt: row.created_at as string,
   }));
 }
@@ -237,24 +277,31 @@ export async function awardReferralBonus(
 // ─── Private Helpers ──────────────────────────────────────────
 
 async function recordPointsTransaction(
+  loyaltyMemberId: string | undefined,
   userId: string,
   points: number,
   type: PointsTransaction['type'],
-  source: PointsTransaction['source'],
   description: string,
-  balanceAfter: number,
+  previousBalance: number,
+  newBalance: number,
+  source: PointsTransaction['source'] = 'bonus',
 ): Promise<PointsTransaction | null> {
+  if (!loyaltyMemberId) return null;
+
   const supabase = await createClient();
 
+  // `points_transactions` has no user_id/source columns in the real schema
+  // — it's keyed by loyalty_member_id, uses points_amount/transaction_type,
+  // and tracks previous_balance/new_balance instead of balance_after.
   const { data, error } = (await supabase
     .from('points_transactions')
       .insert({
-      user_id: userId,
-      points,
-      type,
-      source,
+      loyalty_member_id: loyaltyMemberId,
+      points_amount: points,
+      transaction_type: type,
       description,
-      balance_after: balanceAfter,
+      previous_balance: previousBalance,
+      new_balance: newBalance,
     } as any)
     .select()
     .single()) as { data: any; error: any };
@@ -263,12 +310,12 @@ async function recordPointsTransaction(
 
   return {
     id: data.id as string,
-    userId: data.user_id as string,
-    points: data.points as number,
-    type: data.type as PointsTransaction['type'],
-    source: data.source as PointsTransaction['source'],
+    userId,
+    points: data.points_amount as number,
+    type: data.transaction_type as PointsTransaction['type'],
+    source,
     description: data.description as string,
-    balanceAfter: data.balance_after as number,
+    balanceAfter: data.new_balance as number,
     createdAt: data.created_at as string,
   };
 }

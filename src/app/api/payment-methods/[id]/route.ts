@@ -10,7 +10,7 @@ type LooseQuery = any;
 // PATCH /api/payment-methods/[id] — update (e.g. set default, rename label).
 export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -57,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 // DELETE /api/payment-methods/[id] — remove a saved payment method.
 export async function DELETE(_req: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { createClient } = await import('@/lib/supabase/server');
+  const { createClient } = await import('@/lib/neon/server');
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 

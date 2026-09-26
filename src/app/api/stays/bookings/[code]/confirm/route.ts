@@ -16,7 +16,7 @@ interface ResolvedBooking {
   room: ReturnType<typeof stayRoomFromDb>
 }
 
-async function resolveBooking(db: ReturnType<typeof getStaysDb>, code: string): Promise<ResolvedBooking | null> {
+async function resolveBooking(db: Awaited<ReturnType<typeof getStaysDb>>, code: string): Promise<ResolvedBooking | null> {
   const bookingCode = code.toUpperCase()
 
   if (db) {
@@ -63,7 +63,7 @@ export async function POST(
   const paymentIntentId = body.paymentIntentId ? String(body.paymentIntentId) : null
   const paymentMethod = body.paymentMethod ? String(body.paymentMethod) : 'demo'
 
-  const db = getStaysDb()
+  const db = await getStaysDb()
   const resolved = await resolveBooking(db, code)
   if (!resolved) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })

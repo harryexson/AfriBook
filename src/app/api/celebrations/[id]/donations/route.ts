@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { query } from '@/lib/neon/admin';
 import {
   calculateDonationFee,
   getCelebrationDonationTotals,
@@ -8,7 +8,6 @@ import {
   toMinorUnits,
 } from '@/lib/celebrations/service';
 
-const admin = createAdminClient() as any;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
 
 export async function GET(
@@ -18,11 +17,17 @@ export async function GET(
   try {
     const { id: eventId } = await params;
 
-    const { data: evt } = await admin
-      .from('events')
-      .select('id, allow_donations, donation_goal, currency_code, donation_fee_percent')
-      .eq('id', eventId)
-      .single();
+    const evtRows = await query<{
+      id: string;
+      allow_donations: boolean | null;
+      donation_goal: number | null;
+      currency_code: string | null;
+      donation_fee_percent: number | null;
+    }>(
+      `SELECT id, allow_donations, donation_goal, currency_code, donation_fee_percent FROM events WHERE id = $1 LIMIT 1`,
+      [eventId],
+    );
+    const evt = evtRows[0] ?? null;
 
     if (!evt?.allow_donations) {
       return NextResponse.json(
@@ -31,7 +36,7 @@ export async function GET(
       );
     }
 
-    const totals = await getCelebrationDonationTotals(admin, eventId);
+    const totals = await getCelebrationDonationTotals(eventId);
 
     return NextResponse.json({
       success: true,
@@ -75,13 +80,21 @@ export async function POST(
       );
     }
 
-    const { data: evt } = await admin
-      .from('events')
-      .select(
-        'id, organizer_id, title, status, allow_donations, donation_goal, currency_code, donation_fee_percent',
-      )
-      .eq('id', eventId)
-      .single();
+    const evtRows = await query<{
+      id: string;
+      organizer_id: string;
+      title: string;
+      status: string;
+      allow_donations: boolean | null;
+      donation_goal: number | null;
+      currency_code: string | null;
+      donation_fee_percent: number | null;
+    }>(
+      `SELECT id, organizer_id, title, status, allow_donations, donation_goal, currency_code, donation_fee_percent
+       FROM events WHERE id = $1 LIMIT 1`,
+      [eventId],
+    );
+    const evt = evtRows[0] ?? null;
 
     if (!evt) {
       return NextResponse.json({ success: false, error: 'Event not found' }, { status: 404 });
@@ -100,7 +113,7 @@ export async function POST(
     }
 
     // Plan-level feature gate: donations_enabled must be on for the effective plan.
-    const plan = await getEventPlan(admin, evt);
+    const plan = await getEventPlan(evt);
     if (!plan.donations_enabled) {
       return NextResponse.json(
         { success: false, error: 'Donations are not enabled on the current celebration plan' },
@@ -109,34 +122,42 @@ export async function POST(
     }
 
     const { currencyCode, feePercent, platformFee, netAmount } = await calculateDonationFee(
-      admin,
       evt,
       numericAmount,
     );
 
     // Insert a pending donation row first so the webhook can reconcile by ID.
-    const { data: donation, error: insertError } = await admin
-      .from('celebration_donations')
-      .insert({
-        event_id: eventId,
-        donor_name: donorName,
-        donor_email: donorEmail ?? null,
-        donor_phone: donorPhone ?? null,
-        amount: numericAmount,
-        currency_code: currencyCode,
-        fee_percent: feePercent,
-        platform_fee: platformFee,
-        net_amount: netAmount,
-        message: message ?? null,
-        is_anonymous: Boolean(isAnonymous),
-        status: 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    let donation: { id: string } | null = null;
+    try {
+      const nowIso = new Date().toISOString();
+      const inserted = await query<{ id: string }>(
+        `INSERT INTO celebration_donations
+           (event_id, donor_name, donor_email, donor_phone, amount, currency_code, fee_percent,
+            platform_fee, net_amount, message, is_anonymous, status, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'pending', $12, $13)
+         RETURNING id`,
+        [
+          eventId,
+          donorName,
+          donorEmail ?? null,
+          donorPhone ?? null,
+          numericAmount,
+          currencyCode,
+          feePercent,
+          platformFee,
+          netAmount,
+          message ?? null,
+          Boolean(isAnonymous),
+          nowIso,
+          nowIso,
+        ],
+      );
+      donation = inserted[0] ?? null;
+    } catch {
+      donation = null;
+    }
 
-    if (insertError || !donation) {
+    if (!donation) {
       return NextResponse.json(
         { success: false, error: 'Failed to create donation record' },
         { status: 500 },
@@ -157,10 +178,10 @@ export async function POST(
       receipt_email: donorEmail ?? undefined,
     });
 
-    await admin
-      .from('celebration_donations')
-      .update({ stripe_payment_intent_id: paymentIntent.id, updated_at: new Date().toISOString() })
-      .eq('id', donation.id);
+    await query(
+      `UPDATE celebration_donations SET stripe_payment_intent_id = $1, updated_at = $2 WHERE id = $3`,
+      [paymentIntent.id, new Date().toISOString(), donation.id],
+    );
 
     return NextResponse.json(
       {

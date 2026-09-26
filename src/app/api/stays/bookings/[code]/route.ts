@@ -16,7 +16,7 @@ export async function GET(
   const { code } = await params
   const bookingCode = code.toUpperCase()
 
-  const db = getStaysDb()
+  const db = await getStaysDb()
   if (db) {
     const { data, error } = await db
       .from('stay_bookings')

@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Minus, Plus, Clock, Leaf, AlertCircle } from 'lucide-react'
 import Chip from '@/components/ui/Chip'
 import Button from '@/components/ui/Button'
-import { formatMoneySymbol } from '@/lib/money'
+import { useLocalPrice } from '@/lib/use-local-price'
 import type { MenuItem } from '@/types'
 
 interface DishDialogProps {
@@ -30,6 +30,7 @@ interface DishDialogProps {
 export default function DishDialog({ item, prepTime, onClose, onAdd }: DishDialogProps) {
   const [quantity, setQuantity] = useState(1)
   const [notes, setNotes] = useState('')
+  const { price } = useLocalPrice()
 
   useEffect(() => {
     if (item) {
@@ -157,19 +158,37 @@ export default function DishDialog({ item, prepTime, onClose, onAdd }: DishDialo
               </div>
             </div>
 
-            {/* Commit bar — the price rides on the button, as in the reference. */}
-            <div className="flex items-center gap-3 border-t border-border p-4">
-              <Button
-                variant="dark"
-                size="lg"
-                className="w-full"
-                onClick={() => {
-                  onAdd(item, quantity, notes.trim() || undefined)
-                  onClose()
-                }}
-              >
-                Add · {formatMoneySymbol(total, item.currencyCode)}
-              </Button>
+            {/* Commit bar — the price rides on the button, as in the reference.
+                The button always carries the vendor's own currency: that's
+                the amount actually charged, matching how Uber, Airbnb and
+                Bolt all price a listing in its own market's currency by
+                default. A viewer who has opted into currency estimates (see
+                the toggle in CountryNotice) gets a secondary, clearly
+                labelled estimate underneath — never a substituted total. */}
+            <div className="border-t border-border p-4">
+              {(() => {
+                const p = price(total, item.currencyCode)
+                return (
+                  <>
+                    <Button
+                      variant="dark"
+                      size="lg"
+                      className="w-full"
+                      onClick={() => {
+                        onAdd(item, quantity, notes.trim() || undefined)
+                        onClose()
+                      }}
+                    >
+                      Add · {p.display}
+                    </Button>
+                    {p.hasEstimate && (
+                      <p className="mt-2 text-center text-xs text-text-tertiary">
+                        Estimate ≈ {p.estimate} at today's indicative rate — you're charged {p.display}
+                      </p>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </motion.div>
         </motion.div>

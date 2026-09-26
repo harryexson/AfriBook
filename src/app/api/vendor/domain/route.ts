@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import {
   getBusinessDomain,
   getOrCreateBusinessDomain,
@@ -44,7 +44,7 @@ export async function GET() {
   if (error) return NextResponse.json({ error }, { status: 401 });
 
   try {
-    const domain = await getBusinessDomain(supabase, businessId!);
+    const domain = await getBusinessDomain(supabase as any, businessId!);
     return NextResponse.json({ domain });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to load domain';
@@ -65,7 +65,7 @@ export async function POST() {
   const businessName = business?.name ?? 'Business';
 
   try {
-    const { domain, created } = await getOrCreateBusinessDomain(supabase, businessId!, businessName);
+    const { domain, created } = await getOrCreateBusinessDomain(supabase as any, businessId!, businessName);
     return NextResponse.json({ domain, created }, { status: created ? 201 : 200 });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to provision domain';
@@ -84,7 +84,7 @@ export async function PATCH() {
     .single()) as unknown as { data: { name: string } | null };
 
   try {
-    const domain = await regenerateBusinessDomain(supabase, businessId!, business?.name ?? 'Business');
+    const domain = await regenerateBusinessDomain(supabase as any, businessId!, business?.name ?? 'Business');
     return NextResponse.json({ domain });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to regenerate domain';
@@ -97,7 +97,7 @@ export async function DELETE() {
   if (error) return NextResponse.json({ error }, { status: 401 });
 
   try {
-    await removeBusinessDomain(supabase, businessId!);
+    await removeBusinessDomain(supabase as any, businessId!);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to remove domain';

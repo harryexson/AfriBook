@@ -11,6 +11,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import OAuthButtons from '@/components/shared/OAuthButtons'
+import { describeAuthError } from '@/lib/auth-error'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -50,15 +51,20 @@ export default function LoginPage() {
     setServerError('')
     try {
       setStatus('loading')
-      const supabase = (await import('@/lib/supabase/client')).createClient()
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
+      const client = (await import('@/lib/neon/client')).createClient()
+      const { data: authData, error } = await client.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
       if (error) throw error
       if (authData.user) {
-        const { data: profile } = await supabase
-          .from('users')
+        // Was querying a `users` table, which doesn't exist anywhere in the
+        // schema (every migration defines this as `profiles` — same bug
+        // already found and fixed in proxy.ts's role check). This meant
+        // login always fell through to router.push('/') below instead of
+        // ever setting the user or redirecting by role.
+        const { data: profile } = await client
+          .from('profiles')
           .select('*')
           .eq('id', authData.user.id)
           .single()
@@ -71,26 +77,20 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       setStatus('error')
-      if (err.message?.includes('Invalid login')) {
-        setServerError('Invalid email or password. Please try again.')
-      } else if (err.message?.includes('Email not confirmed')) {
-        setServerError('Please confirm your email address before signing in.')
-      } else {
-        setServerError(err.message || 'Something went wrong. Please try again.')
-      }
+      setServerError(describeAuthError(err))
     } finally {
       setSubmitLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    const supabase = (await import('@/lib/supabase/client')).createClient()
-    await supabase.auth.signInWithOAuth({ provider: 'google' })
+    const client = (await import('@/lib/neon/client')).createClient()
+    await client.auth.signInWithOAuth({ provider: 'google' })
   }
 
   const handleAppleSignIn = async () => {
-    const supabase = (await import('@/lib/supabase/client')).createClient()
-    await supabase.auth.signInWithOAuth({ provider: 'apple' })
+    const client = (await import('@/lib/neon/client')).createClient()
+    await client.auth.signInWithOAuth({ provider: 'apple' })
   }
 
   return (

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/neon/server';
 import { createPickupOrder } from '@/lib/pickup/pickup-manager';
 
 export async function POST(req: NextRequest) {
@@ -18,15 +18,15 @@ export async function POST(req: NextRequest) {
 
   const { data: order } = await supabase
     .from('orders')
-    .select('id, customerId')
+    .select('id, customer_id')
     .eq('id', orderId)
-    .single();
+    .single() as unknown as { data: { id: string; customer_id: string } | null };
 
   if (!order) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
-  if (order.customerId !== user.id) {
+  if (order.customer_id !== user.id) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

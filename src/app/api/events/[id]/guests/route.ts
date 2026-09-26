@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUser } from "@/lib/supabase/server";
+import { requireAuthenticatedUser } from "@/lib/neon/server";
 
 function generateTicketCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -161,7 +161,7 @@ export async function GET(
     const { id: eventId } = await params;
     const { supabase, user } = await requireAuthenticatedUser();
     const profileResponse = await supabase
-      .from("users")
+      .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();

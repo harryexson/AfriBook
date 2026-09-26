@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuthenticatedUser } from '@/lib/supabase/server';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 import { getVendorAnalytics, getRecentBookings, resolveVendorBusinessId, type AnalyticsPeriod } from '@/lib/vendor/analytics';
 
 function parsePeriod(value: string | null): AnalyticsPeriod {

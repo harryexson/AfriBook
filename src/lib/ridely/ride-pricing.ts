@@ -18,21 +18,21 @@ export interface CountryRidePricing {
 
 /** Base fare table, keyed by ISO country code. Values are in local currency. */
 export const COUNTRY_PRICING: Record<string, CountryRidePricing> = {
-  NG: { baseFare: 500, perKm: 150, perMinute: 25, minimumFare: 800, platformFeePercent: 0.2 },
-  KE: { baseFare: 100, perKm: 50, perMinute: 8, minimumFare: 200, platformFeePercent: 0.2 },
-  ZA: { baseFare: 15, perKm: 8, perMinute: 1.5, minimumFare: 30, platformFeePercent: 0.2 },
-  US: { baseFare: 2.5, perKm: 1.2, perMinute: 0.25, minimumFare: 5, platformFeePercent: 0.25 },
-  GB: { baseFare: 2, perKm: 1, perMinute: 0.2, minimumFare: 4, platformFeePercent: 0.25 },
-  IN: { baseFare: 50, perKm: 12, perMinute: 2, minimumFare: 100, platformFeePercent: 0.2 },
-  GH: { baseFare: 5, perKm: 3, perMinute: 0.5, minimumFare: 10, platformFeePercent: 0.2 },
-  TZ: { baseFare: 2000, perKm: 800, perMinute: 150, minimumFare: 4000, platformFeePercent: 0.2 },
-  UG: { baseFare: 2000, perKm: 1000, perMinute: 200, minimumFare: 5000, platformFeePercent: 0.2 },
-  MW: { baseFare: 1000, perKm: 500, perMinute: 100, minimumFare: 2000, platformFeePercent: 0.2 },
-  EG: { baseFare: 10, perKm: 5, perMinute: 1, minimumFare: 20, platformFeePercent: 0.2 },
-  AE: { baseFare: 10, perKm: 2, perMinute: 0.5, minimumFare: 15, platformFeePercent: 0.2 },
-  CA: { baseFare: 3, perKm: 1.5, perMinute: 0.3, minimumFare: 6, platformFeePercent: 0.25 },
-  FR: { baseFare: 2.5, perKm: 1.2, perMinute: 0.25, minimumFare: 5, platformFeePercent: 0.25 },
-  DE: { baseFare: 3, perKm: 1.5, perMinute: 0.3, minimumFare: 6, platformFeePercent: 0.25 },
+  NG: { baseFare: 500, perKm: 150, perMinute: 25, minimumFare: 800, platformFeePercent: 0.15 },
+  KE: { baseFare: 100, perKm: 50, perMinute: 8, minimumFare: 200, platformFeePercent: 0.15 },
+  ZA: { baseFare: 15, perKm: 8, perMinute: 1.5, minimumFare: 30, platformFeePercent: 0.15 },
+  US: { baseFare: 2.5, perKm: 1.2, perMinute: 0.25, minimumFare: 5, platformFeePercent: 0.18 },
+  GB: { baseFare: 2, perKm: 1, perMinute: 0.2, minimumFare: 4, platformFeePercent: 0.18 },
+  IN: { baseFare: 50, perKm: 12, perMinute: 2, minimumFare: 100, platformFeePercent: 0.15 },
+  GH: { baseFare: 5, perKm: 3, perMinute: 0.5, minimumFare: 10, platformFeePercent: 0.15 },
+  TZ: { baseFare: 2000, perKm: 800, perMinute: 150, minimumFare: 4000, platformFeePercent: 0.15 },
+  UG: { baseFare: 2000, perKm: 1000, perMinute: 200, minimumFare: 5000, platformFeePercent: 0.15 },
+  MW: { baseFare: 1000, perKm: 500, perMinute: 100, minimumFare: 2000, platformFeePercent: 0.15 },
+  EG: { baseFare: 10, perKm: 5, perMinute: 1, minimumFare: 20, platformFeePercent: 0.15 },
+  AE: { baseFare: 10, perKm: 2, perMinute: 0.5, minimumFare: 15, platformFeePercent: 0.15 },
+  CA: { baseFare: 3, perKm: 1.5, perMinute: 0.3, minimumFare: 6, platformFeePercent: 0.18 },
+  FR: { baseFare: 2.5, perKm: 1.2, perMinute: 0.25, minimumFare: 5, platformFeePercent: 0.18 },
+  DE: { baseFare: 3, perKm: 1.5, perMinute: 0.3, minimumFare: 6, platformFeePercent: 0.18 },
 };
 
 export const DEFAULT_PRICING: CountryRidePricing = {
@@ -40,7 +40,9 @@ export const DEFAULT_PRICING: CountryRidePricing = {
   perKm: 2,
   perMinute: 0.5,
   minimumFare: 10,
-  platformFeePercent: 0.2,
+  // 15% platform take — deliberately below Uber's typical ~25-30% commission,
+  // so a driver keeps more of every fare here than on Uber.
+  platformFeePercent: 0.15,
 };
 
 /** Get the fare table for a country code, falling back to a neutral default. */
