@@ -22,6 +22,9 @@ export interface Destination {
   address: string
 }
 
+/** Empty string = no explicit destination chosen yet. Consumers must fall
+ *  back to their own selected market (useCountry) rather than assuming any
+ *  default country here — this store never invents a market. */
 const DEFAULT_DESTINATION: Destination = {
   city: '',
   neighborhood: '',

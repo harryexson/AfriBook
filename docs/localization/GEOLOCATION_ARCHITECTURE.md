@@ -1,71 +1,46 @@
 # Geolocation Architecture
 
-## Server-side country detection (`src/proxy.ts` — Next.js Proxy/Middleware)
+> Last updated: 2026-08-25
+> Supersedes the previous version of this file (which described a stale `us`
+> default that never matched the code).
 
-Resolution order for the homepage redirect and country cookie:
+## 1. Two concepts, strictly separated
 
-1. **`country` cookie** (previously chosen, 1-year max-age, `sameSite:lax`).
-2. **Subdomain / hostname** — `detectCountry`: `mw.afribook.xyz`, plus TLD map
-   (`afribook.co.ke` → ke, `afribook.com.eg` → eg, etc.). Supports 17 codes.
-3. **IP geolocation** — `countryFromIpHeaders`: `cf-ipcountry`, then
-   `x-vercel-ip-country`.
-4. **`Accept-Language`** — `parseCountryFromAcceptLanguage` (`en-NG` → ng,
-   `ar-EG` → eg, …).
-5. **Default `us`**.
+| Concept | Owner | Storage | Purpose |
+|---|---|---|---|
+| `currentLocation` | `LocationProvider` (`src/components/providers/LocationProvider.tsx`) | localStorage `afribook-location` (1 h TTL) | GPS position for "near me" modules: rides, delivery, nearby restaurants/services |
+| `selectedMarket` | `CountryProvider` (web) / `market-store` (mobile) | `country` cookie + `afribook-country` storage / AsyncStorage `afribook-market` | Marketplace country, city, currency, locale, timezone |
 
-The proxy also: sets `X-Detected-Country` on every response, redirects `/` →
-`/{country}`, and enforces auth + role guards (`vendor`/`admin`/`driver`) on
-protected prefixes.
+**Invariant:** neither writes to the other's storage. GPS in Chicago must
+never reset Malawi; selecting Malawi must never falsify GPS.
 
-> The middleware's country set (17 codes) is a **subset** of the full
-> `SUPPORTED_COUNTRIES` from the localization layer. That is intentional for
-> redirect targets; API routes and server components should use
-> `resolveMarketContext` (which reads the headers the proxy sets/accepts).
+## 2. Geolocation flow (one-time, not per-navigation)
 
-## Server market resolver (`src/lib/localization/market-context.ts`)
+1. On app mount, `LocationProvider.detect()` runs once:
+   stored location (TTL) → browser geolocation → reverse geocode.
+2. Reverse geocoding currently uses Nominatim/OpenStreetMap
+   (`src/lib/geo.ts:reverseGeocode`). Mapbox is integrated for routing /
+   directions (`src/lib/ridely/route-engine.ts`, `MAPBOX_ACCESS_TOKEN`) and
+   is the designated upgrade path for forward/reverse geocoding — swap the
+   implementation inside `reverseGeocode()`; call sites do not change.
+3. Result populates **currentLocation only**. It does NOT set the market.
+   If no explicit market exists yet, the market resolution order still
+   applies (see MARKET_CONTEXT.md §4).
 
-`resolveMarketContext(req, explicitCountry?)` is the API/server-component
-authority:
+## 3. Destination vs current location
 
-1. explicit `countryCode`
-2. `x-country-code` header
-3. `afribook-country` cookie
-4. `cf-ipcountry`
-5. `x-vercel-ip-country`
-6. `Accept-Language` region, then language-only map
-7. `DEFAULT_COUNTRY='US'`
+- Hotels support NEARBY and DESTINATION modes: destination search
+  (`DestinationSelector` → `destination-store`) sets the search context;
+  it never overwrites currentLocation or the selected market.
+- Restaurants/services/events behave the same ("Near You" vs
+  "in [Selected City]").
+- Rides/delivery always use transaction geography: pickup, dropoff,
+  driver service area.
 
-Returns a `MarketContext` (country, currency, locale, timezone, RTL,
-phoneFormat, categories).
+## 4. Failure behavior
 
-## Client geolocation (`src/lib/geo.ts`)
+If geolocation fails or permission is denied:
 
-- `requestGeolocation()` — `navigator.geolocation` wrapper.
-- `reverseGeocode(lat, lng)` — coordinates → location/country for the picker.
-- `getCountryFromCookie()` / `getCountryFromUrl()` — client reads of the same
-  signals the proxy uses.
-- `storeLocation`/`clearLocation`/`getStoredLocation`, `haversineDistance`,
-  `formatDistance(km)` (localized distance formatting),
-  `sortBusinessesByProximity`, `filterByProximity`.
-
-## Client country state (`CountryProvider` / `CountrySelector`)
-
-`src/components/shared/CountryProvider.tsx` hydrates market state (country,
-currency) into React context and syncs the `country` cookie;
-`CountrySelector.tsx` renders the picker. `src/components/shared/CurrencyDisplay`
-(or equivalent) formats through `src/lib/money.ts`.
-
-## Ordering of authority (user overrides everything)
-
-```
-User pick (CountrySelector / explicit param)
-  > country cookie
-  > subdomain / hostname
-  > IP geolocation
-  > Accept-Language
-  > DEFAULT_COUNTRY (US)
-```
-
-Privacy note: IP geolocation is coarse (country-level) and never persisted in
-profile data; it is only used to pick an initial market, which the user can
-change.
+- `currentLocation` = null; near-me modules prompt to enable location.
+- The market context falls through its precedence chain and, if unresolved,
+  surfaces **"Choose your location"** UI — it NEVER silently assumes US/USD.

@@ -3,6 +3,7 @@ import { getStaysDb } from '@/lib/stays/db'
 import { getStayHotels } from '@/lib/stays/stays-data'
 import { stayHotelFromDb, toStayHotel } from '@/lib/stays/types'
 import type { StayHotel } from '@/lib/stays/types'
+import { resolveMarketContext } from '@/lib/localization/market-context'
 
 export const runtime = 'nodejs'
 
@@ -12,7 +13,11 @@ type HotelRow = Record<string, unknown>
 
 export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams
-  const countryCode = (searchParams.get('countryCode') ?? '').toUpperCase()
+  // Market precedence: explicit query param → x-country-code/cookie/IP
+  // headers resolved by the central market-context service.
+  const countryCode =
+    (searchParams.get('countryCode') ?? '').toUpperCase() ||
+    resolveMarketContext(req).countryCode
   const city = searchParams.get('city') ?? ''
   const q = (searchParams.get('q') ?? '').trim().toLowerCase()
   const minPrice = Number(searchParams.get('minPrice') ?? 0) || 0

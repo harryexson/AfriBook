@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useCartStore } from "@/stores/cart-store";
 import { useLocalPrice } from "@/lib/use-local-price";
+import { getCurrencyForCountry } from "@/lib/money";
 import type { MenuItem } from "@/types";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
@@ -104,7 +105,7 @@ export default function RestaurantMenuPage() {
   const cartTotal = store.total();
   const cartCurrency = useMemo(() => {
     const first = store.items.find((i) => i.type === "menu");
-    return first?.type === "menu" ? first.item.currencyCode : restaurant?.currency ?? "USD";
+    return first?.type === "menu" ? first.item.currencyCode : restaurant?.currency ?? getCurrencyForCountry(restaurant?.countryCode ?? "");
   }, [store.items, restaurant]);
 
   // Adding a new item goes through the configurator so the flow matches the

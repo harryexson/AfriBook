@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { createClient } from './supabase';
+import { useMarketStore } from '../stores/market-store';
 
 const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.afribook.com';
 
@@ -26,8 +27,12 @@ class ApiClient {
 
   private async getHeaders(): Promise<Record<string, string>> {
     const token = await this.getAccessToken();
+    // Every API request carries the authoritative market context so backend
+    // routes resolve the same country/currency as the UI.
+    const countryCode = useMarketStore.getState().countryCode;
     return {
       'Content-Type': 'application/json',
+      ...(countryCode ? { 'x-country-code': countryCode } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
   }

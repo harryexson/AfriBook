@@ -10,7 +10,6 @@ export interface UserLocation {
 
 const STORAGE_KEY = 'afribook-location'
 const COOKIE_NAME = 'country'
-const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
 export function haversineDistance(
   lat1: number, lon1: number,
@@ -43,8 +42,11 @@ export function getStoredLocation(): UserLocation | null {
 export function storeLocation(loc: UserLocation): void {
   if (typeof window === 'undefined') return
   try {
+    // Persist GPS-derived currentLocation only. The selected MARKET lives in
+    // the `country` cookie + `afribook-country` storage and is managed
+    // exclusively by CountryProvider — geolocation must never overwrite an
+    // explicit user selection (GPS in Chicago must not reset Malawi).
     localStorage.setItem(STORAGE_KEY, JSON.stringify(loc))
-    document.cookie = `${COOKIE_NAME}=${loc.countryCode};path=/;max-age=${COOKIE_MAX_AGE};SameSite=Lax`
   } catch {}
 }
 
@@ -57,8 +59,8 @@ export function clearLocation(): void {
 
 export function getCountryFromCookie(): string {
   if (typeof document === 'undefined') return ''
-  const match = document.cookie.match(new RegExp(`${COOKIE_NAME}=([A-Z]{2})`))
-  return match?.[1] ?? ''
+  const match = document.cookie.match(new RegExp(`${COOKIE_NAME}=([A-Za-z]{2})`, 'i'))
+  return match?.[1]?.toUpperCase() ?? ''
 }
 
 export function getCountryFromUrl(): string {

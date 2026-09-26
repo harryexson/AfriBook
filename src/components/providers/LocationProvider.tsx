@@ -7,8 +7,6 @@ import {
   storeLocation,
   requestGeolocation,
   reverseGeocode,
-  getCountryFromUrl,
-  getCountryFromCookie,
 } from '@/lib/geo'
 
 interface LocationState {
@@ -38,11 +36,10 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const detectedCountryCode =
-    location?.countryCode ??
-    getCountryFromUrl() ??
-    getCountryFromCookie() ??
-    ''
+  // Purely the GPS-derived currentLocation country — deliberately separate
+  // from the selected market (CountryProvider) so they can never overwrite
+  // each other.
+  const detectedCountryCode = location?.countryCode ?? ''
 
   const detect = useCallback(async () => {
     setLoading(true)

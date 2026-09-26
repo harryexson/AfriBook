@@ -1,23 +1,188 @@
 'use client'
 
-import { createContext, useCallback, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 import { usePathname } from 'next/navigation'
 import { COUNTRIES } from '@/lib/localization/countries'
 import type { CountryConfig } from '@/lib/localization/countries'
+import { getCurrencyForCountry } from '@/lib/money'
+import { getLocaleFromCountry } from '@/lib/localization'
+import { installMarketHeaderInterceptor } from '@/lib/api-market'
+
+/**
+ * GlobalMarketContext — the SINGLE authoritative source of market state for
+ * the entire web app (UI, fetches, currency, locale, timezone).
+ *
+ * Resolution precedence (highest wins, evaluated once per session):
+ *   1. Explicit in-session selection        (setMarket / setCountry)
+ *   2. Saved user preference                (localStorage + cookie)
+ *   3. URL country segment                  (deep link / shared URL only)
+ *   4. Safe configured fallback             (NG — never silently US)
+ *
+ * Once a market exists (from 1 or 2) it is NEVER recomputed on navigation.
+ * Pathname changes cannot overwrite an explicit or persisted selection.
+ */
 
 const COUNTRY_COOKIE = 'country'
 const COUNTRY_STORAGE_KEY = 'afribook-country'
 const CURRENCY_ESTIMATE_STORAGE_KEY = 'afribook-show-currency-estimate'
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
+
+export type MarketSource =
+  | 'USER_SELECTED_COUNTRY'
+  | 'USER_SELECTED_CITY'
+  | 'DESTINATION_SEARCH'
+  | 'ACCOUNT_PREFERENCE'
+  | 'URL_CONTEXT'
+  | 'AUTO_FALLBACK'
+
+export interface MarketState {
+  countryCode: string
+  /** Selected city within the country (part of the market identity). */
+  city: string
+  source: MarketSource
+  /** True once post-hydration resolution has completed exactly once. */
+  initialized: boolean
+}
 
 interface SetCountryOptions {
-  /** Hard-navigate to /CODE. Default true. Pass false when the caller
-   *  manages the destination itself (e.g. the in-page DestinationSelector). */
+  city?: string
   navigate?: boolean
+  source?: MarketSource
 }
+
+// ─── Module-level store singleton ─────────────────────────────
+
+let storeState: MarketState = {
+  countryCode: '',
+  city: '',
+  source: 'AUTO_FALLBACK',
+  initialized: false,
+}
+
+const listeners = new Set<() => void>()
+
+function notify(): void {
+  for (const fn of listeners) fn()
+}
+
+function setStore(next: Partial<MarketState>): void {
+  storeState = { ...storeState, ...next }
+  notify()
+}
+
+/** Current authoritative market — readable outside React (fetch interceptor). */
+export function getMarketState(): MarketState {
+  return storeState
+}
+
+/** Test-only: restore the pristine pre-initialization state. */
+export function __resetMarketStoreForTests(): void {
+  storeState = {
+    countryCode: '',
+    city: '',
+    source: 'AUTO_FALLBACK',
+    initialized: false,
+  }
+  notify()
+}
+
+function subscribe(fn: () => void): () => void {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
+}
+
+// ─── Persistence helpers ──────────────────────────────────────
+
+function readCookie(): string {
+  if (typeof document === 'undefined') return ''
+  const match = document.cookie.match(new RegExp(`${COUNTRY_COOKIE}=([A-Za-z]{2})`))
+  return match?.[1]?.toUpperCase() ?? ''
+}
+
+function writeCookie(code: string): void {
+  if (typeof document === 'undefined') return
+  document.cookie = `${COUNTRY_COOKIE}=${code}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`
+}
+
+function readStorage(): string {
+  if (typeof window === 'undefined') return ''
+  try {
+    return window.localStorage.getItem(COUNTRY_STORAGE_KEY)?.toUpperCase() ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function writeStorage(code: string): void {
+  if (typeof window === 'undefined') return
+  try {
+    window.localStorage.setItem(COUNTRY_STORAGE_KEY, code)
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function countryFromPathname(pathname: string): string {
+  const segment = pathname.split('/')[1]?.toUpperCase()
+  if (segment && COUNTRIES[segment]) return segment
+  return ''
+}
+
+/**
+ * One-time client initialization. Saved preference beats the URL so that a
+ * persisted selection survives navigation, deep links and new tabs; the URL
+ * segment is only consulted when nothing has ever been saved.
+ */
+function initializeMarket(pathname: string): void {
+  if (storeState.initialized || typeof window === 'undefined') return
+
+  const saved = readCookie() || readStorage()
+  if (saved && COUNTRIES[saved]) {
+    setStore({
+      countryCode: saved,
+      city: storeState.city,
+      source: 'ACCOUNT_PREFERENCE',
+      initialized: true,
+    })
+    // Normalize cookie casing (proxy may have written lowercase).
+    if (readCookie() !== saved) writeCookie(saved)
+    return
+  }
+
+  const fromUrl = countryFromPathname(pathname)
+  if (fromUrl) {
+    setStore({ countryCode: fromUrl, source: 'URL_CONTEXT', initialized: true })
+    writeStorage(fromUrl)
+    writeCookie(fromUrl)
+    return
+  }
+
+  // Nothing resolvable — keep the pre-hydration display fallback but mark
+  // initialized so we never re-resolve mid-session. NG is the configured
+  // safe fallback; it is NEVER the United States.
+  setStore({ countryCode: 'NG', source: 'AUTO_FALLBACK', initialized: true })
+}
+
+// ─── React binding ────────────────────────────────────────────
 
 interface CountryContextValue {
   countryCode: string
   country: CountryConfig
+  city: string
+  marketSource: MarketSource
+  marketReady: boolean
+  currencyCode: string
+  locale: string
+  timezone: string
   setCountry: (code: string, options?: SetCountryOptions) => void
   /**
    * Opt-in only — never toggled automatically from geolocation. Every
@@ -32,98 +197,38 @@ interface CountryContextValue {
 
 const CountryContext = createContext<CountryContextValue | null>(null)
 
-function readCookie(): string {
-  if (typeof document === 'undefined') return ''
-  const match = document.cookie.match(/country=([A-Za-z]{2})/)
-  return match?.[1]?.toUpperCase() ?? ''
-}
-
-function readStorage(): string {
-  if (typeof window === 'undefined') return ''
-  try {
-    return window.localStorage.getItem(COUNTRY_STORAGE_KEY)?.toUpperCase() ?? ''
-  } catch {
-    return ''
-  }
-}
-
-function countryFromPathname(pathname: string): string {
-  const segment = pathname.split('/')[1]?.toUpperCase()
-  if (segment && COUNTRIES[segment]) return segment
-  return ''
-}
-
-function resolveCountry(pathname: string): string {
-  return countryFromPathname(pathname) || readCookie() || readStorage() || 'NG'
-}
-
-function resolveServerCountry(pathname: string): string {
-  return countryFromPathname(pathname) || 'NG'
-}
-
-// Real pub/sub so every mounted useCountry() consumer re-renders the
-// instant setCountry() is called — not just when the URL pathname
-// changes. Before this, switching country from the footer/header (or the
-// destination selector's `navigate: false` path) silently updated the
-// cookie/localStorage but never told React to re-read them, so any page
-// not already re-rendering for an unrelated reason kept showing the old
-// country/currency until the user happened to navigate somewhere else.
-const countryChangeListeners = new Set<() => void>()
-
-function subscribeToCountryChange(listener: () => void): () => void {
-  countryChangeListeners.add(listener)
-  return () => countryChangeListeners.delete(listener)
-}
-
-function notifyCountryChange() {
-  for (const listener of countryChangeListeners) listener()
-}
-
 export function CountryProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname()
 
-  const getSnapshot = useCallback(() => resolveCountry(pathname), [pathname])
-  const getServerSnapshot = useCallback(
-    () => resolveServerCountry(pathname),
+  // Server snapshot AND pre-initialization client snapshot: derived purely
+  // from the URL (no browser storage) so SSR and first hydration paint are
+  // identical. After mount, initializeMarket() swaps in the authoritative
+  // value (saved preference first).
+  const getUrlSnapshot = useCallback(
+    () => ({
+      ...storeState,
+      countryCode: countryFromPathname(pathname) || 'NG',
+      source: 'URL_CONTEXT' as MarketSource,
+      initialized: false,
+    }),
     [pathname],
   )
-  const countryCode = useSyncExternalStore(
-    subscribeToCountryChange,
-    getSnapshot,
-    getServerSnapshot,
+  const getSnapshot = useCallback(
+    () => (storeState.initialized ? storeState : getUrlSnapshot()),
+    [getUrlSnapshot],
   )
 
-  const setCountry = useCallback((code: string, options?: SetCountryOptions) => {
-    const normalized = code.toUpperCase()
-    if (!COUNTRIES[normalized]) return
-    document.cookie = `${COUNTRY_COOKIE}=${normalized}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`
-    try {
-      window.localStorage.setItem(COUNTRY_STORAGE_KEY, normalized)
-    } catch {
-      // ignore storage errors
-    }
-    // Update every useCountry() consumer immediately, regardless of
-    // whether we navigate below — this is what makes the change apply
-    // across the whole site (header, footer, rides, hotels, checkout...)
-    // in one shot instead of only wherever a route happens to re-render.
-    notifyCountryChange()
+  const state = useSyncExternalStore(subscribe, getSnapshot, getUrlSnapshot)
 
-    const navigate = options?.navigate ?? true
-    if (!navigate) return
-    // Only hard-navigate when we're already on a bare country-home route
-    // (e.g. `/US`, matched by the `[country]` dynamic segment) — that
-    // page is server-rendered per path segment, so it genuinely needs a
-    // new URL to show the new country's content. Every other route
-    // (rides, stays, checkout, vendor, ...) reads country from this
-    // context reactively via the notify above, so forcing a redirect
-    // there would just discard whatever the user was doing.
-    const isCountryHomeRoute = /^\/[A-Za-z]{2}$/.test(window.location.pathname)
-    if (isCountryHomeRoute && window.location.pathname !== `/${normalized}`) {
-      window.location.assign(`/${normalized}`)
-    }
+  useEffect(() => {
+    initializeMarket(pathname)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const country = COUNTRIES[countryCode] ?? COUNTRIES.NG
+  useEffect(() => {
+    const uninstall = installMarketHeaderInterceptor()
+    return uninstall
+  }, [])
 
   // Plain component state, not the pathname-driven external store above:
   // this preference has nothing to do with the URL, so it doesn't need
@@ -152,13 +257,49 @@ export function CountryProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  return (
-    <CountryContext.Provider
-      value={{ countryCode, country, setCountry, showCurrencyEstimate, setShowCurrencyEstimate }}
-    >
-      {children}
-    </CountryContext.Provider>
+  const setCountry = useCallback(
+    (code: string, options?: SetCountryOptions) => {
+      const normalized = code.toUpperCase()
+      if (!COUNTRIES[normalized]) return
+      writeCookie(normalized)
+      writeStorage(normalized)
+      setStore({
+        countryCode: normalized,
+        city: options?.city ?? storeState.city,
+        source: options?.source ?? 'USER_SELECTED_COUNTRY',
+        initialized: true,
+      })
+      const navigate = options?.navigate ?? true
+      if (
+        navigate &&
+        typeof window !== 'undefined' &&
+        window.location.pathname.split('/')[1]?.toUpperCase() !== normalized
+      ) {
+        window.location.assign(`/${normalized}`)
+      }
+    },
+    [],
   )
+
+  const value = useMemo<CountryContextValue>(() => {
+    const code = state.countryCode
+    const country = COUNTRIES[code] ?? COUNTRIES.NG
+    return {
+      countryCode: code,
+      country,
+      city: state.city,
+      marketSource: state.source,
+      marketReady: state.initialized,
+      currencyCode: getCurrencyForCountry(code),
+      locale: getLocaleFromCountry(code),
+      timezone: country.timezone,
+      setCountry,
+      showCurrencyEstimate,
+      setShowCurrencyEstimate,
+    }
+  }, [state, setCountry, showCurrencyEstimate, setShowCurrencyEstimate])
+
+  return <CountryContext.Provider value={value}>{children}</CountryContext.Provider>
 }
 
 export function useCountry(): CountryContextValue {

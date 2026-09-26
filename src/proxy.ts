@@ -49,6 +49,13 @@ function detectCountry(hostname: string): string {
   return knownDomains[host] ?? 'NG';
 }
 
+/** Any well-formed ISO-3166 alpha-2 code counts as a deliberate market
+ *  selection — NOT limited to the marketing allowlist, so users in markets
+ *  like RW/MZ/BW are never silently reset by this proxy. */
+function isWellFormedCountryCode(c: string | undefined | null): boolean {
+  return typeof c === 'string' && /^[A-Za-z]{2}$/.test(c);
+}
+
 function countryFromIpHeaders(headers: Headers): string | null {
   const cfCountry = headers.get('cf-ipcountry')
   if (cfCountry) return cfCountry.toUpperCase()
@@ -154,6 +161,12 @@ export async function proxy(req: NextRequest) {
   }
 
   // ─── Country Detection ──────────────────────────────────────
+  // Precedence: explicit cookie (user selection) → host/domain → IP →
+  // Accept-Language. A well-formed country cookie is ALWAYS treated as the
+  // user's deliberate market selection and is NEVER overwritten by
+  // host/IP/language inference on subsequent requests.
+  const hasUserSelection = isWellFormedCountryCode(countryCookie);
+  const normalizedCookie = countryCookie?.toUpperCase();
   const detectedFromHost = detectCountry(hostname);
   const languageCountry = parseCountryFromAcceptLanguage(acceptLanguage);
   const ipCountry = countryFromIpHeaders(req.headers);
@@ -162,15 +175,16 @@ export async function proxy(req: NextRequest) {
     COUNTRY_CODES.includes(c as CountryCode);
 
   const resolvedCountry: CountryCode =
-    (countryCookie && isValid(countryCookie) ? countryCookie as CountryCode : undefined)
+    (hasUserSelection && isValid(normalizedCookie!) ? normalizedCookie as CountryCode : undefined)
     ?? (isValid(detectedFromHost) ? detectedFromHost as CountryCode : undefined)
     ?? (ipCountry && isValid(ipCountry) ? ipCountry as CountryCode : undefined)
     ?? (languageCountry && isValid(languageCountry) ? languageCountry as CountryCode : undefined)
     ?? 'NG';
 
-  // Set country cookie if not present or different
-  if (!countryCookie || countryCookie !== resolvedCountry) {
-    response.cookies.set('country', resolvedCountry, {
+  // Only set a country cookie when the browser has none — initial detection.
+  // Never stomp an existing selection (that was the US-reset bug).
+  if (!countryCookie) {
+    response.cookies.set('country', resolvedCountry.toUpperCase(), {
       path: '/',
       maxAge: 60 * 60 * 24 * 365,
       sameSite: 'lax',
@@ -178,7 +192,7 @@ export async function proxy(req: NextRequest) {
     });
   }
 
-  response.headers.set('X-Detected-Country', resolvedCountry);
+  response.headers.set('X-Detected-Country', resolvedCountry.toUpperCase());
 
   // Where the request physically came from, kept separate from the `country`
   // preference cookie above. Once a preference is stored it overwrites the
@@ -199,7 +213,7 @@ export async function proxy(req: NextRequest) {
   // ─── Country-based redirect for homepage ────────────────────
   if (pathname === '/' && !isStaticPath && !isApiPath) {
     const url = req.nextUrl.clone();
-    url.pathname = `/${resolvedCountry}`;
+    url.pathname = `/${resolvedCountry.toUpperCase()}`;
     return NextResponse.redirect(url);
   }
 

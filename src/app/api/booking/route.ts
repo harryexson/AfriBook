@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/neon/server';
 import { query } from '@/lib/neon/admin';
+import { resolveMarketContext } from '@/lib/localization/market-context';
+import { getCurrencyForCountry } from '@/lib/money';
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient() as any;
@@ -56,7 +58,10 @@ export async function POST(req: NextRequest) {
       end_time: endTime,
       status: 'pending',
       amount: Number(service.price),
-      currency: service.currency ?? 'USD',
+      // Transaction currency follows the service record; when the merchant
+      // row has no currency configured, derive it from the request's market
+      // context instead of silently assuming USD.
+      currency: service.currency || getCurrencyForCountry(resolveMarketContext(req).countryCode),
       payment_status: 'pending',
       notes: notes ?? null,
     })
