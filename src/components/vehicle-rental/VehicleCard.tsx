@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter } from '@/components/ui/card-primitive';
+import { Badge } from '@/components/ui/badge-primitive';
+import { Button } from '@/components/ui/button-primitive';
 import { Heart, Star, MapPin, Shield, Zap } from 'lucide-react';
 import { formatVehiclePrice, getVehicleTypeLabel, type Vehicle } from '@/lib/vehicle-rental';
 import { useAuth } from '@/hooks/useAuth';

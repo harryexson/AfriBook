@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/button-primitive';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardFooter } from '@/components/ui/card-primitive';
+import { Badge } from '@/components/ui/badge-primitive';
 import { Calendar, MapPin, Car, Filter, X, ChevronLeft, ChevronRight, Heart, Star, MapPin as MapPinIcon } from 'lucide-react';
 import { format, addDays, startOfDay } from 'date-fns';
 import { searchVehicles, getFeaturedVehicles, type Vehicle, type VehicleSearchFilters, type VehicleType } from '@/lib/vehicle-rental';
