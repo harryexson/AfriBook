@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/admin';
+import { query } from '@/lib/neon/admin';
 import type { ApiKeyScope } from '@/types';
 
 export interface ApiKeyAuth {
@@ -12,13 +12,25 @@ export interface ApiAuthError {
   error: string;
 }
 
+interface RentalApiKeyRow {
+  id: string;
+  host_id: string;
+  scopes: ApiKeyScope[];
+  rate_limit_per_minute: number;
+  rate_limit_per_day: number;
+  is_active: boolean;
+  expires_at: string | null;
+}
+
 /**
  * Authenticates a request from an external partner using a Bearer API key
  * (see src/components/vehicle-rental/ApiKeyManagement.tsx for key issuance).
  *
- * Uses the service-role client because api_keys/api_key_usage_logs are
- * RLS-scoped to the owning host's Supabase session, which external
- * partner requests never have.
+ * Uses the raw Neon admin connection (src/lib/neon/admin.ts) because
+ * rental_api_keys/rental_api_key_usage_logs are scoped to the owning
+ * host's own session, which external partner requests never have — same
+ * reason the Supabase-era version of this file used the service-role
+ * client instead of the per-request one.
  */
 export async function authenticateApiRequest(
   request: Request,
@@ -40,15 +52,13 @@ export async function authenticateApiRequest(
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
 
-  const admin = createAdminClient() as any;
+  const [apiKeyData] = await query<RentalApiKeyRow>(
+    `SELECT id, host_id, scopes, rate_limit_per_minute, rate_limit_per_day, is_active, expires_at
+     FROM rental_api_keys WHERE key_hash = $1`,
+    [keyHash],
+  );
 
-  const { data: apiKeyData, error: keyError } = await admin
-    .from('api_keys')
-    .select('id, host_id, scopes, rate_limit_per_minute, rate_limit_per_day, is_active, expires_at')
-    .eq('key_hash', keyHash)
-    .single();
-
-  if (keyError || !apiKeyData) {
+  if (!apiKeyData) {
     return { status: 401, error: 'Invalid API key' };
   }
 
@@ -64,28 +74,22 @@ export async function authenticateApiRequest(
     return { status: 403, error: `API key is missing required scope: ${requiredScope}` };
   }
 
-  const now = new Date();
-  const oneMinuteAgo = new Date(now.getTime() - 60_000).toISOString();
-  const oneDayAgo = new Date(now.getTime() - 86_400_000).toISOString();
+  const [{ minute_count: minuteCount, day_count: dayCount }] = await query<{
+    minute_count: string;
+    day_count: string;
+  }>(
+    `SELECT
+       COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '1 minute') AS minute_count,
+       COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '1 day') AS day_count
+     FROM rental_api_key_usage_logs WHERE api_key_id = $1`,
+    [apiKeyData.id],
+  );
 
-  const [{ count: minuteCount }, { count: dayCount }] = await Promise.all([
-    admin
-      .from('api_key_usage_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('api_key_id', apiKeyData.id)
-      .gt('created_at', oneMinuteAgo),
-    admin
-      .from('api_key_usage_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('api_key_id', apiKeyData.id)
-      .gt('created_at', oneDayAgo),
-  ]);
-
-  if ((minuteCount ?? 0) >= apiKeyData.rate_limit_per_minute || (dayCount ?? 0) >= apiKeyData.rate_limit_per_day) {
+  if (Number(minuteCount) >= apiKeyData.rate_limit_per_minute || Number(dayCount) >= apiKeyData.rate_limit_per_day) {
     return { status: 429, error: 'Rate limit exceeded' };
   }
 
-  await admin.from('api_keys').update({ last_used_at: new Date().toISOString() }).eq('id', apiKeyData.id);
+  await query(`UPDATE rental_api_keys SET last_used_at = NOW() WHERE id = $1`, [apiKeyData.id]);
 
   return { hostId: apiKeyData.host_id, apiKeyId: apiKeyData.id, scopes: apiKeyData.scopes };
 }
@@ -100,15 +104,19 @@ export async function logApiKeyUsage(
   statusCode: number,
   startedAt: number,
 ): Promise<void> {
-  const admin = createAdminClient() as any;
-  await admin.from('api_key_usage_logs').insert({
-    api_key_id: apiKeyId,
-    endpoint: new URL(request.url).pathname,
-    method: request.method,
-    status_code: statusCode,
-    response_time_ms: Date.now() - startedAt,
-    ip_address: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
-    user_agent: request.headers.get('user-agent') || null,
-    request_id: crypto.randomUUID(),
-  });
+  await query(
+    `INSERT INTO rental_api_key_usage_logs
+       (api_key_id, endpoint, method, status_code, response_time_ms, ip_address, user_agent, request_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      apiKeyId,
+      new URL(request.url).pathname,
+      request.method,
+      statusCode,
+      Date.now() - startedAt,
+      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+      request.headers.get('user-agent') || null,
+      crypto.randomUUID(),
+    ],
+  );
 }

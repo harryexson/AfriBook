@@ -1,37 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { query } from '@/lib/neon/admin';
 import { authenticateApiRequest, isApiAuthError, logApiKeyUsage } from '@/lib/api-auth';
 
-const VEHICLE_SELECT = `
-  id, host_id, title, description, vehicle_type, make, model, year, color, transmission,
-  fuel_type, seats, doors, mileage, condition, license_plate, daily_rate, weekly_discount_percent,
-  monthly_discount_percent, cleaning_fee, security_deposit, delivery_available, delivery_radius_km,
-  delivery_fee_per_km, is_instant_book, is_active, verification_status, location_address,
-  location_city, location_state, location_postal_code, average_rating, review_count,
-  total_bookings, created_at, updated_at,
-  vehicle_images (url, type, is_primary, display_order)
+const VEHICLE_COLUMNS = `
+  id, host_id, company_name, make, model, year, color, vehicle_type, transmission,
+  fuel_type, seats, license_plate, vin, status, insurance_verified, insurance_expiry,
+  registration_verified, country_code, city, address, price_per_day, currency_code,
+  security_deposit, mileage_limit_per_day, platform_fee_percent, cover_image_url,
+  gallery_images, features, rating, review_count, is_company_fleet, created_at, updated_at
 `;
 
 const UPDATABLE_FIELDS: Record<string, string> = {
-  title: 'title',
-  description: 'description',
-  dailyRate: 'daily_rate',
-  weeklyDiscountPercent: 'weekly_discount_percent',
-  monthlyDiscountPercent: 'monthly_discount_percent',
-  cleaningFee: 'cleaning_fee',
+  companyName: 'company_name',
+  color: 'color',
+  transmission: 'transmission',
+  fuelType: 'fuel_type',
+  seats: 'seats',
+  vin: 'vin',
+  address: 'address',
+  pricePerDay: 'price_per_day',
+  currencyCode: 'currency_code',
   securityDeposit: 'security_deposit',
-  deliveryAvailable: 'delivery_available',
-  deliveryRadiusKm: 'delivery_radius_km',
-  deliveryFeePerKm: 'delivery_fee_per_km',
-  isInstantBook: 'is_instant_book',
-  isActive: 'is_active',
-  mileage: 'mileage',
-  condition: 'condition',
-  locationAddress: 'location_address',
-  locationCity: 'location_city',
-  locationState: 'location_state',
-  locationPostalCode: 'location_postal_code',
+  mileageLimitPerDay: 'mileage_limit_per_day',
+  coverImageUrl: 'cover_image_url',
+  isCompanyFleet: 'is_company_fleet',
 };
+const JSON_FIELDS = new Set(['galleryImages', 'features']);
+const JSON_COLUMNS: Record<string, string> = { galleryImages: 'gallery_images', features: 'features' };
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const startedAt = Date.now();
@@ -41,21 +36,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { id } = await params;
-  const admin = createAdminClient() as any;
-  const { data, error } = await admin
-    .from('vehicles')
-    .select(VEHICLE_SELECT)
-    .eq('id', id)
-    .eq('host_id', auth.hostId)
-    .single();
+  const [row] = await query(
+    `SELECT ${VEHICLE_COLUMNS} FROM rental_vehicles WHERE id = $1 AND host_id = $2`,
+    [id, auth.hostId],
+  );
 
-  if (error || !data) {
+  if (!row) {
     await logApiKeyUsage(auth.apiKeyId, request, 404, startedAt);
     return NextResponse.json({ success: false, error: 'Vehicle not found' }, { status: 404 });
   }
 
   await logApiKeyUsage(auth.apiKeyId, request, 200, startedAt);
-  return NextResponse.json({ success: true, data });
+  return NextResponse.json({ success: true, data: row });
 }
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -72,32 +64,44 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   try {
     const body = await request.json();
-    const updates: Record<string, unknown> = {};
+    const setClauses: string[] = [];
+    const values: unknown[] = [];
+
     for (const [key, column] of Object.entries(UPDATABLE_FIELDS)) {
-      if (body[key] !== undefined) updates[column] = body[key];
+      if (body[key] !== undefined) {
+        values.push(body[key]);
+        setClauses.push(`${column} = $${values.length}`);
+      }
+    }
+    for (const key of JSON_FIELDS) {
+      if (body[key] !== undefined) {
+        values.push(JSON.stringify(body[key]));
+        setClauses.push(`${JSON_COLUMNS[key]} = $${values.length}`);
+      }
     }
 
-    if (Object.keys(updates).length === 0) {
+    if (setClauses.length === 0) {
       await logApiKeyUsage(auth.apiKeyId, request, 400, startedAt);
       return NextResponse.json({ success: false, error: 'No updatable fields provided' }, { status: 400 });
     }
 
-    const admin = createAdminClient() as any;
-    const { data, error } = await admin
-      .from('vehicles')
-      .update(updates)
-      .eq('id', id)
-      .eq('host_id', auth.hostId)
-      .select(VEHICLE_SELECT)
-      .single();
+    setClauses.push('updated_at = NOW()');
+    values.push(id, auth.hostId);
 
-    if (error || !data) {
+    const [row] = await query(
+      `UPDATE rental_vehicles SET ${setClauses.join(', ')}
+       WHERE id = $${values.length - 1} AND host_id = $${values.length}
+       RETURNING ${VEHICLE_COLUMNS}`,
+      values,
+    );
+
+    if (!row) {
       await logApiKeyUsage(auth.apiKeyId, request, 404, startedAt);
       return NextResponse.json({ success: false, error: 'Vehicle not found or update failed' }, { status: 404 });
     }
 
     await logApiKeyUsage(auth.apiKeyId, request, 200, startedAt);
-    return NextResponse.json({ success: true, data });
+    return NextResponse.json({ success: true, data: row });
   } catch (err) {
     await logApiKeyUsage(auth.apiKeyId, request, 500, startedAt);
     const message = err instanceof Error ? err.message : 'Internal server error';
@@ -116,14 +120,12 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   }
 
   const { id } = await params;
-  const admin = createAdminClient() as any;
-  const { error, count } = await admin
-    .from('vehicles')
-    .delete({ count: 'exact' })
-    .eq('id', id)
-    .eq('host_id', auth.hostId);
+  const rows = await query(
+    `DELETE FROM rental_vehicles WHERE id = $1 AND host_id = $2 RETURNING id`,
+    [id, auth.hostId],
+  );
 
-  if (error || !count) {
+  if (rows.length === 0) {
     await logApiKeyUsage(auth.apiKeyId, request, 404, startedAt);
     return NextResponse.json({ success: false, error: 'Vehicle not found' }, { status: 404 });
   }
