@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -58,6 +59,7 @@ const HOST_TYPE_OPTIONS = [
 export function HostOnboardingForm({ onSuccess, userId }: { onSuccess?: (profile: any) => void; userId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showBusinessFields, setShowBusinessFields] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const form = useForm<HostOnboardingFormData>({
     resolver: zodResolver(hostOnboardingSchema),
@@ -72,6 +74,10 @@ export function HostOnboardingForm({ onSuccess, userId }: { onSuccess?: (profile
   const hostType = watch('hostType');
 
   const handleSubmit = async (data: HostOnboardingFormData) => {
+    if (!agreedToTerms) {
+      toast({ title: 'Agreement required', description: 'Please agree to the Vehicle Host Agreement to continue', variant: 'destructive' });
+      return;
+    }
     setIsSubmitting(true);
     try {
       const profile = await createHostProfile({
@@ -273,11 +279,29 @@ export function HostOnboardingForm({ onSuccess, userId }: { onSuccess?: (profile
             </p>
           </div>
 
-          <div className="flex justify-end gap-4 pt-4 border-t">
+          <div className="pt-4 border-t">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
+              />
+              <span className="text-sm text-muted-foreground">
+                I agree to the{' '}
+                <Link href="/legal/vehicle-host-agreement" target="_blank" className="text-primary underline hover:no-underline">
+                  Vehicle Host Agreement
+                </Link>
+                , including the vehicle-condition standards, insurance requirements and security deposit terms.
+              </span>
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-4 pt-4">
             <Button type="button" variant="outline" onClick={() => form.reset()}>
               Reset
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+            <Button type="submit" disabled={isSubmitting || !agreedToTerms} className="w-full sm:w-auto">
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

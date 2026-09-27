@@ -33,6 +33,7 @@ export function VehicleDetailPage({ vehicle }: VehicleDetailPageProps) {
   const [isAvailable, setIsAvailable] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [showBookingDialog, setShowBookingDialog] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const exteriorImages = vehicle.images?.filter(img => 
     img.type.startsWith('exterior') || img.type === 'engine' || img.type === 'wheels' || img.type === 'trunk'
@@ -103,6 +104,10 @@ export function VehicleDetailPage({ vehicle }: VehicleDetailPageProps) {
     }
     if (!isAvailable) {
       toast({ title: 'Not available', description: 'This vehicle is not available for the selected dates', variant: 'destructive' });
+      return;
+    }
+    if (!agreedToTerms) {
+      toast({ title: 'Agreement required', description: 'Please agree to the Vehicle Renter Agreement to continue', variant: 'destructive' });
       return;
     }
 
@@ -664,11 +669,27 @@ export function VehicleDetailPage({ vehicle }: VehicleDetailPageProps) {
               </div>
             )}
 
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
+              />
+              <span className="text-sm text-muted-foreground">
+                I agree to the{' '}
+                <Link href="/legal/vehicle-renter-agreement" target="_blank" className="text-primary underline hover:no-underline">
+                  Vehicle Renter Agreement
+                </Link>
+                , including the security deposit and insurance terms.
+              </span>
+            </label>
+
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setShowBookingDialog(false)}>
                 Cancel
               </Button>
-              <Button className="flex-1" onClick={handleBook} disabled={isBooking}>
+              <Button className="flex-1" onClick={handleBook} disabled={isBooking || !agreedToTerms}>
                 {isBooking ? 'Confirming...' : 'Confirm Booking'}
               </Button>
             </div>

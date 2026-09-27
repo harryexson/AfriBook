@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clock,
   Car,
+  KeyRound,
   Utensils,
   CalendarCheck,
   AlertTriangle,
@@ -83,20 +84,55 @@ const vendorCancellationRules = [
 
 const rideCancellationRules = [
   {
-    rule: 'Free cancellation within 2 minutes',
-    detail: 'Cancel your ride within 2 minutes of booking for free. The driver has not yet started moving towards you.',
+    rule: 'Before a driver is matched',
+    detail: 'Cancel anytime before a driver accepts your ride for free — no fee applies while your request is still being matched.',
   },
   {
-    rule: 'Cancellation after 2 minutes',
-    detail: 'A small cancellation fee applies after 2 minutes to compensate the driver for the time and distance traveled.',
+    rule: 'Within 2 minutes of being matched',
+    detail: 'A small $2 cancellation fee applies if you cancel within 2 minutes of a driver accepting your ride, to compensate them for the time already committed.',
+  },
+  {
+    rule: 'After 2 minutes, or once your driver is en route',
+    detail: 'A $5 cancellation fee applies once more than 2 minutes have passed since matching, or once your driver has started heading to you — they’ve already committed time and distance.',
+  },
+  {
+    rule: 'Driver has arrived',
+    detail: 'A $10 cancellation fee applies if you cancel after your driver has arrived at the pickup point.',
   },
   {
     rule: 'Driver no-show',
-    detail: 'If your driver doesn\'t arrive within the estimated time, you can cancel for free and report the issue.',
+    detail: 'If your driver doesn’t arrive, or cancels on their own, you can cancel for free and report the issue — no fee applies and it won’t affect your account.',
+  },
+]
+
+const vehicleRentalCancellationRules = [
+  {
+    timeframe: '48+ hours before pickup',
+    refund: 'Full refund',
+    detail: 'Cancel 48 hours or more before your scheduled pickup for a full refund of the rental price. Your security deposit hold is always released regardless of when you cancel.',
+    color: 'text-green-600 bg-green-500/10',
+    icon: CheckCircle2,
   },
   {
-    rule: 'Peak hours',
-    detail: 'During peak hours, cancellation fees may be slightly higher to account for increased demand.',
+    timeframe: '24–48 hours before pickup',
+    refund: '75% refund',
+    detail: 'Cancel between 24 and 48 hours before pickup for a 75% refund of the rental price.',
+    color: 'text-amber-600 bg-amber-500/10',
+    icon: AlertTriangle,
+  },
+  {
+    timeframe: '12–24 hours before pickup',
+    refund: '50% refund',
+    detail: 'Cancel between 12 and 24 hours before pickup for a 50% refund of the rental price.',
+    color: 'text-orange-600 bg-orange-500/10',
+    icon: AlertTriangle,
+  },
+  {
+    timeframe: 'Less than 12 hours before pickup',
+    refund: 'No refund',
+    detail: 'Cancellations within 12 hours of pickup are not eligible for a refund of the rental price — the host has reserved the vehicle for you and turned away other bookings.',
+    color: 'text-red-600 bg-red-500/10',
+    icon: XCircle,
   },
 ]
 
@@ -335,6 +371,61 @@ export default function CancellationPolicyPage() {
               >
                 <h3 className="font-semibold text-text-primary mb-2">{rule.rule}</h3>
                 <p className="text-sm text-text-secondary leading-relaxed">{rule.detail}</p>
+              </motion.div>
+            ))}
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Vehicle Rental Cancellation Rules */}
+      <section className="py-12 sm:py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-8"
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <KeyRound className="w-6 h-6 text-amber-500" />
+              <h2 className="text-2xl sm:text-3xl font-bold font-heading text-text-primary">
+                Vehicle Rental Cancellation Rules
+              </h2>
+            </div>
+            <p className="text-text-secondary">
+              Time-based refund tiers for cancelling a vehicle rental. Your security deposit hold is always released in full, no matter when you cancel — only the rental price is subject to these tiers. See{' '}
+              <Link href="/help/vehicle-rentals" className="text-amber-600 hover:text-amber-700 underline">
+                Vehicle Rentals Help
+              </Link>{' '}
+              for pickup-day issues like an unreachable host or an unsafe vehicle, which are always fully refunded regardless of timing.
+            </p>
+          </motion.div>
+
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="space-y-4"
+          >
+            {vehicleRentalCancellationRules.map((rule) => (
+              <motion.div
+                key={rule.timeframe}
+                variants={fadeInUp}
+                className="flex items-start gap-4 p-5 rounded-2xl bg-surface border border-border"
+              >
+                <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${rule.color}`}>
+                  <rule.icon className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-text-primary">{rule.timeframe}</h3>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${rule.color}`}>
+                      {rule.refund}
+                    </span>
+                  </div>
+                  <p className="text-sm text-text-secondary">{rule.detail}</p>
+                </div>
               </motion.div>
             ))}
           </motion.div>

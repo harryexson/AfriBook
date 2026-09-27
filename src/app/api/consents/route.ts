@@ -57,6 +57,8 @@ export async function POST(req: NextRequest) {
     'driver_agreement',
     'rider_agreement',
     'guest_agreement',
+    'vehicle_host_agreement',
+    'vehicle_renter_agreement',
   ];
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || undefined;

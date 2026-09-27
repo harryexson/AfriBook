@@ -9,6 +9,7 @@ import {
   CreditCard,
   ShoppingBag,
   Car,
+  KeyRound,
   Store,
   ShieldCheck,
   ChevronDown,
@@ -50,6 +51,13 @@ const categories = [
     icon: Car,
     href: '#',
     color: 'bg-purple-500/10 text-purple-500',
+  },
+  {
+    title: 'Vehicle Rentals',
+    description: 'Booking a vehicle, deposits, insurance, and pickup issues',
+    icon: KeyRound,
+    href: '/help/vehicle-rentals',
+    color: 'bg-teal-500/10 text-teal-500',
   },
   {
     title: 'Vendor Support',

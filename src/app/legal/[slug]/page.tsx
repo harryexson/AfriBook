@@ -31,7 +31,9 @@ export default async function LegalAgreementPage({ params }: LegalAgreementPageP
     notFound()
   }
 
+  const SIGNABLE_SLUGS = ['host-agreement', 'vehicle-host-agreement']
+
   return (
-    <LegalAgreementRenderer slug={doc.slug} signable={doc.slug === 'host-agreement'} />
+    <LegalAgreementRenderer slug={doc.slug} signable={SIGNABLE_SLUGS.includes(doc.slug)} />
   )
 }

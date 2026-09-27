@@ -767,11 +767,374 @@ export const GUEST_AGREEMENT: AgreementDoc = {
   ],
 };
 
+export const VEHICLE_HOST_AGREEMENT: AgreementDoc = {
+  slug: "vehicle-host-agreement",
+  title: "Vehicle Host Agreement",
+  subtitle:
+    "For hosts listing vehicles on the AfriBook vehicle rental marketplace",
+  effectiveDate: "September 27, 2026",
+  lastUpdated: "September 27, 2026",
+  tocLabel: "Vehicle Host Agreement",
+  intro: [
+    'This Vehicle Host Agreement ("Agreement") is a legally binding contract between you ("Host," "you") and AfriBook Technologies Limited ("AfriBook," "we," "us"). It governs your listing and rental of vehicles on the AfriBook vehicle rental marketplace ("Platform").',
+    "By signing this Agreement, you agree to list and make available for rental the vehicle(s) you register on the Platform under the terms and conditions set out below. Your digital signature confirms that you have read, understood and agreed to these terms. If you do not agree to any part of this Agreement, do not list a vehicle on AfriBook.",
+  ],
+  sections: [
+    {
+      id: "acceptance",
+      title: "1. Acceptance of Terms",
+      icon: FileCheck,
+      content: [
+        {
+          body: "By signing this Agreement, you agree to list and make available for rental your vehicle(s) on the Platform under these terms and conditions. Publishing a vehicle listing, or accepting any booking through the Platform, reaffirms your acceptance of this Agreement.",
+        },
+      ],
+    },
+    {
+      id: "definitions",
+      title: "2. Definitions",
+      icon: FileText,
+      content: [
+        {
+          body: "In this Agreement:",
+          list: [
+            '"Vehicle" means any car, van, motorcycle or other vehicle you list for rental on the Platform.',
+            '"Renter" means any person who books or rents your Vehicle through the Platform.',
+            '"Booking" means a confirmed reservation of a Vehicle made through the Platform.',
+            '"Rental Price" means the total daily or per-booking amount charged to the Renter, exclusive of Platform fees, security deposit and applicable taxes.',
+            '"Security Deposit" means the refundable amount held against a Booking to cover damage, unpaid tolls or fines, excess mileage, or cleaning beyond normal wear, as described in Section 7.',
+            '"Force Majeure" has the meaning set out in the Terms of Service.',
+          ],
+        },
+      ],
+    },
+    {
+      id: "role",
+      title: "3. Your Relationship With AfriBook",
+      icon: Users,
+      content: [
+        {
+          body: "You own or have written authorisation to rent out the Vehicle(s) you list. AfriBook acts solely as an intermediary technology platform that connects Hosts with Renters. AfriBook is not a party to the rental, does not own, operate, or control your Vehicle, and is not your employer, agent, joint venturer or partner.",
+        },
+        {
+          body: "You are solely responsible for the roadworthiness and condition of your Vehicle, the accuracy of your listing, and compliance with all vehicle registration, insurance and safety obligations that apply in your jurisdiction. You retain full control over pricing, availability and the vehicles you choose to list.",
+        },
+      ],
+    },
+    {
+      id: "listing-standards",
+      title: "4. Vehicle Condition & Listing Standards",
+      icon: ClipboardCheck,
+      content: [
+        {
+          body: "Every Vehicle you list must, at the time of listing and at the start of every rental:",
+          list: [
+            "Be roadworthy, mechanically sound, and free of any defect that would make it unsafe to drive.",
+            "Be clean, both inside and out, to a standard a reasonable Renter would expect of a professionally rented vehicle.",
+            "Match the listing's photos, year, make, model, mileage limit and features — no undisclosed damage, warning lights or modifications.",
+            "Carry a valid registration/license plate, and a current roadworthiness or inspection certificate where required by local law.",
+            "Have functioning safety equipment: seatbelts for every listed seat, working lights and indicators, a spare tyre or equivalent, and a first-aid kit and warning triangle where locally required.",
+          ],
+        },
+        {
+          heading: "4.1 Pre-Rental Condition Report",
+          body: "You must document the Vehicle's condition (photos and, where offered by the Platform, a condition checklist) before every rental begins. This report is the baseline against which any damage claim under Section 7 is assessed — a Vehicle handed over without a condition report is treated, for the purposes of any dispute, as having been in the condition the Renter describes at drop-off.",
+        },
+        {
+          heading: "4.2 Your Due Diligence",
+          body: "You are responsible for conducting your own due diligence regarding the registration, insurance, safety inspection, licensing and tax obligations that apply to renting out your Vehicle in your jurisdiction, including any commercial-use or rental-specific insurance endorsement required by local law.",
+        },
+      ],
+    },
+    {
+      id: "insurance",
+      title: "5. Insurance",
+      icon: ShieldCheck,
+      content: [
+        {
+          body: "You must maintain, for the full duration your Vehicle is listed and available for rental, valid insurance that covers third-party liability at the minimum level required by local law, and that either extends to cover rental/hire use or is supplemented by rental-specific coverage where your policy excludes it.",
+        },
+        {
+          callout:
+            "AfriBook does not insure your Vehicle and is not an insurer. Any protection plan, damage-waiver product or insurance partner offered through the Platform is a separate product with its own terms, exclusions and claims process — read its policy document before relying on it. You are responsible for disclosing rental/hire use to your insurer; a claim denied because your own policy excludes rental use is your responsibility, not AfriBook's.",
+        },
+        {
+          body: "You must keep your insurance and registration documents current on the Platform and promptly upload renewals. Listing or renting out a Vehicle with lapsed or invalid insurance is a material breach of this Agreement.",
+        },
+      ],
+    },
+    {
+      id: "deposit",
+      title: "6. Security Deposit & Damage Claims",
+      icon: CreditCard,
+      content: [
+        {
+          body: "The Security Deposit is collected and held by AfriBook on your behalf, not paid to you directly, and is released back to the Renter automatically within the timeframe shown at booking unless you file a damage claim before that release.",
+        },
+        {
+          heading: "6.1 Filing a Claim",
+          body: "To claim against the Security Deposit for damage, excess mileage, unpaid tolls/fines, or cleaning beyond normal wear, you must submit your claim through the Platform within 24 hours of the Vehicle's return, with dated photos and, where available, your pre-rental condition report for comparison. Claims submitted after this window, or without supporting evidence, may be declined.",
+        },
+        {
+          heading: "6.2 Normal Wear and Tear",
+          body: "You may not claim against the Security Deposit for ordinary wear and tear — minor scuffs, light interior soiling from normal use, or gradual mechanical wear consistent with the mileage driven. The Security Deposit covers damage beyond what a reasonable rental use would cause.",
+        },
+        {
+          heading: "6.3 Amounts Exceeding the Deposit",
+          body: "Where documented damage exceeds the Security Deposit held, AfriBook will assist in facilitating a claim against the Renter, but AfriBook does not guarantee recovery of amounts beyond the deposit and is not liable for any shortfall.",
+        },
+      ],
+    },
+    {
+      id: "fees",
+      title: "7. Service Fees & Payouts",
+      icon: CreditCard,
+      content: [
+        {
+          body: "AfriBook charges a host service fee, shown in your host dashboard, deducted automatically from each Booking's Rental Price before payout. Payouts are processed on the schedule shown in your dashboard, typically within 3–5 business days after the rental period ends. AfriBook is not responsible for delays caused by banking institutions, and you are responsible for the accuracy of your payout details.",
+        },
+      ],
+    },
+    {
+      id: "cancellation",
+      title: "8. Cancellation Policy",
+      icon: CalendarClock,
+      content: [
+        {
+          body: "Hosts must honor confirmed Bookings. Where a Host cancels a confirmed Booking, the Renter is entitled to a full refund, and repeated or late host-initiated cancellations may result in reduced search placement, a penalty fee, or suspension under Section 12.",
+        },
+      ],
+    },
+    {
+      id: "conduct",
+      title: "9. Prohibited Conduct",
+      icon: Ban,
+      content: [
+        {
+          body: "You must not:",
+          list: [
+            "List a Vehicle you do not own or are not authorised to rent out.",
+            "Misrepresent the Vehicle's condition, mileage, features, insurance status or registration.",
+            "Discriminate against Renters based on any protected characteristic.",
+            "Engage in, facilitate, or condone SHARFT, harassment, fraud, or any illegal or corrupt conduct in connection with a rental.",
+            "Retaliate against a Renter for reporting a safety or condition issue.",
+          ],
+        },
+        {
+          callout:
+            "AfriBook has a zero-tolerance policy for SHARFT and fraud. Any Host who engages in such conduct will be immediately and permanently removed from the Platform and referred to law enforcement.",
+        },
+      ],
+    },
+    {
+      id: "compliance",
+      title: "10. Regulatory Compliance",
+      icon: Scale,
+      content: [
+        {
+          body: "You are solely responsible for complying with all local laws applicable to renting out a vehicle in your jurisdiction, including vehicle registration, roadworthiness inspection, rental/commercial-use insurance endorsements, and any licensing or tax obligations arising from your hosting income.",
+        },
+      ],
+    },
+    {
+      id: "liability",
+      title: "11. Liability, Hold Harmless & Indemnification",
+      icon: Shield,
+      content: [
+        {
+          heading: "11.1 No Joint or Several Liability",
+          body: "AfriBook shall not be jointly or severally liable with you for any accident, injury, damage or loss arising out of a rental of your Vehicle, except where caused by the gross negligence or wilful misconduct of AfriBook.",
+        },
+        {
+          heading: "11.2 Release and Hold Harmless",
+          body: "To the fullest extent permitted by law, you release and hold harmless AfriBook and its affiliates, officers, directors, employees and agents from all claims, damages, losses and expenses arising out of: (a) the condition, roadworthiness or mechanical state of your Vehicle; (b) any accident, injury, damage or loss occurring during a rental; (c) your insurance coverage or lack thereof; (d) your non-compliance with this Agreement or local law; and (e) force majeure events.",
+        },
+        {
+          heading: "11.3 Assumption of Risk",
+          body: "You voluntarily assume the risks inherent in renting out a vehicle to third parties, including the risk of damage, theft, traffic violations committed by a Renter, and mechanical failure, to the fullest extent permitted by law.",
+        },
+      ],
+    },
+    {
+      id: "termination",
+      title: "12. Account Suspension & Termination",
+      icon: AlertTriangle,
+      content: [
+        {
+          body: "AfriBook may suspend or terminate your Host account immediately, without notice, if you list an unsafe or misrepresented Vehicle, allow your insurance or registration to lapse, engage in SHARFT, fraud or discrimination, or repeatedly breach Platform safety or quality standards.",
+        },
+      ],
+    },
+    {
+      id: "law",
+      title: "13. Governing Law & Disputes",
+      icon: Landmark,
+      content: [
+        {
+          body: "This Agreement is governed by the laws of the Federal Republic of Nigeria and any disputes shall be resolved in accordance with the dispute resolution provisions of the Terms of Service.",
+        },
+      ],
+    },
+  ],
+};
+
+export const VEHICLE_RENTER_AGREEMENT: AgreementDoc = {
+  slug: "vehicle-renter-agreement",
+  title: "Vehicle Renter Agreement",
+  subtitle:
+    "For renters booking a vehicle through the AfriBook vehicle rental marketplace",
+  effectiveDate: "September 27, 2026",
+  lastUpdated: "September 27, 2026",
+  tocLabel: "Vehicle Renter Agreement",
+  intro: [
+    'This Vehicle Renter Agreement ("Agreement") is a legally binding contract between you ("Renter," "you") and AfriBook Technologies Limited ("AfriBook," "we," "us"). It governs your booking and rental of a vehicle through the AfriBook vehicle rental marketplace ("Platform").',
+    "By completing a booking, you agree to be bound by this Agreement, the AfriBook Terms of Service, the applicable cancellation policy, and the AfriBook Privacy Policy.",
+    "Vehicles are provided by independent Hosts, not by AfriBook. This Agreement explains the security deposit, insurance and vehicle-condition terms that apply to your rental, and the limits of AfriBook's responsibility.",
+  ],
+  sections: [
+    {
+      id: "role",
+      title: "1. The Platform's Role",
+      icon: Globe,
+      content: [
+        {
+          body: "AfriBook is an intermediary platform that connects Renters with independent Hosts. AfriBook does not own, operate, maintain or control any vehicle listed on the Platform, and is not a party to the rental. Your vehicle is provided by an independent Host who is solely responsible for the vehicle.",
+        },
+      ],
+    },
+    {
+      id: "booking",
+      title: "2. Bookings & Payment",
+      icon: CreditCard,
+      content: [
+        {
+          body: "By completing a booking you authorise AfriBook to process payment through the payment method you provide, including the Rental Price, applicable fees and taxes, and the Security Deposit described in Section 3. Cancellations and refunds are governed by the cancellation policy applicable to your booking and the AfriBook Refund Policy.",
+        },
+      ],
+    },
+    {
+      id: "deposit",
+      title: "3. Security Deposit",
+      icon: CreditCard,
+      content: [
+        {
+          body: "Most vehicle rentals require a refundable Security Deposit, shown and authorised at the time of booking. The deposit is held by AfriBook, not paid to the Host, and is released back to you automatically within the timeframe shown at booking, provided the Host does not file a documented damage claim within 24 hours of the vehicle's return.",
+        },
+        {
+          heading: "3.1 What the Deposit Can Be Used For",
+          body: "The Host may claim against your deposit only for damage beyond normal wear and tear, excess mileage over the limit stated in the listing, unpaid tolls or traffic fines incurred during your rental, or cleaning required beyond normal use — and only with dated photographic evidence.",
+        },
+        {
+          heading: "3.2 Disputing a Claim",
+          body: "If you disagree with a claim against your deposit, you can dispute it through the Platform. AfriBook will review the evidence submitted by both parties, including any pre-rental condition report, before releasing or withholding the disputed amount.",
+        },
+      ],
+    },
+    {
+      id: "insurance",
+      title: "4. Insurance & Coverage",
+      icon: ShieldCheck,
+      content: [
+        {
+          body: "The insurance coverage that applies to your rental, if any, is shown at checkout and depends on the Host's own policy and any protection plan offered through the Platform. Read what is and is not covered before you book — coverage commonly excludes traffic violations, driving under the influence, off-road use, use by an undisclosed driver, and damage caused by your own negligence.",
+        },
+        {
+          callout:
+            "AfriBook is not an insurer. Where a protection plan or damage waiver is offered at checkout, it is a separate product from a third-party provider with its own terms and exclusions — read its policy document. Where no coverage is shown, you are responsible for confirming your own insurance, credit card rental coverage, or the Host's policy actually covers you before driving.",
+        },
+        {
+          body: "You must hold a valid driving licence for the class of vehicle you are renting, valid in the country of rental, for the entire rental period.",
+        },
+      ],
+    },
+    {
+      id: "condition",
+      title: "5. Vehicle Condition & Inspection",
+      icon: ClipboardCheck,
+      content: [
+        {
+          body: "At pickup, you should inspect the vehicle together with the Host (or using the Platform's condition report where offered) and photograph any existing damage before driving off — this protects you against being charged for damage you didn't cause.",
+        },
+        {
+          heading: "5.1 If the Vehicle Doesn't Meet Standard",
+          body: "AfriBook requires every listed vehicle to be roadworthy, clean, and to match its listing. If the vehicle you're handed is unsafe, has a mechanical fault, is materially dirtier than photographed, or doesn't match the listing, do not drive it — contact the Host first, and if the issue isn't resolved, contact AfriBook support through the app before your rental starts. See the Vehicle Rentals help article for what happens next in each of these situations.",
+        },
+        {
+          body: "At drop-off, return the vehicle in the condition you received it, on time, with the fuel/charge level specified in the listing, to avoid additional charges.",
+        },
+      ],
+    },
+    {
+      id: "conduct",
+      title: "6. Your Obligations During the Rental",
+      icon: Users,
+      content: [
+        {
+          body: "During your rental you agree to:",
+          list: [
+            "Drive only as the licensed driver named on the booking, unless additional drivers were added and approved at booking.",
+            "Comply with all traffic laws, and pay any tolls, fines or penalties you incur.",
+            "Not use the vehicle for any illegal purpose, to tow, to transport hazardous goods, or off-road unless the listing explicitly permits it.",
+            "Not sublet or re-rent the vehicle to a third party.",
+            "Notify the Host and AfriBook immediately of any accident, breakdown, theft or safety issue during the rental.",
+            "Return the vehicle to the agreed location by the agreed time.",
+          ],
+        },
+      ],
+    },
+    {
+      id: "liability",
+      title: "7. Liability, Waiver & Hold Harmless",
+      icon: Shield,
+      content: [
+        {
+          heading: "7.1 No Joint or Several Liability",
+          body: "AfriBook shall not be jointly or severally liable with any Host for accidents, injuries, damage or loss occurring during your rental, except where caused by the gross negligence or wilful misconduct of AfriBook.",
+        },
+        {
+          heading: "7.2 Release and Hold Harmless",
+          body: "To the fullest extent permitted by law, you release and hold harmless AfriBook and its affiliates, officers, directors, employees and agents from all claims, damages, losses and expenses arising out of: (a) your rental and use of the vehicle; (b) any accident, injury, damage or loss during the rental; (c) the condition of the vehicle provided by the Host; (d) your failure to comply with this Agreement or local law; and (e) force majeure events.",
+        },
+        {
+          heading: "7.3 Host Responsibility",
+          body: "Your legal relationship in respect of the vehicle itself is directly with the Host. Any claim concerning the condition, safety or roadworthiness of the vehicle should be pursued against the Host, subject to AfriBook's dispute resolution process.",
+        },
+        {
+          heading: "7.4 Your Personal Responsibility",
+          body: "You are personally responsible for your own driving, for any traffic violations you commit, and for damage you cause through negligence, beyond what is covered by any applicable insurance or protection plan.",
+        },
+      ],
+    },
+    {
+      id: "termination",
+      title: "8. Suspension & Termination",
+      icon: AlertTriangle,
+      content: [
+        {
+          body: "AfriBook may suspend or terminate your account immediately, without notice, if you engage in fraud, theft, reckless or impaired driving, SHARFT, or any conduct that endangers the Host, the public, or other users. Any amounts owed shall be settled in accordance with the Refund Policy.",
+        },
+      ],
+    },
+    {
+      id: "law",
+      title: "9. Governing Law & Disputes",
+      icon: Landmark,
+      content: [
+        {
+          body: "This Agreement is governed by the laws of the Federal Republic of Nigeria and any disputes shall be resolved in accordance with the dispute resolution provisions of the Terms of Service.",
+        },
+      ],
+    },
+  ],
+};
+
 export const LEGAL_DOCUMENTS: AgreementDoc[] = [
   HOST_AGREEMENT,
   DRIVER_AGREEMENT,
   RIDER_AGREEMENT,
   GUEST_AGREEMENT,
+  VEHICLE_HOST_AGREEMENT,
+  VEHICLE_RENTER_AGREEMENT,
 ];
 
 export function getAgreementBySlug(slug: string): AgreementDoc | undefined {

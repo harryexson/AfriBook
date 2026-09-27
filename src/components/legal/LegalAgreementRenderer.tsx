@@ -51,7 +51,11 @@ export default function LegalAgreementRenderer({
 
   const doc = getAgreementBySlug(slug);
 
-  const consentType = "host_agreement";
+  // Derived, not hardcoded: this renderer now backs more than one signable
+  // document (host-agreement, vehicle-host-agreement, ...), and each needs
+  // its own consent record so signing one never gets mistaken for signing
+  // another.
+  const consentType = slug.replace(/-/g, "_");
 
   useEffect(() => {
     if (!signable) return;
@@ -112,10 +116,10 @@ export default function LegalAgreementRenderer({
             {
               consentType,
               granted: true,
-              context: "host-agreement-signature",
+              context: `${slug}-signature`,
               consentVersion: doc.lastUpdated,
               metadata: {
-                document: "host-agreement",
+                document: slug,
                 fullName: fullName.trim(),
                 signatureType: "typed",
               },
@@ -201,7 +205,7 @@ export default function LegalAgreementRenderer({
             <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
               This is a legally binding document.{" "}
               {signable
-                ? "By signing below you confirm that you have read, understood and agree to all terms outlined, including the liability limits, waivers, hold-harmless provisions and compliance obligations. If you do not agree, do not list a property on AfriBook Stayscape."
+                ? "By signing below you confirm that you have read, understood and agree to all terms outlined, including the liability limits, waivers, hold-harmless provisions and compliance obligations. If you do not agree, do not proceed."
                 : "Please read this document carefully. Continued use of the relevant AfriBook service constitutes acceptance of these terms."}
             </p>
           </div>
