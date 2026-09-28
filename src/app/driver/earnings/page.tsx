@@ -7,7 +7,7 @@ import { getCurrencyForCountry } from '@/lib/money'
 import { useCountry } from '@/components/shared/CountryProvider'
 import {
   Wallet, TrendingUp, Gift, Percent,
-  Download, Plus, ArrowUpRight, Banknote, AlertCircle,
+  Download, Plus, ArrowUpRight, Banknote, AlertCircle, Receipt, Clock, XCircle,
 } from 'lucide-react'
 import EarningsChart from '@/components/shared/EarningsChart'
 
@@ -44,12 +44,36 @@ interface Payout {
   completedAt?: string | null
 }
 
+interface StatementLine {
+  label: string
+  amount: number
+  percentage: number
+}
+
+interface Statement {
+  currencyCode: string
+  tripCount: number
+  totalCustomerFare: number
+  lines: {
+    totalCustomerFare: StatementLine
+    governmentTaxesFees: StatementLine
+    insuranceOperationalExpenses: StatementLine
+    customerPromotions: StatementLine
+    amountPlatformKept: StatementLine
+    earningsFromFares: StatementLine
+  }
+  tips: number
+  extras: { waitTimePay: number; cancellationFees: number; insurancePremiumsPaid: number }
+  yourTotalEarnings: number
+}
+
 interface EarningsData {
   success: boolean
   error?: string
   balance?: { available: number; pending: number; totalEarned: number; currencyCode: string }
   summaries?: { week: Summary; month: Summary; all: Summary }
   payouts?: Payout[]
+  statement?: Statement
 }
 
 const PAYOUT_STATUS_STYLE: Record<string, { icon: string; text: string }> = {
@@ -69,10 +93,11 @@ export default function EarningsPage() {
   const [error, setError] = useState<string | null>(null)
   const [payoutLoading, setPayoutLoading] = useState(false)
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [statementPeriod, setStatementPeriod] = useState<'week' | 'month' | 'all'>('week')
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (period: 'week' | 'month' | 'all' = 'week') => {
     try {
-      const res = await fetch('/api/ridely/earnings')
+      const res = await fetch(`/api/ridely/earnings?period=${period}`)
       const payload = (await res.json()) as EarningsData
       if (!res.ok || !payload.success) {
         setError(payload.error ?? 'Failed to load earnings')
@@ -91,12 +116,12 @@ export default function EarningsPage() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      if (!cancelled) await loadData()
+      if (!cancelled) await loadData(statementPeriod)
     })()
     return () => {
       cancelled = true
     }
-  }, [loadData])
+  }, [loadData, statementPeriod])
 
   const handleRequestPayout = async () => {
     if (!data?.balance) return
@@ -113,7 +138,7 @@ export default function EarningsPage() {
         setNotice({ type: 'error', text: result.error ?? 'Failed to request payout' })
       } else {
         setNotice({ type: 'success', text: 'Payout requested — processing' })
-        await loadData()
+        await loadData(statementPeriod)
       }
     } catch {
       setNotice({ type: 'error', text: 'Failed to request payout' })
@@ -296,6 +321,95 @@ export default function EarningsPage() {
             <p className="text-xs text-text-tertiary mt-1">{item.percentage}% of total</p>
           </div>
         ))}
+      </motion.div>
+
+      {/* Full statement (Uber/Lyft-style fare breakdown) */}
+      <motion.div variants={ITEM} className="rounded-2xl bg-surface border border-border p-5">
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <Receipt className="w-5 h-5 text-amber-600" />
+            <h3 className="text-lg font-semibold text-text-primary font-heading">Full Breakdown</h3>
+          </div>
+          <div className="flex items-center gap-1 rounded-xl bg-surface-secondary p-1">
+            {(['week', 'month', 'all'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setStatementPeriod(p)}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors capitalize',
+                  statementPeriod === p ? 'bg-amber-500 text-white' : 'text-text-secondary hover:text-text-primary'
+                )}
+              >
+                {p === 'all' ? 'All time' : `This ${p}`}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {data?.statement && data.statement.tripCount > 0 ? (
+          <div className="space-y-1">
+            {[
+              data.statement.lines.totalCustomerFare,
+              data.statement.lines.governmentTaxesFees,
+              data.statement.lines.insuranceOperationalExpenses,
+              data.statement.lines.customerPromotions,
+              data.statement.lines.amountPlatformKept,
+            ].map((line) => (
+              <div key={line.label} className="flex items-center justify-between py-2.5 border-b border-border/60 last:border-0">
+                <span className="text-sm text-text-secondary max-w-[65%]">{line.label}</span>
+                <div className="text-right">
+                  <p className={cn('text-sm font-semibold', line.amount < 0 ? 'text-text-primary' : 'text-text-primary')}>
+                    {line.amount < 0 ? '-' : ''}{formatCurrency(Math.abs(line.amount), data.statement.currencyCode)}
+                  </p>
+                  <p className="text-xs text-text-tertiary">{line.percentage}%</p>
+                </div>
+              </div>
+            ))}
+
+            <div className="flex items-center justify-between py-3 mt-2 border-t-2 border-border">
+              <span className="text-sm font-semibold text-text-primary">{data.statement.lines.earningsFromFares.label}</span>
+              <div className="text-right">
+                <p className="text-sm font-bold text-emerald-600">{formatCurrency(data.statement.lines.earningsFromFares.amount, data.statement.currencyCode)}</p>
+                <p className="text-xs text-text-tertiary">{data.statement.lines.earningsFromFares.percentage}%</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-2.5 border-b border-border/60">
+              <div>
+                <span className="text-sm text-text-secondary">Tips</span>
+                <p className="text-xs text-text-tertiary">Always 100% yours</p>
+              </div>
+              <p className="text-sm font-semibold text-emerald-600">+{formatCurrency(data.statement.tips, data.statement.currencyCode)}</p>
+            </div>
+
+            {(data.statement.extras.waitTimePay > 0 || data.statement.extras.cancellationFees > 0) && (
+              <div className="flex flex-col gap-2 py-2.5 border-b border-border/60">
+                {data.statement.extras.waitTimePay > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-text-secondary"><Clock className="w-3.5 h-3.5" /> Wait-time pay (after 5 free min)</span>
+                    <span className="font-semibold text-emerald-600">+{formatCurrency(data.statement.extras.waitTimePay, data.statement.currencyCode)}</span>
+                  </div>
+                )}
+                {data.statement.extras.cancellationFees > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-1.5 text-text-secondary"><XCircle className="w-3.5 h-3.5" /> Rider cancellation fees</span>
+                    <span className="font-semibold text-emerald-600">+{formatCurrency(data.statement.extras.cancellationFees, data.statement.currencyCode)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-4">
+              <span className="text-base font-bold text-text-primary">Your total earnings</span>
+              <span className="text-base font-bold text-text-primary">{formatCurrency(data.statement.yourTotalEarnings, data.statement.currencyCode)}</span>
+            </div>
+            <p className="text-xs text-text-tertiary">Including tips · {data.statement.tripCount} trip{data.statement.tripCount === 1 ? '' : 's'}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-text-tertiary py-6 text-center">
+            {loading ? 'Loading breakdown...' : 'No trips in this period yet'}
+          </p>
+        )}
       </motion.div>
 
       {/* Tax summary */}

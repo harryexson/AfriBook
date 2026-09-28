@@ -19,6 +19,8 @@ import {
   RefreshCw,
   ShieldAlert,
   FileCheck,
+  Gift,
+  Percent,
 } from "lucide-react";
 
 export interface LegalSection {
@@ -269,7 +271,7 @@ export const HOST_AGREEMENT: AgreementDoc = {
         },
         {
           heading: "12.3 Indemnification",
-          body: 'To the fullest extent permitted by law, you agree to indemnify, defend, and hold harmless AfriBook, its parent companies, subsidiaries, affiliates, officers, directors, employees, workers, agents, contractors, partners, marketers, advertisers, service providers, and all other representatives (collectively, the "StayScape Parties") from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys\u2019 fees) arising from or related to:',
+          body: 'To the fullest extent permitted by law, you agree to indemnify, defend, and hold harmless AfriBook, its parent companies, subsidiaries, affiliates, officers, directors, employees, workers, agents, contractors, partners, marketers, advertisers, service providers, and all other representatives (collectively, the "StayScape Parties") from and against any and all claims, demands, losses, liabilities, damages, costs, and expenses (including reasonable attorneys’ fees) arising from or related to:',
           list: [
             "Your Property, including any defects, hazards, or unsafe conditions.",
             "Your breach of this Agreement or violation of any laws or regulations.",
@@ -325,7 +327,7 @@ export const HOST_AGREEMENT: AgreementDoc = {
       icon: AlertTriangle,
       content: [
         {
-          body: 'AfriBook provides the Platform on an "as is" and "as available" basis without warranties of any kind, either express or implied. AfriBook specifically disclaims all warranties regarding the Platform\u2019s operation, your ability to generate income, guest behavior, or the legal compliance of hosting activities in your jurisdiction.',
+          body: 'AfriBook provides the Platform on an "as is" and "as available" basis without warranties of any kind, either express or implied. AfriBook specifically disclaims all warranties regarding the Platform’s operation, your ability to generate income, guest behavior, or the legal compliance of hosting activities in your jurisdiction.',
         },
       ],
     },
@@ -338,7 +340,7 @@ export const HOST_AGREEMENT: AgreementDoc = {
           body: "By uploading photos and content, you retain ownership of your content and grant AfriBook a worldwide, non-exclusive, royalty-free, sublicensable license to use, reproduce, modify, adapt, publish, translate, and display this content for the purpose of operating, promoting and improving the Platform, including for marketing and promotional purposes.",
         },
         {
-          body: "You may not use AfriBook\u2019s trademarks, logos, brand name, or other intellectual property without express written permission.",
+          body: "You may not use AfriBook’s trademarks, logos, brand name, or other intellectual property without express written permission.",
         },
       ],
     },
@@ -376,7 +378,7 @@ export const HOST_AGREEMENT: AgreementDoc = {
       icon: RefreshCw,
       content: [
         {
-          body: "AfriBook may update these terms at any time. We will provide at least 30 days\u2019 notice before any material changes take effect, communicated via email and/or notification on the Platform. Continued hosting after changes take effect constitutes acceptance of the new terms.",
+          body: "AfriBook may update these terms at any time. We will provide at least 30 days’ notice before any material changes take effect, communicated via email and/or notification on the Platform. Continued hosting after changes take effect constitutes acceptance of the new terms.",
         },
         {
           body: "If you do not agree to the modified terms, you may close your Host account before the changes take effect without incurring any penalties.",
@@ -502,11 +504,67 @@ export const DRIVER_AGREEMENT: AgreementDoc = {
         {
           body: "You are responsible for declaring and paying all taxes on your earnings, including income tax and any value-added or sales tax, in accordance with the law of your jurisdiction.",
         },
+        {
+          heading: "5.1 Fee Transparency",
+          body: "AfriBook's platform fee is disclosed on every trip receipt and itemised in your Earnings statement into three parts: a government/regulatory pass-through, a commercial insurance and operational-cost pass-through, and AfriBook's own margin. AfriBook's own margin is capped well under the 25-30% commission common on comparable platforms, and Road Rewards tiers rebate a further share of it back to you — see the Fee & Commission Policy for the current schedule.",
+        },
+      ],
+    },
+    {
+      id: "wait-time-cancellation",
+      title: "6. Wait-Time Pay & Cancellation Fees",
+      icon: AlertTriangle,
+      content: [
+        {
+          heading: "6.1 Wait-Time Pay",
+          body: "The first 5 minutes you wait at a pickup point after marking \"arrived\" are free to the rider. Every minute after that, until the rider boards or the trip is cancelled, is paid to you at your normal per-minute driving rate for that trip, credited automatically to your earnings.",
+        },
+        {
+          heading: "6.2 Rider Cancellation Fee",
+          body: "A rider may cancel free of charge before you have been assigned, or within the first 5 minutes after accepting and starting toward the pickup. Once you have been driving toward pickup for 5 minutes or more, or you have already arrived, a cancellation fee applies and is paid to you — a percentage of the estimated fare, higher if you had already arrived. This is designed to fairly compensate the time and distance you've already committed to the trip.",
+        },
+        {
+          heading: "6.3 Driver Cancellations",
+          body: "You may decline or cancel a request at any time before pickup without penalty, but a pattern of late cancellations after acceptance will affect your Road Rewards tier and acceptance-rate standing.",
+        },
+      ],
+    },
+    {
+      id: "rewards-insurance",
+      title: "7. Road Rewards & Insurance Add-Ons",
+      icon: ShieldCheck,
+      content: [
+        {
+          heading: "7.1 Road Rewards",
+          body: "AfriBook's Road Rewards program scores your acceptance rate, cancellation rate, on-time pickup rate and rating over a trailing 30-day window and places you into a tier (Blue, Silver, Gold or Platinum). Higher tiers rebate a larger share of AfriBook's own platform margin back to you, unlock fee-free instant payouts, and discount optional insurance add-ons. Full current thresholds and benefits are published in your driver dashboard and may be adjusted from time to time with notice.",
+        },
+        {
+          heading: "7.2 Base Coverage",
+          body: "AfriBook provides free basic third-party liability and on-trip medical payments coverage (\"RideShield Basic\") for every trip, funded from the operational-expense portion of the platform fee disclosed under clause 5.1. This is not a substitute for your own required insurance under clause 2.",
+        },
+        {
+          heading: "7.3 Optional Add-On Coverage",
+          body: "You may opt into additional commercial coverage tiers (\"RideShield Plus\" / \"RideShield Total\") for a weekly premium calculated as a percentage of your own recent earnings, deducted automatically. You may cancel an add-on at any time; coverage ends at the close of the current billing week.",
+        },
+      ],
+    },
+    {
+      id: "referral-program",
+      title: "8. Referral Program",
+      icon: Users,
+      content: [
+        {
+          body: "You may share your personal referral code with prospective drivers, riders, and business partners. Referral bonuses are paid only once the referred person completes the qualifying milestone published for that referral type (for driver referrals, currently 20 completed trips within 30 days of activation), and are capped per referrer per month as published in the Referral Program terms in your dashboard.",
+        },
+        {
+          callout:
+            "Referral bonuses may be withheld or reversed if AfriBook determines, acting reasonably, that a referral was fraudulent, self-referred through a second account, or otherwise created to abuse the program.",
+        },
       ],
     },
     {
       id: "liability",
-      title: "6. Liability, Waiver & Hold Harmless",
+      title: "9. Liability, Waiver & Hold Harmless",
       icon: Shield,
       content: [
         {
@@ -529,7 +587,7 @@ export const DRIVER_AGREEMENT: AgreementDoc = {
     },
     {
       id: "termination",
-      title: "7. Suspension & Immediate Termination",
+      title: "10. Suspension & Immediate Termination",
       icon: AlertTriangle,
       content: [
         {
@@ -548,7 +606,7 @@ export const DRIVER_AGREEMENT: AgreementDoc = {
     },
     {
       id: "law",
-      title: "8. Governing Law & Disputes",
+      title: "11. Governing Law & Disputes",
       icon: Landmark,
       content: [
         {
@@ -569,12 +627,12 @@ export const RIDER_AGREEMENT: AgreementDoc = {
   intro: [
     'This Rider Agreement ("Agreement") is a legally binding contract between you ("Rider," "you") and AfriBook Technologies Limited ("AfriBook," "we," "us"). It governs your use of the AfriBook ride-hailing and delivery services ("Services").',
     "By requesting, booking or accepting a ride or delivery, you agree to be bound by this Agreement, the AfriBook Terms of Service, and the AfriBook Privacy Policy.",
-    "Rides and deliveries are provided by independent drivers, not by AfriBook. This Agreement explains the limits of AfriBook\u2019s responsibility.",
+    "Rides and deliveries are provided by independent drivers, not by AfriBook. This Agreement explains the limits of AfriBook’s responsibility.",
   ],
   sections: [
     {
       id: "role",
-      title: "1. The Platform\u2019s Role",
+      title: "1. The Platform’s Role",
       icon: Globe,
       content: [
         {
@@ -619,8 +677,38 @@ export const RIDER_AGREEMENT: AgreementDoc = {
       ],
     },
     {
+      id: "cancellation-fees",
+      title: "4. Cancellation Fees & Wait Time",
+      icon: CalendarClock,
+      content: [
+        {
+          body: "You may cancel a ride free of charge at any time before a driver is assigned, or within 5 minutes of a driver accepting and starting toward the pickup point.",
+        },
+        {
+          body: "If you cancel after a driver has been driving toward your pickup for 5 minutes or more, or after the driver has already arrived, a cancellation fee applies. The fee is a percentage of the estimated fare (higher if the driver had already arrived) and is paid to the driver to compensate the time and distance already committed to your trip.",
+        },
+        {
+          body: "If a driver has arrived and is waiting for you, the first 5 minutes are free. After that, wait-time charges may apply for each additional minute until you board or the trip is cancelled, calculated at the driver's normal per-minute rate for the trip.",
+        },
+      ],
+    },
+    {
+      id: "referral-promotions",
+      title: "5. Referrals & Promotions",
+      icon: Gift,
+      content: [
+        {
+          body: "AfriBook may offer referral codes, promotional credits, and other incentives from time to time. Referral bonuses are issued as ride or order credit once the referred person completes their first qualifying trip or order, and are subject to per-account limits published in the app to prevent abuse.",
+        },
+        {
+          callout:
+            "AfriBook may withhold, reverse, or reclaim promotional credit obtained through fraud, self-referral, or abuse of the referral system.",
+        },
+      ],
+    },
+    {
       id: "liability",
-      title: "4. Limitation of Liability & Waiver",
+      title: "6. Limitation of Liability & Waiver",
       icon: AlertTriangle,
       content: [
         {
@@ -633,7 +721,7 @@ export const RIDER_AGREEMENT: AgreementDoc = {
         },
         {
           heading: "4.3 Driver Responsibility",
-          body: "Your legal relationship in respect of the transportation itself is directly with the driver. Any claim concerning driving conduct, vehicle condition or road safety should be pursued against the driver, subject to AfriBook\u2019s dispute resolution process.",
+          body: "Your legal relationship in respect of the transportation itself is directly with the driver. Any claim concerning driving conduct, vehicle condition or road safety should be pursued against the driver, subject to AfriBook’s dispute resolution process.",
         },
         {
           heading: "4.4 Assumption of Risk",
@@ -643,7 +731,7 @@ export const RIDER_AGREEMENT: AgreementDoc = {
     },
     {
       id: "termination",
-      title: "5. Suspension & Termination",
+      title: "7. Suspension & Termination",
       icon: AlertTriangle,
       content: [
         {
@@ -653,7 +741,7 @@ export const RIDER_AGREEMENT: AgreementDoc = {
     },
     {
       id: "law",
-      title: "6. Governing Law & Disputes",
+      title: "8. Governing Law & Disputes",
       icon: Landmark,
       content: [
         {
@@ -675,12 +763,12 @@ export const GUEST_AGREEMENT: AgreementDoc = {
   intro: [
     'This Guest / Renter Agreement ("Agreement") is a legally binding contract between you ("Guest," "you") and AfriBook Technologies Limited ("AfriBook," "we," "us"). It governs your booking and stay at accommodation (hotels, guesthouses, serviced apartments, villas and short-term rentals) through the AfriBook Stayscape platform ("Platform").',
     "By making a booking, you agree to be bound by this Agreement, the AfriBook Terms of Service, the applicable cancellation policy, and the AfriBook Privacy Policy.",
-    "Accommodation is provided by independent Hosts, not by AfriBook. This Agreement explains the limits of AfriBook\u2019s responsibility.",
+    "Accommodation is provided by independent Hosts, not by AfriBook. This Agreement explains the limits of AfriBook’s responsibility.",
   ],
   sections: [
     {
       id: "role",
-      title: "1. The Platform\u2019s Role",
+      title: "1. The Platform’s Role",
       icon: Globe,
       content: [
         {
@@ -706,7 +794,7 @@ export const GUEST_AGREEMENT: AgreementDoc = {
         {
           body: "During your stay you agree to:",
           list: [
-            "Comply with the Host\u2019s published house rules, check-in/check-out times and occupancy limits.",
+            "Comply with the Host’s published house rules, check-in/check-out times and occupancy limits.",
             "Use the Property and its contents with reasonable care, and report any damage promptly.",
             "Not sublet the Property, host events without permission, or exceed the maximum occupancy.",
             "Not use the Property for any illegal, unethical, criminal or corrupt purpose.",
@@ -736,11 +824,11 @@ export const GUEST_AGREEMENT: AgreementDoc = {
         },
         {
           heading: "4.3 Host Responsibility",
-          body: "Your legal relationship in respect of the accommodation itself is directly with the Host. Any claim concerning the condition, safety or quality of the Property should be pursued against the Host, subject to AfriBook\u2019s dispute resolution process.",
+          body: "Your legal relationship in respect of the accommodation itself is directly with the Host. Any claim concerning the condition, safety or quality of the Property should be pursued against the Host, subject to AfriBook’s dispute resolution process.",
         },
         {
           heading: "4.4 Your Personal Responsibility",
-          body: "You are responsible for your own conduct, the safety of your personal belongings, and compliance with the Property\u2019s rules and local law. You acknowledge that you may be personally liable for damage you cause to the Property.",
+          body: "You are responsible for your own conduct, the safety of your personal belongings, and compliance with the Property’s rules and local law. You acknowledge that you may be personally liable for damage you cause to the Property.",
         },
       ],
     },
@@ -761,6 +849,182 @@ export const GUEST_AGREEMENT: AgreementDoc = {
       content: [
         {
           body: "This Agreement is governed by the laws of the Federal Republic of Nigeria and any disputes shall be resolved in accordance with the dispute resolution provisions of the Terms of Service.",
+        },
+      ],
+    },
+  ],
+};
+
+export const SERVICE_PROVIDER_AGREEMENT: AgreementDoc = {
+  slug: "service-provider-agreement",
+  title: "Service Provider Agreement",
+  subtitle:
+    "For restaurants, gig-service providers, and other AfriBook Marketplace sellers of services",
+  effectiveDate: "September 25, 2026",
+  lastUpdated: "September 25, 2026",
+  tocLabel: "Service Provider Agreement",
+  intro: [
+    'This Service Provider Agreement ("Agreement") is a legally binding contract between you ("Provider," "you") and AfriBook Technologies Limited ("AfriBook," "we," "us"). It governs your listing and provision of services — restaurant menus, food preparation, and independent gig services such as cleaning, repairs, events staffing, tutoring and similar — through the AfriBook Marketplace.',
+    "Property and vehicle listings are governed by the Host Agreement, not this Agreement. Ride and delivery driving is governed by the Driver Agreement.",
+    "By listing on the Platform you agree to be bound by this Agreement, the AfriBook Terms of Service, and the AfriBook Privacy Policy. You operate as an independent business, not as an employee, agent or joint venturer of AfriBook.",
+  ],
+  sections: [
+    {
+      id: "role",
+      title: "1. Your Relationship With AfriBook",
+      icon: Users,
+      content: [
+        {
+          body: "AfriBook is an intermediary technology platform that connects you with customers. You retain full control over your menu or service offering, pricing, hours of operation, and the manner in which you provide your goods or services. AfriBook does not employ your staff and is not responsible for the quality, safety or legality of what you provide, beyond the limited Platform standards set out below.",
+        },
+      ],
+    },
+    {
+      id: "responsibilities",
+      title: "2. Your Responsibilities",
+      icon: ClipboardCheck,
+      content: [
+        {
+          body: "You agree to:",
+          list: [
+            "Provide accurate listings, pricing, descriptions and availability.",
+            "Hold all licences, permits, food-safety or trade certifications required in your jurisdiction.",
+            "Fulfil accepted orders and bookings promptly and as described.",
+            "Maintain appropriate liability insurance for your business.",
+            "Comply with all applicable consumer-protection, health, safety and tax law.",
+            "Treat customers and delivery couriers with courtesy and respect.",
+          ],
+        },
+      ],
+    },
+    {
+      id: "fees",
+      title: "3. Fees & Payouts",
+      icon: CreditCard,
+      content: [
+        {
+          body: "AfriBook charges a commission on each completed order or booking, disclosed to you before you accept the Platform's terms and shown on every settlement statement. Current standard rates and any active launch-incentive rate for new Providers are published in the Fee & Commission Policy and your vendor dashboard, and are, category for category, kept below typical marketplace and delivery-platform norms.",
+        },
+        {
+          body: "Payouts are made on the schedule shown in your vendor dashboard, net of AfriBook's commission, applicable taxes, and any refunds or chargebacks properly attributable to your order.",
+        },
+      ],
+    },
+    {
+      id: "referral",
+      title: "4. Referral Program",
+      icon: Gift,
+      content: [
+        {
+          body: "You may share your Provider referral code with other prospective restaurants and service providers. Referral bonuses are credited against your own platform fees once the referred Provider completes its first settled payout cycle, and are capped per referrer per month as published in the Referral Program terms in your dashboard.",
+        },
+      ],
+    },
+    {
+      id: "prohibited",
+      title: "5. Prohibited Conduct",
+      icon: Ban,
+      content: [
+        {
+          body: "You must not misrepresent your offering, solicit customers off-Platform to avoid fees, discriminate against customers or couriers, or engage in any fraudulent, unsafe or unlawful conduct through the Platform.",
+        },
+      ],
+    },
+    {
+      id: "termination",
+      title: "6. Suspension & Termination",
+      icon: AlertTriangle,
+      content: [
+        {
+          body: "AfriBook may suspend or remove your listing for repeated order-quality failures, food-safety violations, fraud, or breach of this Agreement. Either party may otherwise terminate this Agreement on reasonable notice.",
+        },
+      ],
+    },
+    {
+      id: "law",
+      title: "7. Governing Law & Disputes",
+      icon: Landmark,
+      content: [
+        {
+          body: "This Agreement is governed by the laws of the Federal Republic of Nigeria and any disputes shall be resolved in accordance with the dispute resolution provisions of the Terms of Service.",
+        },
+      ],
+    },
+  ],
+};
+
+export const FEE_COMMISSION_POLICY: AgreementDoc = {
+  slug: "fee-commission-policy",
+  title: "Fee & Commission Policy",
+  subtitle: "How AfriBook's platform fees compare, and where every cedi/naira/shilling goes",
+  effectiveDate: "September 25, 2026",
+  lastUpdated: "September 25, 2026",
+  tocLabel: "Fee & Commission Policy",
+  intro: [
+    "AfriBook is built around one commitment: keep more of every transaction with the people doing the work — drivers, couriers, restaurants, hosts and independent service providers — than comparable platforms do.",
+    "This policy explains AfriBook's standard commission and fee rates, how they compare to common industry rates, and exactly what each fee funds. Rates vary by market and may be updated from time to time; the current rate for your account is always shown in your dashboard before you accept any change.",
+  ],
+  sections: [
+    {
+      id: "rides",
+      title: "1. Ride-Hailing & Delivery Drivers",
+      icon: Car,
+      content: [
+        {
+          body: "AfriBook's standard platform fee on rides and deliveries is 12-18% of the fare, compared to a commonly cited 25-30% on comparable ride-hailing platforms. Road Rewards tiers (see the Driver Agreement) rebate a further share of AfriBook's own margin back to qualifying drivers, so a driver's effective take-rate can fall well below the headline figure.",
+        },
+        {
+          body: "The fee is itemised on every Earnings statement into: a government/regulatory pass-through, a commercial-insurance and operational-cost pass-through, and AfriBook's own margin — see the Full Breakdown section of your Earnings dashboard for the actual split on your trips.",
+        },
+      ],
+    },
+    {
+      id: "restaurants",
+      title: "2. Restaurants & Food Delivery",
+      icon: CreditCard,
+      content: [
+        {
+          body: "Standard commission is 15-18% of the order subtotal, with a reduced 10% launch rate for new restaurant Providers during their first 90 days — see Open Kitchen Boost in the Partners program. This compares to commission rates that commonly run 15-30% on other delivery marketplaces.",
+        },
+      ],
+    },
+    {
+      id: "stays",
+      title: "3. Short-Stay Hosts (StayScape)",
+      icon: Home,
+      content: [
+        {
+          body: "AfriBook charges a single host-side commission of 8-12% of the booking subtotal, with no additional stacked guest-service-fee layer of the kind that can push a comparable platform's combined host-and-guest fee load to roughly 14-20% of a booking.",
+        },
+      ],
+    },
+    {
+      id: "rentals",
+      title: "4. Vehicle Rental Hosts",
+      icon: Car,
+      content: [
+        {
+          body: "Standard host commission is 10-15% of the booking subtotal, with a reduced rate for a host's first 100 completed bookings under the Partner Launch Program — compared to commission rates that commonly run 15-25% on comparable peer-to-peer vehicle marketplaces.",
+        },
+      ],
+    },
+    {
+      id: "marketplace",
+      title: "5. Marketplace & Gig Services",
+      icon: Percent,
+      content: [
+        {
+          body: "Standard marketplace fee is 10-15% of the order or job value, with a reduced 10% launch rate for a provider's first 90 days — compared to fees that commonly run 20% or more on comparable gig-service marketplaces.",
+        },
+      ],
+    },
+    {
+      id: "changes",
+      title: "6. Changes To This Policy",
+      icon: RefreshCw,
+      content: [
+        {
+          body: "AfriBook may update these rates from time to time to reflect market conditions. Material fee increases affecting your account are disclosed in-app with reasonable advance notice before they take effect on new transactions.",
         },
       ],
     },
@@ -1133,6 +1397,8 @@ export const LEGAL_DOCUMENTS: AgreementDoc[] = [
   DRIVER_AGREEMENT,
   RIDER_AGREEMENT,
   GUEST_AGREEMENT,
+  SERVICE_PROVIDER_AGREEMENT,
+  FEE_COMMISSION_POLICY,
   VEHICLE_HOST_AGREEMENT,
   VEHICLE_RENTER_AGREEMENT,
 ];

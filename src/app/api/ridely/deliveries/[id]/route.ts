@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/neon/admin';
+import { createClient } from '@/lib/neon/server';
 import {
   DELIVERY_STATUS_TRANSITIONS,
   type DeliveryStatus,
 } from '@/types/ridely';
+import { releaseDriverAfterTrip } from '@/lib/ridely/driver-availability';
 
 interface DeliveryRow {
   [key: string]: unknown;
@@ -198,16 +200,17 @@ export async function PATCH(
       );
     }
 
-    const delivery = await withTransaction(async (txQuery) => {
-      if (status === 'cancelled' && existing.driver_id) {
-        // NOTE: `current_trip_id` dropped — no such column on `drivers`
-        // (verified via information_schema); see rides/[id]/route.ts.
-        await txQuery(
-          `UPDATE drivers SET status = 'available' WHERE id = $1`,
-          [existing.driver_id],
-        );
-      }
+    // Driver release happens outside the transaction, via the shared
+    // releaseDriverAfterTrip helper (also used by rides/[id]/route.ts) —
+    // it writes the correct 'online'/'offline' status (drivers.status has
+    // no 'available' value) and honours a pending go-offline request
+    // instead of always bouncing the driver back online.
+    if ((status === 'delivered' || status === 'cancelled') && existing.driver_id) {
+      const supabase = await createClient();
+      await releaseDriverAfterTrip(supabase, existing.driver_id as string);
+    }
 
+    const delivery = await withTransaction(async (txQuery) => {
       if (status === 'in_transit' && existing.driver_id) {
         await txQuery(
           `UPDATE drivers SET status = 'on_trip' WHERE id = $1`,
@@ -293,6 +296,11 @@ export async function DELETE(
       );
     }
 
+    if (existing.driver_id) {
+      const supabase = await createClient();
+      await releaseDriverAfterTrip(supabase, existing.driver_id as string);
+    }
+
     await withTransaction(async (txQuery) => {
       // NOTE: `ridely_deliveries` has no `cancelled_by`/`cancel_reason`
       // columns (verified via information_schema, unlike `ridely_rides`
@@ -308,11 +316,6 @@ export async function DELETE(
       );
 
       if (existing.driver_id) {
-        await txQuery(
-          `UPDATE drivers SET status = 'available' WHERE id = $1`,
-          [existing.driver_id],
-        );
-
         await txQuery(
           `INSERT INTO notifications (user_id, type, title, body, data)
            VALUES ($1, 'system', 'Delivery Cancelled', $2, $3)`,

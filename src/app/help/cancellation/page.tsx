@@ -84,20 +84,20 @@ const vendorCancellationRules = [
 
 const rideCancellationRules = [
   {
-    rule: 'Before a driver is matched',
-    detail: 'Cancel anytime before a driver accepts your ride for free — no fee applies while your request is still being matched.',
+    rule: 'Free cancellation before a driver is assigned, or within 5 minutes of acceptance',
+    detail: 'Cancel any time before a driver is matched, or within 5 minutes of a driver accepting and heading to your pickup, at no charge.',
   },
   {
-    rule: 'Within 2 minutes of being matched',
-    detail: 'A small $2 cancellation fee applies if you cancel within 2 minutes of a driver accepting your ride, to compensate them for the time already committed.',
+    rule: 'Cancellation after 5 minutes of driving',
+    detail: 'Once your driver has been driving toward your pickup for 5 minutes or more, a cancellation fee applies — a percentage of the estimated fare — to fairly compensate the time and distance already committed to your trip.',
   },
   {
-    rule: 'After 2 minutes, or once your driver is en route',
-    detail: 'A $5 cancellation fee applies once more than 2 minutes have passed since matching, or once your driver has started heading to you — they’ve already committed time and distance.',
+    rule: 'Cancellation after the driver has arrived',
+    detail: 'If your driver has already arrived at the pickup point, a higher cancellation fee applies, reflecting that the full drive to you is complete.',
   },
   {
-    rule: 'Driver has arrived',
-    detail: 'A $10 cancellation fee applies if you cancel after your driver has arrived at the pickup point.',
+    rule: 'Wait time is billed separately, not as a cancellation fee',
+    detail: 'If you don’t cancel, the first 5 minutes your driver waits at pickup are free. After that, wait-time charges accrue per minute until you board or the trip is cancelled.',
   },
   {
     rule: 'Driver no-show',

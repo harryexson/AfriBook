@@ -1,76 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthenticatedUser } from '@/lib/neon/server';
-import { resolveDriverId } from '@/lib/ridely/driver-auth';
+import { requestDriverOffline, requestDriverOnline } from '@/lib/ridely/driver-availability';
 
-// Reads/writes `drivers.status` (the driver_status enum: offline/online/
-// busy/on_trip) via the `start_driver_session` / `end_driver_session` RPCs
-// that already exist in migration 006 — those also keep the
-// `driver_online_sessions` table in sync, which a raw UPDATE would not.
-// This was the missing piece behind "Go Online" on the driver dashboard:
-// previously it only flipped local React state, so the dispatch engine's
-// `find_nearby_drivers_h3` query (which requires status = 'online' AND
-// is_available = true) could never actually see the driver as eligible.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveDriverId(supabase: any, profileId: string): Promise<string | null> {
+  const { data: driver } = await supabase
+    .from('drivers')
+    .select('id')
+    .eq('profile_id', profileId)
+    .maybeSingle();
+  return (driver?.id as string | undefined) ?? null;
+}
 
+// GET /api/driver/status — current online/offline state, including a
+// pending "go offline" request that hasn't taken effect yet because a
+// trip is still in progress.
 export async function GET() {
   try {
     const { supabase, user } = await requireAuthenticatedUser();
     const driverId = await resolveDriverId(supabase, user.id);
-
     if (!driverId) {
       return NextResponse.json({ success: false, error: 'Driver profile not found' }, { status: 404 });
     }
 
-    const { data: driver, error } = await supabase
+    const { data: driver } = await supabase
       .from('drivers')
-      .select('status, rating')
+      .select('status, rating, metadata')
       .eq('id', driverId)
-      .single();
-
-    if (error || !driver) {
-      return NextResponse.json({ success: false, error: 'Failed to load driver status' }, { status: 500 });
-    }
+      .maybeSingle();
 
     return NextResponse.json({
       success: true,
       driverId,
-      isOnline: (driver as any).status === 'online',
-      rating: (driver as any).rating ?? null,
+      status: driver?.status ?? 'offline',
+      isOnline: driver?.status === 'online',
+      rating: (driver as any)?.rating ?? null,
+      pendingOffline: (driver?.metadata as Record<string, unknown> | null)?.pending_offline === true,
     });
   } catch (err: any) {
     const status = Number(err?.status) === 401 ? 401 : 500;
     return NextResponse.json(
-      { success: false, error: status === 401 ? 'Authentication required' : 'Failed to load driver status' },
+      { success: false, error: status === 401 ? 'Authentication required' : 'Failed to load status' },
       { status },
     );
   }
 }
 
+// POST /api/driver/status { action: 'online' | 'offline' }
+//
+// 'offline' while idle takes effect immediately. 'offline' mid-trip is
+// stored as a pending request and honoured the moment the current trip
+// ends — the driver is never interrupted mid-ride, and they receive no
+// further requests (not even a second simultaneous ride) once asked.
 export async function POST(req: NextRequest) {
   try {
     const { supabase, user } = await requireAuthenticatedUser();
     const driverId = await resolveDriverId(supabase, user.id);
-
     if (!driverId) {
       return NextResponse.json({ success: false, error: 'Driver profile not found' }, { status: 404 });
     }
 
     const body = await req.json().catch(() => ({}));
-    const online = Boolean(body?.online);
+    const action = body?.action;
 
-    const { error } = await (supabase.rpc as any)(
-      online ? 'start_driver_session' : 'end_driver_session',
-      { p_driver_id: driverId },
-    );
-
-    if (error) {
-      return NextResponse.json({ success: false, error: 'Failed to update driver status' }, { status: 500 });
+    if (action !== 'online' && action !== 'offline') {
+      return NextResponse.json({ success: false, error: "action must be 'online' or 'offline'" }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, driverId, isOnline: online });
+    const result = action === 'online'
+      ? await requestDriverOnline(supabase, driverId)
+      : await requestDriverOffline(supabase, driverId);
+
+    if (!result.success) {
+      return NextResponse.json({ success: false, error: result.error ?? 'Failed to update status' }, { status: 400 });
+    }
+
+    return NextResponse.json({ driverId, isOnline: action === 'online', ...result });
   } catch (err: any) {
     const status = Number(err?.status) === 401 ? 401 : 500;
     return NextResponse.json(
-      { success: false, error: status === 401 ? 'Authentication required' : 'Failed to update driver status' },
+      { success: false, error: status === 401 ? 'Authentication required' : 'Failed to update status' },
       { status },
     );
   }

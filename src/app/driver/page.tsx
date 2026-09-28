@@ -143,7 +143,7 @@ export default function DriverDashboardPage() {
       const res = await fetch('/api/driver/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ online: !isOnline }),
+        body: JSON.stringify({ action: isOnline ? 'offline' : 'online' }),
       })
       const data = await res.json()
       if (!res.ok || !data.success) throw new Error(data.error || 'Failed to update status')

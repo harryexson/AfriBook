@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/neon/admin';
+import { createClient } from '@/lib/neon/server';
 import {
   RIDE_STATUS_TRANSITIONS,
   type RideStatus,
 } from '@/types/ridely';
+import { releaseDriverAfterTrip } from '@/lib/ridely/driver-availability';
+import { calculateRiderCancellationFee, calculateWaitTimePay } from '@/lib/ridely/driver-policies';
 
 interface RideRow {
   [key: string]: unknown;
@@ -113,6 +116,53 @@ async function fetchRide(id: string): Promise<(RideRow & { driver: DriverEmbed |
   return { ...(ride as RideRow), driver };
 }
 
+/**
+ * Credits a driver for wait-time pay or a rider cancellation fee.
+ * Uses the raw admin query() this route already writes through (bypasses
+ * RLS, same as every other write below) rather than driver-payouts.ts's
+ * recordEarning(), which opens its own cookie-bound client.
+ */
+async function creditDriverExtra(
+  driverId: string,
+  rideId: string,
+  extra: { waitTimePay?: number; cancellationFee?: number },
+): Promise<void> {
+  const driverRows = await query<{ profile_id: string | null }>(
+    'SELECT profile_id FROM drivers WHERE id = $1',
+    [driverId],
+  );
+  const profileId = driverRows[0]?.profile_id ?? null;
+
+  let currency = 'USD';
+  if (profileId) {
+    const profileRows = await query<{ country_code: string | null }>(
+      'SELECT country_code FROM profiles WHERE id = $1',
+      [profileId],
+    );
+    if (profileRows[0]?.country_code) {
+      const { getCurrencyForCountry } = await import('@/lib/money');
+      currency = getCurrencyForCountry(profileRows[0].country_code as string);
+    }
+  }
+
+  const waitTimePay = extra.waitTimePay ?? 0;
+  const cancellationFee = extra.cancellationFee ?? 0;
+
+  await query(
+    `INSERT INTO driver_earnings
+       (driver_id, ride_id, base_fare, distance_fare, time_fare, surge_bonus, tip,
+        platform_fee, total_earnings, currency, status, metadata)
+     VALUES ($1, $2, 0, 0, 0, 0, 0, 0, $3, $4, 'pending', $5)`,
+    [
+      driverId,
+      rideId,
+      waitTimePay + cancellationFee,
+      currency,
+      JSON.stringify({ waitTimePay, cancellationFee, insurancePremium: 0 }),
+    ],
+  );
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -192,8 +242,11 @@ export async function PATCH(
       );
     }
 
-    const existingRows = await query<{ status: string; driver_id: string | null; pricing: unknown; rider_id: string }>(
-      'SELECT status, driver_id, pricing, rider_id FROM ridely_rides WHERE id = $1',
+    const existingRows = await query<{
+      status: string; driver_id: string | null; pricing: unknown; rider_id: string;
+      ride_type: string | null; estimated_fare: number | null; accepted_at: string | null; arrived_at: string | null;
+    }>(
+      'SELECT status, driver_id, pricing, rider_id, ride_type, estimated_fare, accepted_at, arrived_at FROM ridely_rides WHERE id = $1',
       [id],
     );
     const existing = existingRows[0];
@@ -213,18 +266,49 @@ export async function PATCH(
       );
     }
 
-    const ride = await withTransaction(async (txQuery) => {
-      if (status === 'cancelled' && existing.driver_id) {
-        // NOTE: original code also set `current_trip_id: null` here, but
-        // `drivers` has no `current_trip_id` column (verified via
-        // information_schema) — Supabase was silently dropping that part of
-        // the update. Dropped here; only `status` is a real column.
-        await txQuery(
-          `UPDATE drivers SET status = 'available' WHERE id = $1`,
-          [existing.driver_id],
-        );
+    // Wait-time pay and the rider cancellation fee are computed and
+    // credited outside the transaction below, via the raw admin query()
+    // this route already writes through — same reasoning as
+    // deliveries/[id]/route.ts for releaseDriverAfterTrip (which needs a
+    // Neon `.from()`-shaped client, not the raw query() the rest of this
+    // route uses).
+    if (status === 'in_progress' && existing.driver_id && existing.arrived_at) {
+      // Wait-time pay: the first 5 minutes at pickup are free to the
+      // rider; anything past that is paid to the driver at their normal
+      // per-minute rate (driver-policies.ts).
+      const wait = calculateWaitTimePay(
+        (existing.ride_type as any) ?? 'economy',
+        existing.arrived_at as string,
+      );
+      if (wait.pay > 0) {
+        await creditDriverExtra(existing.driver_id as string, id, { waitTimePay: wait.pay });
       }
+    }
 
+    let cancellationFeeForUpdate = 0;
+    if (status === 'cancelled' && existing.driver_id) {
+      // Rider cancellation fee: free within the grace period, then a
+      // percentage of the fare once the driver has committed 5+ minutes
+      // to the pickup (or already arrived).
+      const cancellation = calculateRiderCancellationFee({
+        hasDriver: true,
+        status: existing.status as string,
+        acceptedAt: existing.accepted_at as string | null,
+        arrivedAt: existing.arrived_at as string | null,
+        estimatedFare: Number(existing.estimated_fare ?? 0),
+      });
+      if (cancellation.fee > 0) {
+        cancellationFeeForUpdate = cancellation.fee;
+        await creditDriverExtra(existing.driver_id as string, id, { cancellationFee: cancellation.fee });
+      }
+    }
+
+    if ((status === 'completed' || status === 'cancelled') && existing.driver_id) {
+      const supabase = await createClient();
+      await releaseDriverAfterTrip(supabase, existing.driver_id as string);
+    }
+
+    const ride = await withTransaction(async (txQuery) => {
       if (status === 'in_progress' && existing.driver_id) {
         await txQuery(
           `UPDATE drivers SET status = 'on_trip' WHERE id = $1`,
@@ -236,9 +320,9 @@ export async function PATCH(
       const values: unknown[] = [id, status];
       let idx = 3;
 
-      if (metadata) {
+      if (metadata || cancellationFeeForUpdate > 0) {
         setClauses.push(`metadata = $${idx}`);
-        values.push(JSON.stringify(metadata));
+        values.push(JSON.stringify(cancellationFeeForUpdate > 0 ? { ...(metadata ?? {}), cancellationFee: cancellationFeeForUpdate } : metadata));
         idx += 1;
       }
       if (status === 'completed') {
@@ -290,8 +374,11 @@ export async function DELETE(
       );
     }
 
-    const existingRows = await query<{ status: string; driver_id: string | null; rider_id: string }>(
-      'SELECT status, driver_id, rider_id FROM ridely_rides WHERE id = $1',
+    const existingRows = await query<{
+      status: string; driver_id: string | null; rider_id: string;
+      ride_type: string | null; estimated_fare: number | null; accepted_at: string | null; arrived_at: string | null;
+    }>(
+      'SELECT status, driver_id, rider_id, ride_type, estimated_fare, accepted_at, arrived_at FROM ridely_rides WHERE id = $1',
       [id],
     );
     const existing = existingRows[0];
@@ -310,22 +397,36 @@ export async function DELETE(
       );
     }
 
+    const actor = cancelledBy ?? 'rider';
+    const cancellation = actor === 'rider'
+      ? calculateRiderCancellationFee({
+          hasDriver: !!existing.driver_id,
+          status: existing.status as string,
+          acceptedAt: existing.accepted_at as string | null,
+          arrivedAt: existing.arrived_at as string | null,
+          estimatedFare: Number(existing.estimated_fare ?? 0),
+        })
+      : { fee: 0, reason: 'no_driver' as const, minutesSinceAccepted: 0 };
+
+    if (existing.driver_id) {
+      if (cancellation.fee > 0) {
+        await creditDriverExtra(existing.driver_id as string, id, { cancellationFee: cancellation.fee });
+      }
+      const supabase = await createClient();
+      await releaseDriverAfterTrip(supabase, existing.driver_id as string);
+    }
+
     await withTransaction(async (txQuery) => {
       await txQuery(
         `UPDATE ridely_rides
          SET status = 'cancelled', cancelled_by = $2, cancel_reason = $3,
-             cancelled_at = now(), updated_at = now()
+             cancelled_at = now(), updated_at = now(),
+             metadata = CASE WHEN $4::numeric > 0 THEN coalesce(metadata, '{}'::jsonb) || jsonb_build_object('cancellationFee', $4::numeric) ELSE metadata END
          WHERE id = $1`,
-        [id, cancelledBy ?? 'rider', reason ?? null],
+        [id, actor, reason ?? null, cancellation.fee],
       );
 
       if (existing.driver_id) {
-        // NOTE: `current_trip_id` dropped — see PATCH handler above for why.
-        await txQuery(
-          `UPDATE drivers SET status = 'available' WHERE id = $1`,
-          [existing.driver_id],
-        );
-
         await txQuery(
           `INSERT INTO notifications (user_id, type, title, body, data)
            VALUES ($1, 'system', 'Ride Cancelled', $2, $3)`,
@@ -338,7 +439,10 @@ export async function DELETE(
       }
     });
 
-    return NextResponse.json({ success: true, data: { id, status: 'cancelled' } });
+    return NextResponse.json({
+      success: true,
+      data: { id, status: 'cancelled', cancellationFee: cancellation.fee, cancellationFeeReason: cancellation.reason },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Internal server error';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
