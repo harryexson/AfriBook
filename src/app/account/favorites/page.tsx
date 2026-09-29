@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { Heart, Star, MapPin, ShoppingCart } from 'lucide-react';
+import { photoFor } from '@/lib/media/images';
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -120,11 +121,11 @@ export default function FavoritesPage() {
               className="bg-surface-secondary rounded-xl p-4 border border-border hover:border-amber-500/50 transition-colors"
             >
               <div className="flex gap-4">
-                <div className="w-16 h-16 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shrink-0">
-                  <span className="text-white font-heading font-bold">
-                    {item.initials}
-                  </span>
-                </div>
+                <img
+                  src={photoFor(item.initials, item.category, null, { width: 80, ratio: 1 })}
+                  alt={item.title}
+                  className="w-16 h-16 rounded-xl object-cover shrink-0"
+                />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">

@@ -24,6 +24,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import DishDialog from "@/components/food/DishDialog";
+import { imageSourceFor, dishPhotoFor } from "@/lib/media/images";
 
 interface MenuCategory {
   id: string;
@@ -178,19 +179,21 @@ export default function RestaurantMenuPage() {
     );
   }
 
-  const initials = restaurant.name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const heroPhoto = imageSourceFor(restaurant.id, restaurant.cuisineType, null, {
+    width: 1000,
+    ratio: 0.45,
+  });
 
   return (
     <div className="min-h-screen bg-surface">
       {/* Header */}
       <section className="relative overflow-hidden bg-dark-700">
-        <div className="absolute inset-0 bg-[radial-gradient(45rem_45rem_at_75%_10%,rgba(245,158,11,0.2),transparent_60%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,14,20,0.9),rgba(15,14,20,0.95))]" />
+        <img
+          src={heroPhoto}
+          alt={restaurant.name}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,14,20,0.55),rgba(15,14,20,0.92))]" />
         <div className="relative mx-auto max-w-4xl px-4 pb-14 pt-20 sm:px-6 lg:px-8">
           <button
             onClick={() => router.back()}
@@ -201,9 +204,6 @@ export default function RestaurantMenuPage() {
           </button>
 
           <motion.div initial="hidden" animate="visible" variants={fadeIn} className="mt-8 flex items-start gap-5">
-            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-gradient-to-br from-amber-500 to-orange-600 text-2xl font-bold text-white shadow-gold-lg">
-              {initials}
-            </div>
             <div className="min-w-0">
               <h1 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">
                 {restaurant.name}
@@ -292,13 +292,11 @@ export default function RestaurantMenuPage() {
                     viewport={{ once: true, margin: "-40px" }}
                   >
                   <Card interactive={false} className="flex items-center justify-between gap-4">
-                    {item.image && (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="hidden h-20 w-20 shrink-0 rounded-2xl object-cover sm:block"
-                      />
-                    )}
+                    <img
+                      src={dishPhotoFor(item.id, item.name, item.image, 88)}
+                      alt={item.name}
+                      className="hidden h-20 w-20 shrink-0 rounded-2xl object-cover sm:block"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="text-base font-semibold text-text-primary">{item.name}</h3>

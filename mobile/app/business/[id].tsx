@@ -16,6 +16,7 @@ import IconText from '../../src/components/ui/IconText';
 import MapView from '../../src/components/MapView';
 import Badge from '../../src/components/ui/Badge';
 import Button from '../../src/components/ui/Button';
+import { imageSourceFor } from '../../src/lib/images';
 import type { Business, Service } from '../../src/types';
 
 const MOCK_BUSINESS: Business = {
@@ -80,13 +81,14 @@ export default function BusinessDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Cover Image */}
         <View style={styles.coverContainer}>
-          {business.media?.coverUrl ? (
-            <Image source={{ uri: business.media.coverUrl }} style={styles.coverImage} />
-          ) : (
-            <View style={styles.coverFallback}>
-              <Text style={styles.coverFallbackText}>{business.name.charAt(0)}</Text>
-            </View>
-          )}
+          <Image
+            source={imageSourceFor(business.id, business.category, business.media?.coverUrl, {
+              width: 800,
+              ratio: 0.55,
+              subject: business.name,
+            })}
+            style={styles.coverImage}
+          />
           <View style={styles.coverOverlay} />
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backText}>←</Text>
@@ -223,17 +225,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
-  },
-  coverFallback: {
-    flex: 1,
-    backgroundColor: colors.primarySurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coverFallbackText: {
-    fontSize: 64,
-    fontWeight: '800',
-    color: colors.primary,
   },
   coverOverlay: {
     ...StyleSheet.absoluteFillObject,

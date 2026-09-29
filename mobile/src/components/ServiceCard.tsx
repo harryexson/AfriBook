@@ -6,6 +6,7 @@ import type { Service } from "../types";
 import Badge from "./ui/Badge";
 import { useMarketStore } from "../stores/market-store";
 import { formatMoney } from "../lib/money";
+import { imageSourceFor } from "../lib/images";
 
 interface ServiceCardProps {
   service: Service;
@@ -29,13 +30,10 @@ export default function ServiceCard({ service, businessId }: ServiceCardProps) {
       activeOpacity={0.8}
       onPress={() => router.push(`/book/${businessId}/${service.id}`)}
     >
-      {service.image ? (
-        <Image source={{ uri: service.image }} style={styles.image} />
-      ) : (
-        <View style={styles.placeholderImage}>
-          <Text style={styles.placeholderText}>No image yet</Text>
-        </View>
-      )}
+      <Image
+        source={imageSourceFor(service.id, service.category, service.image, { width: 640, ratio: 0.46, subject: service.name })}
+        style={styles.image}
+      />
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.titleBlock}>
@@ -78,17 +76,6 @@ const styles = StyleSheet.create({
     width: "100%",
     height: 170,
     resizeMode: "cover",
-  },
-  placeholderImage: {
-    width: "100%",
-    height: 170,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surfaceSecondary,
-  },
-  placeholderText: {
-    fontSize: typography.fontSize.sm,
-    color: colors.textTertiary,
   },
   content: {
     padding: spacing.xl,

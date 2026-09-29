@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Heart, Bookmark, Star, MapPin, BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { curatedPhotoFor, photoFor } from "@/lib/media/images";
 
 export interface Listing {
   id: string;
@@ -17,6 +18,7 @@ export interface Listing {
   reviewCount: number;
   price: string;
   cover: "cover-amber" | "cover-gold";
+  imageId?: string;
   verified?: boolean;
   likes: number;
 }
@@ -51,7 +53,15 @@ export default function MarketplaceCard({
       >
         {/* Cover */}
         <div className={cn("relative h-52 overflow-hidden", listing.cover)}>
-          <div className="img-zoom absolute inset-0 bg-gradient-to-br opacity-90" />
+          <img
+            src={
+              listing.imageId
+                ? curatedPhotoFor(listing.imageId)
+                : photoFor(listing.id, listing.category)
+            }
+            alt={listing.title}
+            className="img-zoom absolute inset-0 h-full w-full object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
 
           {/* Category pill */}

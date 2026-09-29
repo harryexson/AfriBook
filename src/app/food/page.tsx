@@ -24,6 +24,7 @@ import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import IconTile from "@/components/ui/IconTile";
 import CuisineIcon from "@/components/food/CuisineIcon";
+import { imageSourceFor } from "@/lib/media/images";
 
 const fadeIn = {
   hidden: { opacity: 0, y: 30 },
@@ -430,22 +431,11 @@ export default function FoodPage() {
               variants={staggerContainer}
               className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
             >
-              {filteredRestaurants.map((restaurant, i) => {
-                // A small amber-family rotation for placeholder card headers
-                // (restaurants have no photo field yet) — variety without
-                // introducing competing brand colors at grid scale.
-                const gradients = [
-                  "from-amber-500 to-orange-600",
-                  "from-amber-600 to-amber-800",
-                  "from-orange-500 to-amber-600",
-                ];
-                const gradient = gradients[i % gradients.length];
-                const initials = restaurant.name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .slice(0, 2)
-                  .toUpperCase();
+              {filteredRestaurants.map((restaurant) => {
+                const photo = imageSourceFor(restaurant.id, restaurant.cuisineType, null, {
+                  width: 640,
+                  ratio: 0.56,
+                });
                 const priceRange =
                   restaurant.minimumOrder > 0
                     ? `Min ${formatMoneySymbol(restaurant.minimumOrder, restaurant.currency)}`
@@ -458,19 +448,18 @@ export default function FoodPage() {
                   <motion.div key={restaurant.id} variants={fadeIn}>
                     <Link href={`/food/${restaurant.id}`} className="group block h-full">
                       <Card padding="none" interactive className="overflow-hidden">
-                        <div
-                          className={`relative h-52 bg-gradient-to-br ${gradient} overflow-hidden`}
-                        >
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.25),_transparent_35%)]" />
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,_rgba(0,0,0,0.15),_transparent_40%)]" />
+                        <div className="relative h-52 overflow-hidden bg-surface-secondary">
+                          <img
+                            src={photo}
+                            alt={restaurant.name}
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
                           <div className="absolute left-5 top-5 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-text-primary shadow-sm">
                             {priceRange}
                           </div>
                           <div className="absolute right-5 top-5 rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm">
                             {deliveryFeeText} delivery
-                          </div>
-                          <div className="absolute bottom-5 left-5 grid h-14 w-14 place-items-center rounded-2xl bg-white/15 text-lg font-bold text-white backdrop-blur-md">
-                            {initials}
                           </div>
                         </div>
 
