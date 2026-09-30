@@ -1082,146 +1082,56 @@ export interface EventTicketRow {
 }
 
 // ─── Vehicle Rental Marketplace ────────────────────────────────
+// Backed by Neon's rental_vehicles/rental_bookings schema (see
+// src/lib/vehicle-rental.ts). There is no separate host-profile entity —
+// a host is just a profile that owns one or more vehicles; company_name
+// and isCompanyFleet live on the vehicle itself.
 
-export type HostType = 'individual' | 'company' | 'dealership' | 'rental_company';
 export type VehicleType = 'sedan' | 'suv' | 'truck' | 'van' | 'coupe' | 'convertible' | 'hatchback' | 'wagon' | 'minivan' | 'pickup' | 'luxury' | 'electric' | 'hybrid' | 'motorcycle' | 'scooter' | 'rv' | 'trailer' | 'bus';
 export type VehicleTransmission = 'automatic' | 'manual' | 'cvt' | 'semi_automatic';
-export type VehicleFuelType = 'gasoline' | 'diesel' | 'electric' | 'hybrid' | 'plug_in_hybrid' | 'cng' | 'lpg' | 'hydrogen';
-export type VehicleCondition = 'new' | 'excellent' | 'good' | 'fair' | 'poor';
-export type VehicleVerificationStatus = 'pending' | 'approved' | 'rejected' | 'requires_update' | 'suspended';
-export type VehicleBookingStatus = 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled' | 'no_show' | 'disputed';
-export type VehicleImageType = 'exterior_front' | 'exterior_rear' | 'exterior_side' | 'interior_front' | 'interior_rear' | 'dashboard' | 'engine' | 'trunk' | 'wheels' | 'damage' | 'other';
-export type VehicleDocumentType = 'insurance' | 'registration' | 'inspection' | 'title' | 'other';
-
-export interface HostProfile {
-  id: string;
-  userId: string;
-  hostType: HostType;
-  companyName?: string;
-  companyRegistrationNumber?: string;
-  taxId?: string;
-  businessLicense?: string;
-  insurancePolicyNumber?: string;
-  insuranceProvider?: string;
-  insuranceExpiryDate?: string;
-  contactPersonName?: string;
-  contactPersonPhone?: string;
-  contactPersonEmail?: string;
-  addressStreet?: string;
-  addressCity?: string;
-  addressState?: string;
-  addressPostalCode?: string;
-  addressCountryCode: string;
-  stripeAccountId?: string;
-  commissionRate: number;
-  isVerified: boolean;
-  verificationDocuments: string[];
-  verificationStatus: VehicleVerificationStatus;
-  verificationNotes?: string;
-  totalVehicles: number;
-  totalBookings: number;
-  totalEarnings: number;
-  averageRating: number;
-  reviewCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface VehicleImage {
-  id: string;
-  vehicleId: string;
-  url: string;
-  type: VehicleImageType;
-  isPrimary: boolean;
-  displayOrder: number;
-  caption?: string;
-  createdAt: string;
-}
-
-export interface VehicleDocument {
-  id: string;
-  vehicleId: string;
-  documentType: VehicleDocumentType;
-  fileUrl: string;
-  fileName?: string;
-  fileSize?: number;
-  mimeType?: string;
-  expiryDate?: string;
-  verified: boolean;
-  verifiedAt?: string;
-  verifiedBy?: string;
-  notes?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+export type VehicleFuelType = 'petrol' | 'diesel' | 'electric' | 'hybrid' | 'cng' | 'lpg';
+/** Mirrors the `rental_status` Postgres enum. */
+export type VehicleStatus = 'draft' | 'pending_review' | 'published' | 'suspended' | 'rejected' | 'archived';
+/** Mirrors the `rental_booking_status` Postgres enum. */
+export type VehicleBookingStatus = 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled' | 'no_show';
+/** Mirrors the `stay_payment_status` Postgres enum (shared with StayScape). */
+export type VehiclePaymentStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'refunded';
 
 export interface Vehicle {
   id: string;
   hostId: string;
-  title: string;
-  description?: string;
-  vehicleType: VehicleType;
+  companyName?: string;
+  isCompanyFleet: boolean;
   make: string;
   model: string;
   year: number;
-  trim?: string;
-  color: string;
-  exteriorColorHex?: string;
-  interiorColor?: string;
-  interiorColorHex?: string;
+  color?: string;
+  vehicleType: VehicleType;
   transmission: VehicleTransmission;
   fuelType: VehicleFuelType;
-  engineSize?: string;
-  horsepower?: number;
-  drivetrain?: string;
-  doors: number;
   seats: number;
-  mileage: number;
-  condition: VehicleCondition;
-  vin?: string;
   licensePlate: string;
-  licensePlateState?: string;
-  licensePlateCountry: string;
-  registrationExpiryDate?: string;
-  insurancePolicyNumber?: string;
-  insuranceProvider?: string;
-  insuranceExpiryDate?: string;
+  vin?: string;
+  status: VehicleStatus;
   insuranceVerified: boolean;
+  insuranceDocUrl?: string;
+  insuranceExpiry?: string;
   registrationVerified: boolean;
-  inspectionVerified: boolean;
-  inspectionDate?: string;
-  inspectionNotes?: string;
-  features: string[];
-  amenities: string[];
-  rules: string[];
-  locationAddress: string;
-  locationCity: string;
-  locationState: string;
-  locationPostalCode: string;
-  locationCountryCode: string;
-  locationLatitude?: number;
-  locationLongitude?: number;
-  dailyRate: number;
-  weeklyDiscountPercent: number;
-  monthlyDiscountPercent: number;
-  minimumRentalDays: number;
-  maximumRentalDays: number;
+  registrationDocUrl?: string;
+  countryCode: string;
+  city: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
+  pricePerDay: number;
+  currencyCode: string;
   securityDeposit: number;
-  cleaningFee: number;
-  deliveryAvailable: boolean;
-  deliveryRadiusKm: number;
-  deliveryFeePerKm: number;
-  pickupInstructions?: string;
-  dropoffInstructions?: string;
-  images: VehicleImage[];
-  verificationStatus: VehicleVerificationStatus;
-  verificationNotes?: string;
-  isActive: boolean;
-  isInstantBook: boolean;
-  requiresApproval: boolean;
-  totalBookings: number;
-  totalEarnings: number;
-  averageRating: number;
+  mileageLimitPerDay?: number;
+  platformFeePercent: number;
+  coverImageUrl?: string;
+  galleryImages: string[];
+  features: string[];
+  rating: number;
   reviewCount: number;
   createdAt: string;
   updatedAt: string;
@@ -1241,58 +1151,32 @@ export interface VehicleAvailability {
 
 export interface VehicleBooking {
   id: string;
+  bookingCode: string;
   vehicleId: string;
-  hostId: string;
   renterId: string;
-  status: VehicleBookingStatus;
+  hostId: string;
   startDate: string;
   endDate: string;
-  startTime: string;
-  endTime: string;
-  pickupLocationAddress?: string;
-  pickupLocationCity?: string;
-  pickupLocationState?: string;
-  pickupLocationPostalCode?: string;
-  pickupLocationCountryCode: string;
-  pickupLatitude?: number;
-  pickupLongitude?: number;
-  dropoffLocationAddress?: string;
-  dropoffLocationCity?: string;
-  dropoffLocationState?: string;
-  dropoffLocationPostalCode?: string;
-  dropoffLocationCountryCode: string;
-  dropoffLatitude?: number;
-  dropoffLongitude?: number;
-  deliveryRequested: boolean;
-  deliveryFee: number;
-  dailyRate: number;
-  numberOfDays: number;
+  days: number;
+  pricePerDay: number;
   subtotal: number;
-  weeklyDiscount: number;
-  monthlyDiscount: number;
-  cleaningFee: number;
+  platformFee: number;
+  tax: number;
   securityDeposit: number;
-  platformFeePercent: number;
-  platformFeeAmount: number;
-  hostEarnings: number;
-  totalAmount: number;
+  total: number;
   currencyCode: string;
-  paymentIntentId?: string;
-  paymentStatus: string;
-  escrowStatus: string;
-  renterInsuranceVerified: boolean;
+  status: VehicleBookingStatus;
+  paymentStatus: VehiclePaymentStatus;
+  pickupLocation?: string;
+  dropoffLocation?: string;
+  renterName?: string;
+  renterPhone?: string;
   renterLicenseVerified: boolean;
-  hostConfirmedAt?: string;
-  renterConfirmedAt?: string;
-  pickupConfirmedAt?: string;
-  dropoffConfirmedAt?: string;
+  specialRequests?: string;
   cancellationReason?: string;
-  cancelledBy?: string;
+  pickedUpAt?: string;
+  returnedAt?: string;
   cancelledAt?: string;
-  cancellationFee: number;
-  disputeReason?: string;
-  disputeResolvedAt?: string;
-  disputeResolution?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -1310,27 +1194,8 @@ export interface VehicleReview {
   valueRating?: number;
   title?: string;
   comment?: string;
-  images: string[];
-  isVerifiedBooking: boolean;
   hostReply?: string;
   hostRepliedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface HostPayout {
-  id: string;
-  hostId: string;
-  bookingId?: string;
-  amount: number;
-  currencyCode: string;
-  status: string;
-  stripeTransferId?: string;
-  periodStart: string;
-  periodEnd: string;
-  processedAt?: string;
-  failedAt?: string;
-  failureReason?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -1412,14 +1277,13 @@ export interface ExternalPlatformConnection {
   id: string;
   hostId: string;
   platformName: string;
-  platformUrl?: string;
-  apiKeyId?: string;
-  syncEnabled: boolean;
-  syncFrequency: string;
-  lastSyncedAt?: string;
+  externalAccountId?: string;
+  accessToken?: string;
+  refreshToken?: string;
+  autoSync: boolean;
   syncStatus: string;
   syncErrorMessage?: string;
-  fieldMapping: Record<string, unknown>;
+  lastSyncedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -1438,12 +1302,7 @@ export interface VehicleSearchFilters {
   transmission?: VehicleTransmission[];
   fuelType?: VehicleFuelType[];
   seats?: number;
-  doors?: number;
   features?: string[];
-  amenities?: string[];
-  hostTypes?: HostType[];
-  instantBook?: boolean;
-  deliveryAvailable?: boolean;
   minRating?: number;
   sortBy?: 'price_asc' | 'price_desc' | 'rating' | 'newest' | 'distance' | 'popularity';
 }
@@ -1457,23 +1316,12 @@ export interface VehicleSearchResult {
 }
 
 export interface VehiclePricingBreakdown {
-  dailyRate: number;
-  numberOfDays: number;
+  pricePerDay: number;
+  days: number;
   subtotal: number;
-  weeklyDiscount: number;
-  monthlyDiscount: number;
-  cleaningFee: number;
+  platformFee: number;
+  tax: number;
   securityDeposit: number;
-  deliveryFee: number;
-  platformFeePercent: number;
-  platformFeeAmount: number;
-  hostEarnings: number;
-  totalAmount: number;
-  currencyCode: string;
-}
-
-export interface VehiclePricingResult {
-  pricing: VehiclePricingBreakdown[];
   total: number;
   currencyCode: string;
 }
@@ -1652,20 +1500,16 @@ export interface Database {
       driver_safety_checklist: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       pickup_orders: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
       safety_ratings: { Row: Record<string, unknown>; Insert: Record<string, unknown>; Update: Record<string, unknown>; Relationships: never[] };
-      host_profiles: { Row: Omit<HostProfile, never>; Insert: Omit<HostProfile, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<HostProfile, 'id'>>; Relationships: never[] };
-      vehicles: { Row: Omit<Vehicle, never>; Insert: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Vehicle, 'id'>>; Relationships: never[] };
-      vehicle_availability: { Row: Omit<VehicleAvailability, never>; Insert: Omit<VehicleAvailability, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleAvailability, 'id'>>; Relationships: never[] };
-      vehicle_bookings: { Row: Omit<VehicleBooking, never>; Insert: Omit<VehicleBooking, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleBooking, 'id'>>; Relationships: never[] };
-      vehicle_images: { Row: Omit<VehicleImage, never>; Insert: Omit<VehicleImage, 'id' | 'createdAt'>; Update: Partial<Omit<VehicleImage, 'id'>>; Relationships: never[] };
-      vehicle_reviews: { Row: Omit<VehicleReview, never>; Insert: Omit<VehicleReview, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleReview, 'id'>>; Relationships: never[] };
-      vehicle_documents: { Row: Omit<VehicleDocument, never>; Insert: Omit<VehicleDocument, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleDocument, 'id'>>; Relationships: never[] };
-      host_payouts: { Row: Omit<HostPayout, never>; Insert: Omit<HostPayout, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<HostPayout, 'id'>>; Relationships: never[] };
-      vehicle_favorites: { Row: Omit<VehicleFavorite, never>; Insert: Omit<VehicleFavorite, 'id' | 'createdAt'>; Update: Partial<Omit<VehicleFavorite, 'id'>>; Relationships: never[] };
-      api_keys: { Row: Omit<ApiKey, never>; Insert: Omit<ApiKey, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<ApiKey, 'id'>>; Relationships: never[] };
-      api_key_usage_logs: { Row: Omit<ApiKeyUsageLog, never>; Insert: Omit<ApiKeyUsageLog, 'id' | 'createdAt'>; Update: Partial<Omit<ApiKeyUsageLog, 'id'>>; Relationships: never[] };
-      webhook_endpoints: { Row: Omit<WebhookEndpoint, never>; Insert: Omit<WebhookEndpoint, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<WebhookEndpoint, 'id'>>; Relationships: never[] };
-      webhook_delivery_logs: { Row: Omit<WebhookDeliveryLog, never>; Insert: Omit<WebhookDeliveryLog, 'id' | 'createdAt'>; Update: Partial<Omit<WebhookDeliveryLog, 'id'>>; Relationships: never[] };
-      external_platform_connections: { Row: Omit<ExternalPlatformConnection, never>; Insert: Omit<ExternalPlatformConnection, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<ExternalPlatformConnection, 'id'>>; Relationships: never[] };
+      rental_vehicles: { Row: Omit<Vehicle, never>; Insert: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<Vehicle, 'id'>>; Relationships: never[] };
+      rental_vehicle_availability: { Row: Omit<VehicleAvailability, never>; Insert: Omit<VehicleAvailability, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleAvailability, 'id'>>; Relationships: never[] };
+      rental_bookings: { Row: Omit<VehicleBooking, never>; Insert: Omit<VehicleBooking, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleBooking, 'id'>>; Relationships: never[] };
+      rental_vehicle_reviews: { Row: Omit<VehicleReview, never>; Insert: Omit<VehicleReview, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<VehicleReview, 'id'>>; Relationships: never[] };
+      rental_vehicle_favorites: { Row: Omit<VehicleFavorite, never>; Insert: Omit<VehicleFavorite, 'id' | 'createdAt'>; Update: Partial<Omit<VehicleFavorite, 'id'>>; Relationships: never[] };
+      rental_api_keys: { Row: Omit<ApiKey, never>; Insert: Omit<ApiKey, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<ApiKey, 'id'>>; Relationships: never[] };
+      rental_api_key_usage_logs: { Row: Omit<ApiKeyUsageLog, never>; Insert: Omit<ApiKeyUsageLog, 'id' | 'createdAt'>; Update: Partial<Omit<ApiKeyUsageLog, 'id'>>; Relationships: never[] };
+      rental_webhook_endpoints: { Row: Omit<WebhookEndpoint, never>; Insert: Omit<WebhookEndpoint, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<WebhookEndpoint, 'id'>>; Relationships: never[] };
+      rental_webhook_delivery_logs: { Row: Omit<WebhookDeliveryLog, never>; Insert: Omit<WebhookDeliveryLog, 'id' | 'createdAt'>; Update: Partial<Omit<WebhookDeliveryLog, 'id'>>; Relationships: never[] };
+      rental_external_platform_connections: { Row: Omit<ExternalPlatformConnection, never>; Insert: Omit<ExternalPlatformConnection, 'id' | 'createdAt' | 'updatedAt'>; Update: Partial<Omit<ExternalPlatformConnection, 'id'>>; Relationships: never[] };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

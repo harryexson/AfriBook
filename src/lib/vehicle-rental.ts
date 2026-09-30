@@ -1,21 +1,15 @@
-import { createClient } from '@/lib/supabase/client';
+import { createClient } from '@/lib/neon/client';
 import type {
-  HostProfile,
   Vehicle,
-  VehicleImage,
-  VehicleDocument,
   VehicleAvailability,
   VehicleBooking,
+  VehicleBookingStatus,
   VehicleReview,
-  HostPayout,
   VehicleFavorite,
   VehicleSearchFilters,
   VehicleSearchResult,
   VehiclePricingBreakdown,
   VehicleType,
-  HostType,
-  VehicleVerificationStatus,
-  VehicleBookingStatus,
   ApiKey,
   ApiKeyScope,
   ApiKeyUsageLog,
@@ -25,22 +19,16 @@ import type {
 } from '@/types';
 
 export type {
-  HostProfile,
   Vehicle,
-  VehicleImage,
-  VehicleDocument,
   VehicleAvailability,
   VehicleBooking,
+  VehicleBookingStatus,
   VehicleReview,
-  HostPayout,
   VehicleFavorite,
   VehicleSearchFilters,
   VehicleSearchResult,
   VehiclePricingBreakdown,
   VehicleType,
-  HostType,
-  VehicleVerificationStatus,
-  VehicleBookingStatus,
   ApiKey,
   ApiKeyScope,
   ApiKeyUsageLog,
@@ -51,11 +39,15 @@ export type {
 
 const supabase = createClient();
 
-// Helper to convert snake_case keys to camelCase
+// Neon's Data API (accessed here via the SupabaseAuthAdapter-backed browser
+// client) speaks the same PostgREST-style builder as supabase-js, but its
+// TypeScript types aren't generated for this project's schema, hence the
+// `as any` at each call site — the same pattern used by every other
+// browser-side data module in this app (see src/app/vendor/restaurant/*).
 function toCamelCase<T>(obj: any): T {
   if (!obj || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) return obj.map(toCamelCase) as any;
-  
+
   const result: any = {};
   for (const [key, value] of Object.entries(obj)) {
     const camelKey = key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
@@ -64,1412 +56,687 @@ function toCamelCase<T>(obj: any): T {
   return result as T;
 }
 
-// Type assertion helper for Supabase queries
+function toSnakeCase(obj: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) continue;
+    const snakeKey = key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+    result[snakeKey] = value;
+  }
+  return result;
+}
+
 const qb = supabase as any;
 
-// ─── Host Profile Functions ─────────────────────────────────────
-
-export async function getHostProfile(userId: string): Promise<HostProfile | null> {
-  const { data, error } = await qb
-    .from('host_profiles')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-  return toCamelCase<HostProfile>(data);
-}
-
-export async function createHostProfile(profile: Omit<HostProfile, 'id' | 'createdAt' | 'updatedAt' | 'totalVehicles' | 'totalBookings' | 'totalEarnings' | 'averageRating' | 'reviewCount'>): Promise<HostProfile> {
-  const { data, error } = await qb
-    .from('host_profiles')
-    .insert({
-      ...profile,
-      total_vehicles: 0,
-      total_bookings: 0,
-      total_earnings: 0,
-      average_rating: 0,
-      review_count: 0,
-    } as any)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<HostProfile>(data);
-}
-
-export async function updateHostProfile(hostId: string, updates: Partial<HostProfile>): Promise<HostProfile> {
-  const { data, error } = await qb
-    .from('host_profiles')
-    .update(updates as any)
-    .eq('id', hostId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<HostProfile>(data);
-}
-
-export async function getHostProfileById(hostId: string): Promise<HostProfile | null> {
-  const { data, error } = await qb
-    .from('host_profiles')
-    .select('*')
-    .eq('id', hostId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-  return toCamelCase<HostProfile>(data);
-}
-
-// ─── Vehicle Functions ──────────────────────────────────────────
+// ─── Vehicle CRUD ─────────────────────────────────────────────────
 
 export async function getVehicle(vehicleId: string): Promise<Vehicle | null> {
-  const { data, error } = await qb
-    .from('vehicles')
-    .select(`
-      *,
-      vehicle_images (*),
-      host_profiles (
-        id,
-        user_id,
-        host_type,
-        company_name,
-        is_verified,
-        average_rating,
-        review_count
-      )
-    `)
-    .eq('id', vehicleId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
+  const { data, error } = await qb.from('rental_vehicles').select('*').eq('id', vehicleId).single();
+  if (error) return null;
   return toCamelCase<Vehicle>(data);
 }
 
 export async function getVehiclesByHost(hostId: string): Promise<Vehicle[]> {
   const { data, error } = await qb
-    .from('vehicles')
+    .from('rental_vehicles')
     .select('*')
     .eq('host_id', hostId)
     .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<Vehicle>(v));
+  if (error || !data) return [];
+  return toCamelCase<Vehicle[]>(data);
 }
 
-export async function createVehicle(vehicle: Omit<Vehicle, 'id' | 'createdAt' | 'updatedAt' | 'totalBookings' | 'totalEarnings' | 'averageRating' | 'reviewCount' | 'images'>): Promise<Vehicle> {
-  const { data, error } = await qb
-    .from('vehicles')
-    .insert({
-      ...vehicle,
-      total_bookings: 0,
-      total_earnings: 0,
-      average_rating: 0,
-      review_count: 0,
-      images: [],
-    } as any)
-    .select()
-    .single();
-
-  if (error) throw error;
-  
-  await qb.rpc('increment_host_vehicle_count', { host_id: vehicle.hostId });
-  
+export async function createVehicle(
+  hostId: string,
+  input: Partial<Omit<Vehicle, 'id' | 'hostId' | 'createdAt' | 'updatedAt' | 'rating' | 'reviewCount'>>,
+): Promise<Vehicle> {
+  const row = toSnakeCase({ ...input, hostId });
+  const { data, error } = await qb.from('rental_vehicles').insert(row).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to create vehicle');
   return toCamelCase<Vehicle>(data);
 }
 
-export async function updateVehicle(vehicleId: string, updates: Partial<Vehicle>): Promise<Vehicle> {
-  const { data, error } = await qb
-    .from('vehicles')
-    .update(updates as any)
-    .eq('id', vehicleId)
-    .select()
-    .single();
-
-  if (error) throw error;
+export async function updateVehicle(
+  vehicleId: string,
+  updates: Partial<Omit<Vehicle, 'id' | 'hostId' | 'createdAt' | 'updatedAt'>>,
+): Promise<Vehicle> {
+  const row = toSnakeCase(updates);
+  const { data, error } = await qb.from('rental_vehicles').update(row).eq('id', vehicleId).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to update vehicle');
   return toCamelCase<Vehicle>(data);
 }
 
 export async function deleteVehicle(vehicleId: string): Promise<void> {
-  const { error } = await qb
-    .from('vehicles')
-    .delete()
-    .eq('id', vehicleId);
-
-  if (error) throw error;
+  const { error } = await qb.from('rental_vehicles').delete().eq('id', vehicleId);
+  if (error) throw new Error(error.message ?? 'Failed to delete vehicle');
 }
 
-export async function searchVehicles(filters: VehicleSearchFilters, page = 1, pageSize = 20): Promise<VehicleSearchResult> {
-  let query = qb
-    .from('vehicles')
-    .select(`
-      *,
-      vehicle_images!inner (url, type, is_primary),
-      host_profiles (
-        id,
-        host_type,
-        company_name,
-        is_verified,
-        average_rating,
-        review_count
-      )
-    `, { count: 'exact' })
-    .eq('is_active', true)
-    .eq('verification_status', 'approved');
+// ─── Search ───────────────────────────────────────────────────────
 
-  if (filters.location) {
-    query = query.or(`location_city.ilike.%${filters.location}%,location_state.ilike.%${filters.location}%,location_address.ilike.%${filters.location}%`);
+export async function searchVehicles(
+  filters: VehicleSearchFilters,
+  page = 1,
+  pageSize = 20,
+): Promise<VehicleSearchResult> {
+  let query = qb.from('rental_vehicles').select('*', { count: 'exact' }).eq('status', 'published');
+
+  if (filters.location) query = query.ilike('city', `%${filters.location}%`);
+  if (filters.vehicleTypes?.length) query = query.in('vehicle_type', filters.vehicleTypes);
+  if (filters.makes?.length) query = query.in('make', filters.makes);
+  if (filters.priceMin !== undefined) query = query.gte('price_per_day', filters.priceMin);
+  if (filters.priceMax !== undefined) query = query.lte('price_per_day', filters.priceMax);
+  if (filters.transmission?.length) query = query.in('transmission', filters.transmission);
+  if (filters.fuelType?.length) query = query.in('fuel_type', filters.fuelType);
+  if (filters.seats !== undefined) query = query.gte('seats', filters.seats);
+  if (filters.minRating !== undefined) query = query.gte('rating', filters.minRating);
+
+  switch (filters.sortBy) {
+    case 'price_asc':
+      query = query.order('price_per_day', { ascending: true });
+      break;
+    case 'price_desc':
+      query = query.order('price_per_day', { ascending: false });
+      break;
+    case 'rating':
+      query = query.order('rating', { ascending: false });
+      break;
+    case 'popularity':
+      query = query.order('review_count', { ascending: false });
+      break;
+    default:
+      query = query.order('created_at', { ascending: false });
   }
-
-  if (filters.vehicleTypes && filters.vehicleTypes.length > 0) {
-    query = query.in('vehicle_type', filters.vehicleTypes);
-  }
-
-  if (filters.makes && filters.makes.length > 0) {
-    query = query.in('make', filters.makes);
-  }
-
-  if (filters.priceMin !== undefined) {
-    query = query.gte('daily_rate', filters.priceMin);
-  }
-  if (filters.priceMax !== undefined) {
-    query = query.lte('daily_rate', filters.priceMax);
-  }
-
-  if (filters.transmission && filters.transmission.length > 0) {
-    query = query.in('transmission', filters.transmission);
-  }
-
-  if (filters.fuelType && filters.fuelType.length > 0) {
-    query = query.in('fuel_type', filters.fuelType);
-  }
-
-  if (filters.seats) {
-    query = query.gte('seats', filters.seats);
-  }
-
-  if (filters.doors) {
-    query = query.gte('doors', filters.doors);
-  }
-
-  if (filters.hostTypes && filters.hostTypes.length > 0) {
-    query = query.in('host_profiles.host_type', filters.hostTypes);
-  }
-
-  if (filters.instantBook) {
-    query = query.eq('is_instant_book', true);
-  }
-
-  if (filters.deliveryAvailable) {
-    query = query.eq('delivery_available', true);
-  }
-
-  if (filters.minRating) {
-    query = query.gte('average_rating', filters.minRating);
-  }
-
-  const sortMap: Record<string, { column: string; ascending: boolean }> = {
-    price_asc: { column: 'daily_rate', ascending: true },
-    price_desc: { column: 'daily_rate', ascending: false },
-    rating: { column: 'average_rating', ascending: false },
-    newest: { column: 'created_at', ascending: false },
-    popularity: { column: 'total_bookings', ascending: false },
-  };
-
-  const sort = sortMap[filters.sortBy || 'newest'] || sortMap.newest;
-  query = query.order(sort.column, { ascending: sort.ascending });
 
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
-  query = query.range(from, to);
+  const { data, error, count } = await query.range(from, to);
 
-  const { data, error, count } = await query;
+  if (error || !data) {
+    return { vehicles: [], totalCount: 0, page, pageSize, hasMore: false };
+  }
 
-  if (error) throw error;
-
+  const totalCount = count ?? data.length;
   return {
-    vehicles: (data || []).map((v: any) => toCamelCase<Vehicle>(v)),
-    totalCount: count || 0,
+    vehicles: toCamelCase<Vehicle[]>(data),
+    totalCount,
     page,
     pageSize,
-    hasMore: (count || 0) > to + 1,
+    hasMore: from + data.length < totalCount,
   };
 }
 
 export async function getFeaturedVehicles(limit = 8): Promise<Vehicle[]> {
   const { data, error } = await qb
-    .from('vehicles')
-    .select(`
-      *,
-      vehicle_images!inner (url, type, is_primary),
-      host_profiles (
-        id,
-        host_type,
-        company_name,
-        is_verified,
-        average_rating,
-        review_count
-      )
-    `)
-    .eq('is_active', true)
-    .eq('verification_status', 'approved')
-    .gte('average_rating', 4.5)
-    .gte('review_count', 5)
-    .order('average_rating', { ascending: false })
+    .from('rental_vehicles')
+    .select('*')
+    .eq('status', 'published')
+    .order('rating', { ascending: false })
     .limit(limit);
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<Vehicle>(v));
+  if (error || !data) return [];
+  return toCamelCase<Vehicle[]>(data);
 }
 
-export async function getVehiclesByType(type: VehicleType, limit = 10): Promise<Vehicle[]> {
+export async function getVehiclesByType(vehicleType: VehicleType, limit = 20): Promise<Vehicle[]> {
   const { data, error } = await qb
-    .from('vehicles')
-    .select(`
-      *,
-      vehicle_images!inner (url, type, is_primary),
-      host_profiles (
-        id,
-        host_type,
-        company_name,
-        is_verified,
-        average_rating,
-        review_count
-      )
-    `)
-    .eq('vehicle_type', type)
-    .eq('is_active', true)
-    .eq('verification_status', 'approved')
-    .order('average_rating', { ascending: false })
+    .from('rental_vehicles')
+    .select('*')
+    .eq('status', 'published')
+    .eq('vehicle_type', vehicleType)
     .limit(limit);
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<Vehicle>(v));
+  if (error || !data) return [];
+  return toCamelCase<Vehicle[]>(data);
 }
 
-// ─── Vehicle Availability Functions ─────────────────────────────
+// ─── Availability ─────────────────────────────────────────────────
 
-export async function getVehicleAvailability(vehicleId: string, startDate: string, endDate: string): Promise<VehicleAvailability[]> {
+export async function getVehicleAvailability(
+  vehicleId: string,
+  startDate: string,
+  endDate: string,
+): Promise<VehicleAvailability[]> {
   const { data, error } = await qb
-    .from('vehicle_availability')
+    .from('rental_vehicle_availability')
     .select('*')
     .eq('vehicle_id', vehicleId)
     .gte('date', startDate)
     .lte('date', endDate)
     .order('date', { ascending: true });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehicleAvailability>(v));
+  if (error || !data) return [];
+  return toCamelCase<VehicleAvailability[]>(data);
 }
 
-export async function setVehicleAvailability(vehicleId: string, dates: Array<{ date: string; isAvailable: boolean; priceOverride?: number; minimumDays?: number; note?: string }>): Promise<VehicleAvailability[]> {
-  const { data, error } = await qb
-    .from('vehicle_availability')
-    .upsert(
-      dates.map(d => ({
-        vehicle_id: vehicleId,
-        date: d.date,
-        is_available: d.isAvailable,
-        price_override: d.priceOverride,
-        minimum_days: d.minimumDays,
-        note: d.note,
-      } as any)),
-      { onConflict: 'vehicle_id,date' }
-    )
-    .select();
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehicleAvailability>(v));
-}
-
-export async function checkVehicleAvailability(vehicleId: string, startDate: string, endDate: string): Promise<boolean> {
-  const { data, error } = await qb
-    .rpc('check_vehicle_availability', {
-      p_vehicle_id: vehicleId,
-      p_start_date: startDate,
-      p_end_date: endDate,
-    });
-
-  if (error) throw error;
-  return data;
-}
-
-export async function getVehiclePricing(vehicleId: string, startDate: string, endDate: string): Promise<VehiclePricingBreakdown[]> {
-  const { data, error } = await qb
-    .rpc('get_vehicle_pricing', {
-      p_vehicle_id: vehicleId,
-      p_start_date: startDate,
-      p_end_date: endDate,
-    });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehiclePricingBreakdown>(v));
-}
-
-// ─── Vehicle Images Functions ───────────────────────────────────
-
-export async function getVehicleImages(vehicleId: string): Promise<VehicleImage[]> {
-  const { data, error } = await qb
-    .from('vehicle_images')
-    .select('*')
-    .eq('vehicle_id', vehicleId)
-    .order('display_order', { ascending: true });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehicleImage>(v));
-}
-
-export async function uploadVehicleImage(
+export async function setVehicleAvailability(
   vehicleId: string,
-  file: File,
-  type: VehicleImage['type'],
-  isPrimary = false,
-  caption?: string
-): Promise<VehicleImage> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${vehicleId}/${type}_${Date.now()}.${fileExt}`;
-  
-  const { error: uploadError } = await qb.storage
-    .from('vehicle-images')
-    .upload(fileName, file);
-
-  if (uploadError) throw uploadError;
-
-  const { data: { publicUrl } } = qb.storage
-    .from('vehicle-images')
-    .getPublicUrl(fileName);
-
-  if (isPrimary) {
-    await qb
-      .from('vehicle_images')
-      .update({ is_primary: false })
-      .eq('vehicle_id', vehicleId)
-      .eq('type', type);
-  }
-
-  const { data: maxOrderData } = await qb
-    .from('vehicle_images')
-    .select('display_order')
-    .eq('vehicle_id', vehicleId)
-    .order('display_order', { ascending: false })
-    .limit(1);
-
-  const displayOrder = (maxOrderData?.[0]?.display_order || 0) + 1;
-
+  date: string,
+  isAvailable: boolean,
+  options?: { priceOverride?: number; minimumDays?: number; note?: string },
+): Promise<VehicleAvailability> {
+  const row = {
+    vehicle_id: vehicleId,
+    date,
+    is_available: isAvailable,
+    price_override: options?.priceOverride ?? null,
+    minimum_days: options?.minimumDays ?? null,
+    note: options?.note ?? null,
+  };
   const { data, error } = await qb
-    .from('vehicle_images')
-    .insert({
-      vehicle_id: vehicleId,
-      url: publicUrl,
-      type,
-      is_primary: isPrimary,
-      display_order: displayOrder,
-      caption,
-    } as any)
-    .select()
+    .from('rental_vehicle_availability')
+    .upsert(row, { onConflict: 'vehicle_id,date' })
+    .select('*')
     .single();
-
-  if (error) throw error;
-  return toCamelCase<VehicleImage>(data);
+  if (error) throw new Error(error.message ?? 'Failed to set availability');
+  return toCamelCase<VehicleAvailability>(data);
 }
 
-export async function deleteVehicleImage(imageId: string): Promise<void> {
-  const { data: image, error: fetchError } = await qb
-    .from('vehicle_images')
-    .select('url')
-    .eq('id', imageId)
-    .single();
-
-  if (fetchError) throw fetchError;
-
-  const urlParts = image.url.split('/vehicle-images/');
-  if (urlParts.length > 1) {
-    const filePath = urlParts[1];
-    await qb.storage.from('vehicle-images').remove([filePath]);
-  }
-
-  const { error } = await qb
-    .from('vehicle_images')
-    .delete()
-    .eq('id', imageId);
-
-  if (error) throw error;
-}
-
-export async function reorderVehicleImages(imageIds: string[]): Promise<void> {
-  const updates = imageIds.map((id, index) => 
+export async function checkVehicleAvailability(
+  vehicleId: string,
+  startDate: string,
+  endDate: string,
+): Promise<boolean> {
+  const [blockedDays, overlappingBookings] = await Promise.all([
     qb
-      .from('vehicle_images')
-      .update({ display_order: index })
-      .eq('id', id)
-  );
-  
-  await Promise.all(updates);
+      .from('rental_vehicle_availability')
+      .select('date')
+      .eq('vehicle_id', vehicleId)
+      .eq('is_available', false)
+      .gte('date', startDate)
+      .lt('date', endDate),
+    qb
+      .from('rental_bookings')
+      .select('id')
+      .eq('vehicle_id', vehicleId)
+      .in('status', ['pending', 'confirmed', 'active'])
+      .lt('start_date', endDate)
+      .gt('end_date', startDate),
+  ]);
+
+  if (blockedDays.error || overlappingBookings.error) return false;
+  return (blockedDays.data?.length ?? 0) === 0 && (overlappingBookings.data?.length ?? 0) === 0;
 }
 
-// ─── Vehicle Documents Functions ────────────────────────────────
+export function getVehiclePricing(
+  pricePerDay: number,
+  days: number,
+  currencyCode: string,
+  options?: { platformFeePercent?: number; securityDeposit?: number; taxRate?: number },
+): VehiclePricingBreakdown {
+  const subtotal = pricePerDay * days;
+  const platformFeePercent = options?.platformFeePercent ?? 20;
+  const platformFee = Math.round(subtotal * (platformFeePercent / 100) * 100) / 100;
+  const tax = options?.taxRate ? Math.round(subtotal * options.taxRate * 100) / 100 : 0;
+  const securityDeposit = options?.securityDeposit ?? 0;
+  const total = subtotal + platformFee + tax + securityDeposit;
 
-export async function getVehicleDocuments(vehicleId: string): Promise<VehicleDocument[]> {
-  const { data, error } = await qb
-    .from('vehicle_documents')
-    .select('*')
-    .eq('vehicle_id', vehicleId)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehicleDocument>(v));
+  return { pricePerDay, days, subtotal, platformFee, tax, securityDeposit, total, currencyCode };
 }
 
-export async function uploadVehicleDocument(
-  vehicleId: string,
-  file: File,
-  documentType: VehicleDocument['documentType'],
-  expiryDate?: string
-): Promise<VehicleDocument> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${vehicleId}/${documentType}_${Date.now()}.${fileExt}`;
-  
-  const { error: uploadError } = await qb.storage
-    .from('vehicle-documents')
-    .upload(fileName, file);
+// ─── Vehicle Images ───────────────────────────────────────────────
+// Images live directly on the vehicle row (coverImageUrl + galleryImages),
+// not in a separate table. Files themselves are uploaded via the shared
+// /api/upload route (backed by Cloudflare R2), which returns a public URL
+// this module then stores on the vehicle.
 
-  if (uploadError) throw uploadError;
+export async function uploadVehicleImage(vehicleId: string, file: File, makeCover = false): Promise<Vehicle> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('bucket', 'vehicles');
+  formData.append('folder', `vehicles/${vehicleId}`);
 
-  const { data: { publicUrl } } = qb.storage
-    .from('vehicle-documents')
-    .getPublicUrl(fileName);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? 'Failed to upload image');
+  }
+  const { url } = (await res.json()) as { url: string };
 
-  const { data, error } = await qb
-    .from('vehicle_documents')
-    .insert({
-      vehicle_id: vehicleId,
-      document_type: documentType,
-      file_url: publicUrl,
-      file_name: file.name,
-      file_size: file.size,
-      mime_type: file.type,
-      expiry_date: expiryDate,
-    } as any)
-    .select()
-    .single();
+  const vehicle = await getVehicle(vehicleId);
+  if (!vehicle) throw new Error('Vehicle not found');
 
-  if (error) throw error;
-  return toCamelCase<VehicleDocument>(data);
+  const galleryImages = [...vehicle.galleryImages, url];
+  const updates: Partial<Vehicle> = { galleryImages };
+  if (makeCover || !vehicle.coverImageUrl) updates.coverImageUrl = url;
+
+  return updateVehicle(vehicleId, updates);
 }
 
-export async function verifyVehicleDocument(documentId: string, verifiedBy: string): Promise<VehicleDocument> {
-  const { data, error } = await qb
-    .from('vehicle_documents')
-    .update({
-      verified: true,
-      verified_at: new Date().toISOString(),
-      verified_by: verifiedBy,
-    } as any)
-    .eq('id', documentId)
-    .select()
-    .single();
+export async function deleteVehicleImage(vehicleId: string, imageUrl: string): Promise<Vehicle> {
+  const vehicle = await getVehicle(vehicleId);
+  if (!vehicle) throw new Error('Vehicle not found');
 
-  if (error) throw error;
-  return toCamelCase<VehicleDocument>(data);
-}
-
-export async function deleteVehicleDocument(documentId: string): Promise<void> {
-  const { data: doc, error: fetchError } = await qb
-    .from('vehicle_documents')
-    .select('file_url')
-    .eq('id', documentId)
-    .single();
-
-  if (fetchError) throw fetchError;
-
-  const urlParts = doc.file_url.split('/vehicle-documents/');
-  if (urlParts.length > 1) {
-    const filePath = urlParts[1];
-    await qb.storage.from('vehicle-documents').remove([filePath]);
+  const galleryImages = vehicle.galleryImages.filter((url) => url !== imageUrl);
+  const updates: Partial<Vehicle> = { galleryImages };
+  if (vehicle.coverImageUrl === imageUrl) {
+    updates.coverImageUrl = galleryImages[0];
   }
 
-  const { error } = await qb
-    .from('vehicle_documents')
-    .delete()
-    .eq('id', documentId);
-
-  if (error) throw error;
+  return updateVehicle(vehicleId, updates);
 }
 
-// ─── Vehicle Booking Functions ──────────────────────────────────
+export async function setCoverImage(vehicleId: string, imageUrl: string): Promise<Vehicle> {
+  return updateVehicle(vehicleId, { coverImageUrl: imageUrl });
+}
 
-export async function createVehicleBooking(booking: any): Promise<VehicleBooking> {
-  const { data, error } = await qb
-    .from('vehicle_bookings')
-    .insert({
-      ...booking,
-      payment_status: 'pending',
-      escrow_status: 'held',
-      renter_insurance_verified: false,
-      renter_license_verified: false,
-    } as any)
-    .select()
-    .single();
+// ─── Bookings ─────────────────────────────────────────────────────
 
-  if (error) throw error;
+function generateBookingCode(): string {
+  return `RB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+}
+
+export async function createVehicleBooking(
+  input: Omit<
+    VehicleBooking,
+    'id' | 'bookingCode' | 'status' | 'paymentStatus' | 'createdAt' | 'updatedAt' | 'renterLicenseVerified'
+  > & { renterLicenseVerified?: boolean },
+): Promise<VehicleBooking> {
+  const isAvailable = await checkVehicleAvailability(input.vehicleId, input.startDate, input.endDate);
+  if (!isAvailable) throw new Error('Vehicle is not available for the selected dates');
+
+  const row = toSnakeCase({
+    ...input,
+    bookingCode: generateBookingCode(),
+    status: 'pending' as VehicleBookingStatus,
+    paymentStatus: 'pending',
+    renterLicenseVerified: input.renterLicenseVerified ?? false,
+  });
+
+  const { data, error } = await qb.from('rental_bookings').insert(row).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to create booking');
   return toCamelCase<VehicleBooking>(data);
 }
 
 export async function getVehicleBooking(bookingId: string): Promise<VehicleBooking | null> {
-  const { data, error } = await qb
-    .from('vehicle_bookings')
-    .select(`
-      *,
-      vehicles (
-        id,
-        title,
-        make,
-        model,
-        year,
-        color,
-        images,
-        location_address,
-        location_city,
-        location_state,
-        daily_rate,
-        host_id
-      ),
-      host_profiles (
-        id,
-        user_id,
-        host_type,
-        company_name,
-        contact_person_name,
-        contact_person_phone,
-        contact_person_email,
-        stripe_account_id
-      ),
-      renter:profiles!vehicle_bookings_renter_id_fkey (
-        id,
-        name,
-        email,
-        phone,
-        avatar_url
-      )
-    `)
-    .eq('id', bookingId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
+  const { data, error } = await qb.from('rental_bookings').select('*').eq('id', bookingId).single();
+  if (error) return null;
   return toCamelCase<VehicleBooking>(data);
 }
 
-export async function getUserBookings(userId: string, status?: VehicleBookingStatus): Promise<VehicleBooking[]> {
-  let query = qb
-    .from('vehicle_bookings')
-    .select(`
-      *,
-      vehicles (
-        id,
-        title,
-        make,
-        model,
-        year,
-        color,
-        images,
-        location_address,
-        location_city,
-        location_state,
-        daily_rate
-      ),
-      host_profiles (
-        id,
-        host_type,
-        company_name,
-        is_verified
-      )
-    `)
-    .eq('renter_id', userId)
+export async function getUserBookings(renterId: string): Promise<VehicleBooking[]> {
+  const { data, error } = await qb
+    .from('rental_bookings')
+    .select('*')
+    .eq('renter_id', renterId)
     .order('created_at', { ascending: false });
-
-  if (status) {
-    query = query.eq('status', status);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehicleBooking>(v));
+  if (error || !data) return [];
+  return toCamelCase<VehicleBooking[]>(data);
 }
 
-export async function getHostBookings(hostId: string, status?: VehicleBookingStatus): Promise<VehicleBooking[]> {
-  let query = qb
-    .from('vehicle_bookings')
-    .select(`
-      *,
-      vehicles (
-        id,
-        title,
-        make,
-        model,
-        year,
-        color,
-        images
-      ),
-      renter:profiles!vehicle_bookings_renter_id_fkey (
-        id,
-        name,
-        email,
-        phone,
-        avatar_url
-      )
-    `)
-    .eq('host_id', hostId)
-    .order('created_at', { ascending: false });
-
-  if (status) {
-    query = query.eq('status', status);
-  }
-
-  const { data, error } = await query;
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehicleBooking>(v));
-}
-
-export async function updateBookingStatus(
-  bookingId: string,
-  status: VehicleBookingStatus,
-  userId: string
-): Promise<VehicleBooking> {
-  const updates: any = { status };
-  
-  if (status === 'confirmed') {
-    updates.host_confirmed_at = new Date().toISOString();
-  } else if (status === 'active') {
-    updates.pickup_confirmed_at = new Date().toISOString();
-  } else if (status === 'completed') {
-    updates.dropoff_confirmed_at = new Date().toISOString();
-  } else if (status === 'cancelled') {
-    updates.cancelled_by = userId;
-    updates.cancelled_at = new Date().toISOString();
-  }
-
+export async function getHostBookings(hostId: string): Promise<VehicleBooking[]> {
   const { data, error } = await qb
-    .from('vehicle_bookings')
-    .update(updates)
-    .eq('id', bookingId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<VehicleBooking>(data);
-}
-
-export async function cancelBooking(bookingId: string, userId: string, reason: string): Promise<VehicleBooking> {
-  const { data, error } = await qb
-    .from('vehicle_bookings')
-    .update({
-      status: 'cancelled',
-      cancellation_reason: reason,
-      cancelled_by: userId,
-      cancelled_at: new Date().toISOString(),
-    } as any)
-    .eq('id', bookingId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<VehicleBooking>(data);
-}
-
-// ─── Vehicle Reviews Functions ──────────────────────────────────
-
-export async function getVehicleReviews(vehicleId: string): Promise<VehicleReview[]> {
-  const { data, error } = await qb
-    .from('vehicle_reviews')
-    .select(`
-      *,
-      reviewer:profiles!vehicle_reviews_reviewer_id_fkey (
-        id,
-        name,
-        avatar_url
-      )
-    `)
-    .eq('vehicle_id', vehicleId)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<VehicleReview>(v));
-}
-
-export async function createVehicleReview(review: any): Promise<VehicleReview> {
-  const { data, error } = await qb
-    .from('vehicle_reviews')
-    .insert(review as any)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<VehicleReview>(data);
-}
-
-export async function replyToVehicleReview(reviewId: string, hostId: string, reply: string): Promise<VehicleReview> {
-  const { data, error } = await qb
-    .from('vehicle_reviews')
-    .update({
-      host_reply: reply,
-      host_replied_at: new Date().toISOString(),
-    } as any)
-    .eq('id', reviewId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<VehicleReview>(data);
-}
-
-// ─── Host Payouts Functions ─────────────────────────────────────
-
-export async function getHostPayouts(hostId: string): Promise<HostPayout[]> {
-  const { data, error } = await qb
-    .from('host_payouts')
+    .from('rental_bookings')
     .select('*')
     .eq('host_id', hostId)
     .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<HostPayout>(v));
+  if (error || !data) return [];
+  return toCamelCase<VehicleBooking[]>(data);
 }
 
-export async function getHostEarningsSummary(hostId: string): Promise<{
-  totalEarnings: number;
-  pendingEarnings: number;
-  availableForPayout: number;
-  totalBookings: number;
-  averageRating: number;
-}> {
-  const { data: bookings, error: bookingsError } = await qb
-    .from('vehicle_bookings')
-    .select('host_earnings, status')
-    .eq('host_id', hostId)
-    .eq('payment_status', 'completed');
+export async function updateBookingStatus(bookingId: string, status: VehicleBookingStatus): Promise<VehicleBooking> {
+  const updates: Record<string, unknown> = { status };
+  if (status === 'active') updates.picked_up_at = new Date().toISOString();
+  if (status === 'completed') updates.returned_at = new Date().toISOString();
 
-  if (bookingsError) throw bookingsError;
+  const { data, error } = await qb.from('rental_bookings').update(updates).eq('id', bookingId).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to update booking');
+  return toCamelCase<VehicleBooking>(data);
+}
 
-  const completedBookings = bookings?.filter((b: any) => b.status === 'completed') || [];
-  const totalEarnings = completedBookings.reduce((sum: number, b: any) => sum + (b.host_earnings || 0), 0);
-  
-  const { data: payouts, error: payoutsError } = await qb
-    .from('host_payouts')
-    .select('amount, status')
-    .eq('host_id', hostId);
-
-  if (payoutsError) throw payoutsError;
-
-  const paidOut = payouts?.filter((p: any) => p.status === 'completed').reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-  const pendingPayouts = payouts?.filter((p: any) => p.status === 'pending' || p.status === 'processing').reduce((sum: number, p: any) => sum + p.amount, 0) || 0;
-
-  const { data: profile } = await qb
-    .from('host_profiles')
-    .select('total_bookings, average_rating')
-    .eq('id', hostId)
+export async function cancelBooking(bookingId: string, reason?: string): Promise<VehicleBooking> {
+  const { data, error } = await qb
+    .from('rental_bookings')
+    .update({ status: 'cancelled', cancellation_reason: reason ?? null, cancelled_at: new Date().toISOString() })
+    .eq('id', bookingId)
+    .select('*')
     .single();
-
-  return {
-    totalEarnings,
-    pendingEarnings: pendingPayouts,
-    availableForPayout: totalEarnings - paidOut - pendingPayouts,
-    totalBookings: profile?.total_bookings || 0,
-    averageRating: profile?.average_rating || 0,
-  };
+  if (error) throw new Error(error.message ?? 'Failed to cancel booking');
+  return toCamelCase<VehicleBooking>(data);
 }
 
-// ─── Vehicle Favorites Functions ────────────────────────────────
+// ─── Reviews ──────────────────────────────────────────────────────
+
+export async function getVehicleReviews(vehicleId: string): Promise<VehicleReview[]> {
+  const { data, error } = await qb
+    .from('rental_vehicle_reviews')
+    .select('*')
+    .eq('vehicle_id', vehicleId)
+    .order('created_at', { ascending: false });
+  if (error || !data) return [];
+  return toCamelCase<VehicleReview[]>(data);
+}
+
+export async function createVehicleReview(
+  input: Omit<VehicleReview, 'id' | 'createdAt' | 'updatedAt' | 'hostReply' | 'hostRepliedAt'>,
+): Promise<VehicleReview> {
+  const row = toSnakeCase(input);
+  const { data, error } = await qb.from('rental_vehicle_reviews').insert(row).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to create review');
+
+  // Refresh the vehicle's aggregate rating/review_count.
+  const { data: allReviews } = await qb.from('rental_vehicle_reviews').select('rating').eq('vehicle_id', input.vehicleId);
+  if (allReviews?.length) {
+    const avgRating = allReviews.reduce((sum: number, r: { rating: number }) => sum + r.rating, 0) / allReviews.length;
+    await updateVehicle(input.vehicleId, { rating: Math.round(avgRating * 10) / 10, reviewCount: allReviews.length });
+  }
+
+  return toCamelCase<VehicleReview>(data);
+}
+
+export async function replyToVehicleReview(reviewId: string, reply: string): Promise<VehicleReview> {
+  const { data, error } = await qb
+    .from('rental_vehicle_reviews')
+    .update({ host_reply: reply, host_replied_at: new Date().toISOString() })
+    .eq('id', reviewId)
+    .select('*')
+    .single();
+  if (error) throw new Error(error.message ?? 'Failed to reply to review');
+  return toCamelCase<VehicleReview>(data);
+}
+
+// ─── Favorites ────────────────────────────────────────────────────
 
 export async function getUserFavorites(userId: string): Promise<Vehicle[]> {
   const { data, error } = await qb
-    .from('vehicle_favorites')
-    .select(`
-      vehicle_id,
-      vehicles (
-        *,
-        vehicle_images!inner (url, type, is_primary),
-        host_profiles (
-          id,
-          host_type,
-          company_name,
-          is_verified,
-          average_rating,
-          review_count
-        )
-      )
-    `)
+    .from('rental_vehicle_favorites')
+    .select('vehicle_id, rental_vehicles(*)')
     .eq('user_id', userId);
-
-  if (error) throw error;
-  return (data?.map((f: any) => f.vehicles).filter(Boolean) as Vehicle[] || []).map((v: any) => toCamelCase<Vehicle>(v));
+  if (error || !data) return [];
+  return toCamelCase<Vehicle[]>(data.map((row: any) => row.rental_vehicles).filter(Boolean));
 }
 
 export async function addToFavorites(userId: string, vehicleId: string): Promise<VehicleFavorite> {
   const { data, error } = await qb
-    .from('vehicle_favorites')
-    .insert({ user_id: userId, vehicle_id: vehicleId } as any)
-    .select()
+    .from('rental_vehicle_favorites')
+    .insert({ user_id: userId, vehicle_id: vehicleId })
+    .select('*')
     .single();
-
-  if (error) throw error;
+  if (error) throw new Error(error.message ?? 'Failed to add favorite');
   return toCamelCase<VehicleFavorite>(data);
 }
 
 export async function removeFromFavorites(userId: string, vehicleId: string): Promise<void> {
-  const { error } = await qb
-    .from('vehicle_favorites')
-    .delete()
-    .eq('user_id', userId)
-    .eq('vehicle_id', vehicleId);
-
-  if (error) throw error;
+  const { error } = await qb.from('rental_vehicle_favorites').delete().eq('user_id', userId).eq('vehicle_id', vehicleId);
+  if (error) throw new Error(error.message ?? 'Failed to remove favorite');
 }
 
 export async function isFavorite(userId: string, vehicleId: string): Promise<boolean> {
-  const { data, error } = await qb
-    .from('vehicle_favorites')
+  const { data } = await qb
+    .from('rental_vehicle_favorites')
     .select('id')
     .eq('user_id', userId)
     .eq('vehicle_id', vehicleId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return false;
-    throw error;
-  }
-  return !!data;
+    .maybeSingle();
+  return Boolean(data);
 }
 
-// ─── Helper Functions ───────────────────────────────────────────
+// ─── Labels & formatting ──────────────────────────────────────────
 
 export function getVehicleTypeLabel(type: VehicleType): string {
   const labels: Record<VehicleType, string> = {
-    sedan: 'Sedan', suv: 'SUV', truck: 'Truck', van: 'Van', coupe: 'Coupe',
-    convertible: 'Convertible', hatchback: 'Hatchback', wagon: 'Wagon',
-    minivan: 'Minivan', pickup: 'Pickup', luxury: 'Luxury', electric: 'Electric',
-    hybrid: 'Hybrid', motorcycle: 'Motorcycle', scooter: 'Scooter', rv: 'RV',
-    trailer: 'Trailer', bus: 'Bus',
+    sedan: 'Sedan',
+    suv: 'SUV',
+    truck: 'Truck',
+    van: 'Van',
+    coupe: 'Coupe',
+    convertible: 'Convertible',
+    hatchback: 'Hatchback',
+    wagon: 'Wagon',
+    minivan: 'Minivan',
+    pickup: 'Pickup Truck',
+    luxury: 'Luxury',
+    electric: 'Electric',
+    hybrid: 'Hybrid',
+    motorcycle: 'Motorcycle',
+    scooter: 'Scooter',
+    rv: 'RV',
+    trailer: 'Trailer',
+    bus: 'Bus',
   };
-  return labels[type] || type;
-}
-
-export function getHostTypeLabel(type: HostType): string {
-  const labels: Record<HostType, string> = {
-    individual: 'Individual', company: 'Company', dealership: 'Dealership', rental_company: 'Rental Company',
-  };
-  return labels[type] || type;
-}
-
-export function getVehicleVerificationStatusLabel(status: VehicleVerificationStatus): string {
-  const labels: Record<VehicleVerificationStatus, string> = {
-    pending: 'Pending Review', approved: 'Approved', rejected: 'Rejected',
-    requires_update: 'Requires Update', suspended: 'Suspended',
-  };
-  return labels[status] || status;
+  return labels[type] ?? type;
 }
 
 export function getVehicleBookingStatusLabel(status: VehicleBookingStatus): string {
   const labels: Record<VehicleBookingStatus, string> = {
-    pending: 'Pending', confirmed: 'Confirmed', active: 'Active',
-    completed: 'Completed', cancelled: 'Cancelled', no_show: 'No Show', disputed: 'Disputed',
+    pending: 'Pending',
+    confirmed: 'Confirmed',
+    active: 'In Progress',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+    no_show: 'No Show',
   };
-  return labels[status] || status;
-}
-
-export function getVehicleImageTypeLabel(type: VehicleImage['type']): string {
-  const labels: Record<VehicleImage['type'], string> = {
-    exterior_front: 'Front Exterior', exterior_rear: 'Rear Exterior', exterior_side: 'Side Exterior',
-    interior_front: 'Front Interior', interior_rear: 'Rear Interior', dashboard: 'Dashboard',
-    engine: 'Engine', trunk: 'Trunk', wheels: 'Wheels', damage: 'Damage', other: 'Other',
-  };
-  return labels[type] || type;
+  return labels[status] ?? status;
 }
 
 export function calculateVehiclePricing(
-  dailyRate: number,
-  numberOfDays: number,
-  weeklyDiscountPercent: number,
-  monthlyDiscountPercent: number,
-  cleaningFee: number,
-  securityDeposit: number,
-  deliveryFee: number,
-  platformFeePercent: number
+  pricePerDay: number,
+  days: number,
+  currencyCode: string,
+  options?: { platformFeePercent?: number; securityDeposit?: number; taxRate?: number },
 ): VehiclePricingBreakdown {
-  let subtotal = dailyRate * numberOfDays;
-  let weeklyDiscount = 0;
-  let monthlyDiscount = 0;
+  return getVehiclePricing(pricePerDay, days, currencyCode, options);
+}
 
-  if (numberOfDays >= 28 && monthlyDiscountPercent > 0) {
-    monthlyDiscount = subtotal * (monthlyDiscountPercent / 100);
-  } else if (numberOfDays >= 7 && weeklyDiscountPercent > 0) {
-    weeklyDiscount = subtotal * (weeklyDiscountPercent / 100);
+export function formatVehiclePrice(amount: number, currencyCode: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(amount);
+  } catch {
+    return `${currencyCode} ${amount.toFixed(2)}`;
   }
-
-  const subtotalAfterDiscounts = subtotal - weeklyDiscount - monthlyDiscount;
-  const platformFeeAmount = subtotalAfterDiscounts * (platformFeePercent / 100);
-  const hostEarnings = subtotalAfterDiscounts - platformFeeAmount;
-  const totalAmount = subtotalAfterDiscounts + cleaningFee + securityDeposit + deliveryFee + platformFeeAmount;
-
-  return {
-    dailyRate, numberOfDays, subtotal, weeklyDiscount, monthlyDiscount,
-    cleaningFee, securityDeposit, deliveryFee, platformFeePercent, platformFeeAmount,
-    hostEarnings, totalAmount, currencyCode: 'USD',
-  };
 }
 
-export function formatVehiclePrice(price: number, currencyCode = 'USD'): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency', currency: currencyCode, minimumFractionDigits: 0, maximumFractionDigits: 0,
-  }).format(price);
-}
-
-export function getVehicleSpecs(vehicle: Vehicle): Array<{ label: string; value: string }> {
-  return [
-    { label: 'Year', value: vehicle.year.toString() },
-    { label: 'Make', value: vehicle.make },
-    { label: 'Model', value: vehicle.model },
+export function getVehicleSpecs(vehicle: Vehicle): { label: string; value: string }[] {
+  const specs = [
     { label: 'Type', value: getVehicleTypeLabel(vehicle.vehicleType) },
-    { label: 'Transmission', value: vehicle.transmission.charAt(0).toUpperCase() + vehicle.transmission.slice(1) },
-    { label: 'Fuel Type', value: vehicle.fuelType.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()) },
-    { label: 'Seats', value: vehicle.seats.toString() },
-    { label: 'Doors', value: vehicle.doors.toString() },
-    { label: 'Mileage', value: vehicle.mileage.toLocaleString() + ' mi' },
-    { label: 'Color', value: vehicle.color },
-    { label: 'Condition', value: vehicle.condition.charAt(0).toUpperCase() + vehicle.condition.slice(1) },
-  ].filter(spec => spec.value);
+    { label: 'Seats', value: String(vehicle.seats) },
+    { label: 'Transmission', value: vehicle.transmission },
+    { label: 'Fuel Type', value: vehicle.fuelType.replace('_', ' ') },
+  ];
+  if (vehicle.color) specs.push({ label: 'Color', value: vehicle.color });
+  if (vehicle.mileageLimitPerDay) specs.push({ label: 'Mileage Limit', value: `${vehicle.mileageLimitPerDay} mi/day` });
+  return specs;
 }
 
-// ─── API Key Management Functions ────────────────────────────────
+// ─── API Key Management ────────────────────────────────────────────
 
-export async function createApiKey(apiKey: Omit<ApiKey, 'id' | 'createdAt' | 'updatedAt' | 'keyHash' | 'keyPrefix' | 'lastUsedAt' | 'lastUsedIp'> & { key: string }): Promise<{ apiKey: ApiKey; fullKey: string }> {
-  const { data: profile } = await qb
-    .from('host_profiles')
-    .select('id')
-    .eq('id', apiKey.hostId)
-    .single();
+export async function createApiKey(
+  hostId: string,
+  name: string,
+  scopes: ApiKeyScope[],
+  options?: { rateLimitPerMinute?: number; rateLimitPerDay?: number; expiresAt?: string; createdBy?: string },
+): Promise<{ apiKey: ApiKey; plaintextKey: string }> {
+  const rawKey = `ab_${crypto.randomUUID().replace(/-/g, '')}`;
+  const keyPrefix = rawKey.slice(0, 12);
+  const keyHash = await sha256Hex(rawKey);
 
-  if (!profile) throw new Error('Host profile not found');
+  const row = {
+    host_id: hostId,
+    name,
+    key_prefix: keyPrefix,
+    key_hash: keyHash,
+    scopes,
+    rate_limit_per_minute: options?.rateLimitPerMinute ?? 60,
+    rate_limit_per_day: options?.rateLimitPerDay ?? 10000,
+    expires_at: options?.expiresAt ?? null,
+    created_by: options?.createdBy ?? null,
+  };
 
-  // Generate API key: afb_live_<random> or afb_test_<random>
-  const prefix = process.env.NODE_ENV === 'production' ? 'afb_live_' : 'afb_test_';
-  const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)))
-    .map(b => b.toString(16).padStart(2, '0'))
+  const { data, error } = await qb.from('rental_api_keys').insert(row).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to create API key');
+  return { apiKey: toCamelCase<ApiKey>(data), plaintextKey: rawKey };
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const encoded = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', encoded);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
-  const fullKey = prefix + randomPart;
-  
-  // Hash the key for storage (using a simple hash for demo - use bcrypt in production)
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(fullKey);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
-  const keyHash = Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-  
-  const keyPrefix = fullKey.slice(0, 12) + '...';
-
-  const { data, error } = await qb
-    .from('api_keys')
-    .insert({
-      host_id: apiKey.hostId,
-      name: apiKey.name,
-      key_prefix: keyPrefix,
-      key_hash: keyHash,
-      scopes: apiKey.scopes,
-      rate_limit_per_minute: apiKey.rateLimitPerMinute,
-      rate_limit_per_day: apiKey.rateLimitPerDay,
-      expires_at: apiKey.expiresAt,
-      is_active: apiKey.isActive,
-      created_by: apiKey.createdBy,
-    } as any)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return { apiKey: toCamelCase<ApiKey>(data), fullKey };
 }
 
 export async function getApiKeys(hostId: string): Promise<ApiKey[]> {
   const { data, error } = await qb
-    .from('api_keys')
+    .from('rental_api_keys')
     .select('*')
     .eq('host_id', hostId)
     .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<ApiKey>(v));
+  if (error || !data) return [];
+  return toCamelCase<ApiKey[]>(data);
 }
 
 export async function getApiKey(apiKeyId: string): Promise<ApiKey | null> {
-  const { data, error } = await qb
-    .from('api_keys')
-    .select('*')
-    .eq('id', apiKeyId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
+  const { data, error } = await qb.from('rental_api_keys').select('*').eq('id', apiKeyId).single();
+  if (error) return null;
   return toCamelCase<ApiKey>(data);
 }
 
-export async function updateApiKey(apiKeyId: string, updates: Partial<ApiKey>): Promise<ApiKey> {
-  const { data, error } = await qb
-    .from('api_keys')
-    .update(updates as any)
-    .eq('id', apiKeyId)
-    .select()
-    .single();
-
-  if (error) throw error;
+export async function updateApiKey(
+  apiKeyId: string,
+  updates: Partial<Pick<ApiKey, 'name' | 'scopes' | 'isActive' | 'rateLimitPerMinute' | 'rateLimitPerDay' | 'expiresAt'>>,
+): Promise<ApiKey> {
+  const row = toSnakeCase(updates);
+  const { data, error } = await qb.from('rental_api_keys').update(row).eq('id', apiKeyId).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to update API key');
   return toCamelCase<ApiKey>(data);
 }
 
 export async function deleteApiKey(apiKeyId: string): Promise<void> {
-  const { error } = await qb
-    .from('api_keys')
-    .delete()
-    .eq('id', apiKeyId);
-
-  if (error) throw error;
+  const { error } = await qb.from('rental_api_keys').delete().eq('id', apiKeyId);
+  if (error) throw new Error(error.message ?? 'Failed to delete API key');
 }
 
-export async function regenerateApiKey(apiKeyId: string): Promise<{ apiKey: ApiKey; fullKey: string }> {
-  const prefix = process.env.NODE_ENV === 'production' ? 'afb_live_' : 'afb_test_';
-  const randomPart = Array.from(crypto.getRandomValues(new Uint8Array(24)))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-  const fullKey = prefix + randomPart;
-  
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(fullKey);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
-  const keyHash = Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-  
-  const keyPrefix = fullKey.slice(0, 12) + '...';
+export async function regenerateApiKey(apiKeyId: string): Promise<{ apiKey: ApiKey; plaintextKey: string }> {
+  const rawKey = `ab_${crypto.randomUUID().replace(/-/g, '')}`;
+  const keyPrefix = rawKey.slice(0, 12);
+  const keyHash = await sha256Hex(rawKey);
 
   const { data, error } = await qb
-    .from('api_keys')
-    .update({
-      key_hash: keyHash,
-      key_prefix: keyPrefix,
-      last_used_at: null,
-      last_used_ip: null,
-    } as any)
+    .from('rental_api_keys')
+    .update({ key_prefix: keyPrefix, key_hash: keyHash })
     .eq('id', apiKeyId)
-    .select()
+    .select('*')
     .single();
-
-  if (error) throw error;
-  return { apiKey: toCamelCase<ApiKey>(data), fullKey };
+  if (error) throw new Error(error.message ?? 'Failed to regenerate API key');
+  return { apiKey: toCamelCase<ApiKey>(data), plaintextKey: rawKey };
 }
 
 export async function getApiKeyUsageLogs(apiKeyId: string, limit = 100): Promise<ApiKeyUsageLog[]> {
   const { data, error } = await qb
-    .from('api_key_usage_logs')
+    .from('rental_api_key_usage_logs')
     .select('*')
     .eq('api_key_id', apiKeyId)
     .order('created_at', { ascending: false })
     .limit(limit);
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<ApiKeyUsageLog>(v));
+  if (error || !data) return [];
+  return toCamelCase<ApiKeyUsageLog[]>(data);
 }
 
-// ─── Webhook Endpoint Management Functions ─────────────────────
+// ─── Webhook Management ─────────────────────────────────────────────
 
-export async function createWebhookEndpoint(webhook: Omit<WebhookEndpoint, 'id' | 'createdAt' | 'updatedAt' | 'secret' | 'retryCount' | 'lastTriggeredAt' | 'lastSuccessAt' | 'lastFailureAt' | 'lastFailureReason'>): Promise<{ webhook: WebhookEndpoint; secret: string }> {
-  const secret = 'whsec_' + Array.from(crypto.getRandomValues(new Uint8Array(32)))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  const { data, error } = await qb
-    .from('webhook_endpoints')
-    .insert({
-      host_id: webhook.hostId,
-      api_key_id: webhook.apiKeyId,
-      url: webhook.url,
-      secret,
-      events: webhook.events,
-      is_active: webhook.isActive,
-    } as any)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return { webhook: toCamelCase<WebhookEndpoint>(data), secret };
+export async function createWebhookEndpoint(
+  hostId: string,
+  url: string,
+  events: string[],
+  apiKeyId?: string,
+): Promise<WebhookEndpoint> {
+  const secret = `whsec_${crypto.randomUUID().replace(/-/g, '')}`;
+  const row = { host_id: hostId, api_key_id: apiKeyId ?? null, url, secret, events };
+  const { data, error } = await qb.from('rental_webhook_endpoints').insert(row).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to create webhook endpoint');
+  return toCamelCase<WebhookEndpoint>(data);
 }
 
 export async function getWebhookEndpoints(hostId: string): Promise<WebhookEndpoint[]> {
   const { data, error } = await qb
-    .from('webhook_endpoints')
+    .from('rental_webhook_endpoints')
     .select('*')
     .eq('host_id', hostId)
     .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<WebhookEndpoint>(v));
+  if (error || !data) return [];
+  return toCamelCase<WebhookEndpoint[]>(data);
 }
 
-export async function getWebhookEndpoint(webhookId: string): Promise<WebhookEndpoint | null> {
+export async function getWebhookEndpoint(webhookEndpointId: string): Promise<WebhookEndpoint | null> {
+  const { data, error } = await qb.from('rental_webhook_endpoints').select('*').eq('id', webhookEndpointId).single();
+  if (error) return null;
+  return toCamelCase<WebhookEndpoint>(data);
+}
+
+export async function updateWebhookEndpoint(
+  webhookEndpointId: string,
+  updates: Partial<Pick<WebhookEndpoint, 'url' | 'events' | 'isActive'>>,
+): Promise<WebhookEndpoint> {
+  const row = toSnakeCase(updates);
   const { data, error } = await qb
-    .from('webhook_endpoints')
+    .from('rental_webhook_endpoints')
+    .update(row)
+    .eq('id', webhookEndpointId)
     .select('*')
-    .eq('id', webhookId)
     .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
+  if (error) throw new Error(error.message ?? 'Failed to update webhook endpoint');
   return toCamelCase<WebhookEndpoint>(data);
 }
 
-export async function updateWebhookEndpoint(webhookId: string, updates: Partial<WebhookEndpoint>): Promise<WebhookEndpoint> {
-  const { data, error } = await qb
-    .from('webhook_endpoints')
-    .update(updates as any)
-    .eq('id', webhookId)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<WebhookEndpoint>(data);
+export async function deleteWebhookEndpoint(webhookEndpointId: string): Promise<void> {
+  const { error } = await qb.from('rental_webhook_endpoints').delete().eq('id', webhookEndpointId);
+  if (error) throw new Error(error.message ?? 'Failed to delete webhook endpoint');
 }
 
-export async function deleteWebhookEndpoint(webhookId: string): Promise<void> {
-  const { error } = await qb
-    .from('webhook_endpoints')
-    .delete()
-    .eq('id', webhookId);
-
-  if (error) throw error;
-}
-
-export async function getWebhookDeliveryLogs(webhookEndpointId: string, limit = 100): Promise<WebhookDeliveryLog[]> {
+export async function getWebhookDeliveryLogs(webhookEndpointId: string, limit = 50): Promise<WebhookDeliveryLog[]> {
   const { data, error } = await qb
-    .from('webhook_delivery_logs')
+    .from('rental_webhook_delivery_logs')
     .select('*')
     .eq('webhook_endpoint_id', webhookEndpointId)
-    .order('created_at', { ascending: false })
+    .order('delivered_at', { ascending: false })
     .limit(limit);
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<WebhookDeliveryLog>(v));
+  if (error || !data) return [];
+  return toCamelCase<WebhookDeliveryLog[]>(data);
 }
 
-// ─── External Platform Connection Functions ────────────────────
-
-export async function createExternalPlatformConnection(connection: Omit<ExternalPlatformConnection, 'id' | 'createdAt' | 'updatedAt' | 'lastSyncedAt' | 'syncStatus' | 'syncErrorMessage'>): Promise<ExternalPlatformConnection> {
-  const { data, error } = await qb
-    .from('external_platform_connections')
-    .insert(connection as any)
-    .select()
-    .single();
-
-  if (error) throw error;
-  return toCamelCase<ExternalPlatformConnection>(data);
-}
+// ─── External Platform Connections ──────────────────────────────────
 
 export async function getExternalPlatformConnections(hostId: string): Promise<ExternalPlatformConnection[]> {
   const { data, error } = await qb
-    .from('external_platform_connections')
+    .from('rental_external_platform_connections')
     .select('*')
     .eq('host_id', hostId)
     .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return (data || []).map((v: any) => toCamelCase<ExternalPlatformConnection>(v));
+  if (error || !data) return [];
+  return toCamelCase<ExternalPlatformConnection[]>(data);
 }
 
-export async function getExternalPlatformConnection(connectionId: string): Promise<ExternalPlatformConnection | null> {
-  const { data, error } = await qb
-    .from('external_platform_connections')
-    .select('*')
-    .eq('id', connectionId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
+export async function createExternalPlatformConnection(
+  hostId: string,
+  platformName: string,
+  options?: { externalAccountId?: string; accessToken?: string; refreshToken?: string; autoSync?: boolean },
+): Promise<ExternalPlatformConnection> {
+  const row = {
+    host_id: hostId,
+    platform_name: platformName,
+    external_account_id: options?.externalAccountId ?? null,
+    access_token: options?.accessToken ?? null,
+    refresh_token: options?.refreshToken ?? null,
+    auto_sync: options?.autoSync ?? false,
+    sync_status: 'connected',
+  };
+  const { data, error } = await qb.from('rental_external_platform_connections').insert(row).select('*').single();
+  if (error) throw new Error(error.message ?? 'Failed to create external platform connection');
   return toCamelCase<ExternalPlatformConnection>(data);
 }
 
-export async function updateExternalPlatformConnection(connectionId: string, updates: Partial<ExternalPlatformConnection>): Promise<ExternalPlatformConnection> {
+export async function updateExternalPlatformConnection(
+  connectionId: string,
+  updates: Partial<Pick<ExternalPlatformConnection, 'autoSync' | 'syncStatus' | 'syncErrorMessage' | 'lastSyncedAt'>>,
+): Promise<ExternalPlatformConnection> {
+  const row = toSnakeCase(updates);
   const { data, error } = await qb
-    .from('external_platform_connections')
-    .update(updates as any)
+    .from('rental_external_platform_connections')
+    .update(row)
     .eq('id', connectionId)
-    .select()
+    .select('*')
     .single();
-
-  if (error) throw error;
+  if (error) throw new Error(error.message ?? 'Failed to update external platform connection');
   return toCamelCase<ExternalPlatformConnection>(data);
 }
 
 export async function deleteExternalPlatformConnection(connectionId: string): Promise<void> {
-  const { error } = await qb
-    .from('external_platform_connections')
-    .delete()
-    .eq('id', connectionId);
-
-  if (error) throw error;
-}
-
-// ─── Webhook Event Triggering ──────────────────────────────────
-
-export async function triggerWebhookEvent(
-  hostId: string,
-  eventType: string,
-  payload: Record<string, unknown>
-): Promise<void> {
-  const { data: webhooks } = await qb
-    .from('webhook_endpoints')
-    .select('*')
-    .eq('host_id', hostId)
-    .eq('is_active', true)
-    .contains('events', [eventType]);
-
-  if (!webhooks || webhooks.length === 0) return;
-
-  for (const webhook of webhooks) {
-    try {
-      const timestamp = Math.floor(Date.now() / 1000).toString();
-      const signature = await generateWebhookSignature(webhook.secret, timestamp, payload);
-      
-      const response = await fetch(webhook.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Webhook-Signature': signature,
-          'X-Webhook-Timestamp': timestamp,
-          'X-Webhook-Event': eventType,
-          'User-Agent': 'AfriBook-Webhooks/1.0',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      await qb
-        .from('webhook_delivery_logs')
-        .insert({
-          webhook_endpoint_id: webhook.id,
-          event_type: eventType,
-          payload,
-          response_status_code: response.status,
-          response_body: await response.text().catch(() => ''),
-          attempt_number: 1,
-          success: response.ok,
-          delivered_at: new Date().toISOString(),
-        } as any);
-
-      if (response.ok) {
-        await qb
-          .from('webhook_endpoints')
-          .update({ last_success_at: new Date().toISOString(), last_triggered_at: new Date().toISOString() })
-          .eq('id', webhook.id);
-      } else {
-        await qb
-          .from('webhook_endpoints')
-          .update({ 
-            last_failure_at: new Date().toISOString(),
-            last_failure_reason: `HTTP ${response.status}`,
-            retry_count: webhook.retry_count + 1,
-            last_triggered_at: new Date().toISOString()
-          })
-          .eq('id', webhook.id);
-      }
-    } catch (error) {
-      await qb
-        .from('webhook_delivery_logs')
-        .insert({
-          webhook_endpoint_id: webhook.id,
-          event_type: eventType,
-          payload,
-          attempt_number: 1,
-          success: false,
-          error_message: error instanceof Error ? error.message : 'Unknown error',
-          delivered_at: new Date().toISOString(),
-        } as any);
-    }
-  }
-}
-
-async function generateWebhookSignature(secret: string, timestamp: string, payload: Record<string, unknown>): Promise<string> {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const messageData = encoder.encode(`${timestamp}.${JSON.stringify(payload)}`);
-  const key = await crypto.subtle.importKey('raw', keyData, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const signature = await crypto.subtle.sign('HMAC', key, messageData);
-  return Array.from(new Uint8Array(signature))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-// ─── Public API Key Validation (for external API endpoints) ─────
-
-export async function validateApiKeyFromRequest(request: Request): Promise<{ hostId: string; scopes: ApiKeyScope[] } | null> {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
-  
-  const providedKey = authHeader.slice(7); // Remove 'Bearer '
-  
-  // Hash the provided key
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(providedKey);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', keyData);
-  const keyHash = Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-
-  const { data, error } = await qb
-    .rpc('validate_api_key', { p_key_hash: keyHash });
-
-  if (error || !data) return null;
-
-  // Get scopes
-  const { data: apiKeyData } = await qb
-    .from('api_keys')
-    .select('scopes, rate_limit_per_minute, rate_limit_per_day')
-    .eq('key_hash', keyHash)
-    .single();
-
-  if (!apiKeyData) return null;
-
-  // Check rate limits
-  const { data: rateLimitOk } = await qb
-    .rpc('check_api_key_rate_limit', { p_api_key_id: apiKeyData.id });
-
-  if (!rateLimitOk) return null;
-
-  // Log usage
-  await qb
-    .rpc('log_api_key_usage', {
-      p_api_key_id: apiKeyData.id,
-      p_endpoint: new URL(request.url).pathname,
-      p_method: request.method,
-      p_status_code: 200,
-      p_response_time_ms: 0,
-      p_ip_address: request.headers.get('x-forwarded-for') || 'unknown',
-      p_user_agent: request.headers.get('user-agent') || 'unknown',
-      p_request_id: crypto.randomUUID(),
-    });
-
-  return { hostId: data, scopes: apiKeyData.scopes };
+  const { error } = await qb.from('rental_external_platform_connections').delete().eq('id', connectionId);
+  if (error) throw new Error(error.message ?? 'Failed to delete external platform connection');
 }

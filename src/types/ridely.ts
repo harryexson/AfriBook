@@ -4,9 +4,25 @@
 // driver dispatch, surge pricing, real-time events, and route data.
 // ──────────────────────────────────────────────────────────────────────────────
 
-import type { GeoPoint, Vehicle } from "@/types";
+import type { GeoPoint } from "@/types";
 // Re-export DB row types so consumers can import from either location
 export type { RideRequestRow, DeliveryRequestRow } from "@/types";
+
+/**
+ * A driver's ride-hailing vehicle — distinct from the vehicle-rental
+ * marketplace's `Vehicle` (src/types/index.ts), which models a listing a
+ * host rents out, not the car a driver uses to give rides.
+ */
+export interface DriverVehicle {
+  id: string;
+  type: "car" | "motorcycle" | "bicycle" | "truck" | "van";
+  make: string;
+  model: string;
+  year: number;
+  color: string;
+  licensePlate: string;
+  insuranceVerified: boolean;
+}
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
@@ -148,7 +164,7 @@ export interface DriverCandidate {
   /** Ground speed in km/h. */
   speed: number;
   /** Driver's vehicle details. */
-  vehicle: Vehicle;
+  vehicle: DriverVehicle;
   /** Weighted driver rating (0-5). */
   rating: number;
   /** Total completed trips. */

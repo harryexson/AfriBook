@@ -1,46 +1,48 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Image } from 'next/image';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button-primitive';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card-primitive';
+import { Card, CardContent } from '@/components/ui/card-primitive';
 import { Badge } from '@/components/ui/badge-primitive';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, Eye, Car, Calendar, DollarSign, Star, Shield, Loader2, Filter, ChevronDown, ChevronUp, Clock, AlertCircle, Ban, MoreHorizontal, Key, Zap, Globe } from 'lucide-react';
-import { getVehiclesByHost, getHostProfile, deleteVehicle, type Vehicle, type HostProfile } from '@/lib/vehicle-rental';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Plus, Edit, Trash2, Car, Calendar, DollarSign, Star, Shield, Loader2, Clock, AlertCircle, Ban, Key, X } from 'lucide-react';
+import {
+  getVehiclesByHost,
+  getHostBookings,
+  deleteVehicle,
+  formatVehiclePrice,
+  getVehicleTypeLabel,
+  type Vehicle,
+  type VehicleBooking,
+} from '@/lib/vehicle-rental';
 import { useAuth } from '@/hooks/useAuth';
-import { formatVehiclePrice, getVehicleTypeLabel, getVehicleBookingStatusLabel } from '@/lib/vehicle-rental';
 import { toast } from '@/components/ui/use-toast';
 import { VehicleListingForm } from '@/components/vehicle-rental/VehicleListingForm';
 import { ApiKeyManagement } from '@/components/vehicle-rental/ApiKeyManagement';
 
-export function HostVehiclesPage() {
+export default function HostVehiclesPage() {
   const { user } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
+  const [bookings, setBookings] = useState<VehicleBooking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'pending' | 'draft'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'published' | 'pending' | 'draft' | 'api'>('all');
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [deletingVehicleId, setDeletingVehicleId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const loadData = async () => {
     if (!user) return;
     setIsLoading(true);
     try {
-      const [profile, vehiclesData] = await Promise.all([
-        getHostProfile(user.id),
-        getVehiclesByHost(profile?.id || ''),
-      ]);
-      setHostProfile(profile);
+      const [vehiclesData, bookingsData] = await Promise.all([getVehiclesByHost(user.id), getHostBookings(user.id)]);
       setVehicles(vehiclesData);
+      setBookings(bookingsData);
     } catch (error) {
       toast({ title: 'Error', description: 'Failed to load vehicles', variant: 'destructive' });
     } finally {
@@ -51,11 +53,6 @@ export function HostVehiclesPage() {
   const handleCreateSuccess = () => {
     setShowCreateForm(false);
     loadData();
-  };
-
-  const handleEdit = (vehicle: Vehicle) => {
-    setEditingVehicle(vehicle);
-    setShowCreateForm(true);
   };
 
   const handleDelete = async (vehicleId: string) => {
@@ -72,20 +69,22 @@ export function HostVehiclesPage() {
     }
   };
 
-  const filteredVehicles = vehicles.filter(v => {
-    if (activeTab === 'active') return v.isActive && v.verificationStatus === 'approved';
-    if (activeTab === 'pending') return v.verificationStatus === 'pending' || v.verificationStatus === 'requires_update';
-    if (activeTab === 'draft') return !v.isActive || v.verificationStatus === 'rejected';
+  const filteredVehicles = vehicles.filter((v) => {
+    if (activeTab === 'published') return v.status === 'published';
+    if (activeTab === 'pending') return v.status === 'pending_review';
+    if (activeTab === 'draft') return v.status === 'draft' || v.status === 'rejected';
     return true;
   });
 
   const stats = {
     total: vehicles.length,
-    active: vehicles.filter(v => v.isActive && v.verificationStatus === 'approved').length,
-    pending: vehicles.filter(v => v.verificationStatus === 'pending' || v.verificationStatus === 'requires_update').length,
-    totalBookings: vehicles.reduce((sum, v) => sum + v.totalBookings, 0),
-    totalEarnings: vehicles.reduce((sum, v) => sum + v.totalEarnings, 0),
+    published: vehicles.filter((v) => v.status === 'published').length,
+    pending: vehicles.filter((v) => v.status === 'pending_review').length,
+    totalBookings: bookings.length,
+    totalEarnings: bookings.filter((b) => b.status === 'completed').reduce((sum, b) => sum + b.subtotal, 0),
   };
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -97,18 +96,12 @@ export function HostVehiclesPage() {
             <p className="text-muted-foreground">Manage your vehicle listings and bookings</p>
           </div>
           <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Vehicle
-              </Button>
+            <DialogTrigger className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Vehicle
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-              <VehicleListingForm
-                hostId={hostProfile?.id || ''}
-                onSuccess={handleCreateSuccess}
-                initialData={editingVehicle || undefined}
-              />
+            <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-y-auto">
+              <VehicleListingForm hostId={user.id} onSuccess={handleCreateSuccess} />
             </DialogContent>
           </Dialog>
         </div>
@@ -130,8 +123,8 @@ export function HostVehiclesPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Active Listings</p>
-                  <p className="text-3xl font-bold">{stats.active}</p>
+                  <p className="text-sm text-muted-foreground">Published Listings</p>
+                  <p className="text-3xl font-bold">{stats.published}</p>
                 </div>
                 <Shield className="h-12 w-12 text-green-500/20" />
               </div>
@@ -153,7 +146,7 @@ export function HostVehiclesPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Earnings</p>
-                  <p className="text-3xl font-bold">{formatVehiclePrice(stats.totalEarnings)}</p>
+                  <p className="text-3xl font-bold">{formatVehiclePrice(stats.totalEarnings, 'USD')}</p>
                 </div>
                 <DollarSign className="h-12 w-12 text-yellow-500/20" />
               </div>
@@ -162,10 +155,10 @@ export function HostVehiclesPage() {
         </div>
 
         {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <Tabs defaultValue={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="mb-6">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-            <TabsTrigger value="active">Active ({stats.active})</TabsTrigger>
+            <TabsTrigger value="published">Published ({stats.published})</TabsTrigger>
             <TabsTrigger value="pending">Pending ({stats.pending})</TabsTrigger>
             <TabsTrigger value="draft">Drafts</TabsTrigger>
             <TabsTrigger value="api">
@@ -176,9 +169,7 @@ export function HostVehiclesPage() {
         </Tabs>
 
         {/* API & Integrations Tab */}
-        {activeTab === 'api' && hostProfile && (
-          <ApiKeyManagement hostId={hostProfile.id} />
-        )}
+        {activeTab === 'api' && <ApiKeyManagement hostId={user.id} />}
 
         {/* Vehicles List - only show when not on API tab */}
         {activeTab !== 'api' && (
@@ -213,11 +204,10 @@ export function HostVehiclesPage() {
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {filteredVehicles.map(vehicle => (
+                {filteredVehicles.map((vehicle) => (
                   <HostVehicleCard
                     key={vehicle.id}
                     vehicle={vehicle}
-                    onEdit={handleEdit}
                     onDelete={handleDelete}
                     isDeleting={deletingVehicleId === vehicle.id}
                   />
@@ -231,37 +221,34 @@ export function HostVehiclesPage() {
   );
 }
 
-function HostVehicleCard({ 
-  vehicle, 
-  onEdit, 
-  onDelete, 
-  isDeleting 
-}: { 
-  vehicle: Vehicle; 
-  onEdit: (v: Vehicle) => void; 
+function HostVehicleCard({
+  vehicle,
+  onDelete,
+  isDeleting,
+}: {
+  vehicle: Vehicle;
   onDelete: (id: string) => void;
   isDeleting: boolean;
 }) {
-  const primaryImage = vehicle.images?.find(img => img.isPrimary && img.type.startsWith('exterior')) ||
-    vehicle.images?.find(img => img.type.startsWith('exterior')) ||
-    vehicle.images?.[0];
+  const primaryImageUrl = vehicle.coverImageUrl ?? vehicle.galleryImages?.[0];
 
   const statusConfig = {
-    approved: { label: 'Active', color: 'bg-green-100 text-green-700', icon: <Shield className="h-3 w-3" /> },
-    pending: { label: 'Pending Review', color: 'bg-yellow-100 text-yellow-700', icon: <Clock className="h-3 w-3" /> },
+    published: { label: 'Published', color: 'bg-green-100 text-green-700', icon: <Shield className="h-3 w-3" /> },
+    pending_review: { label: 'Pending Review', color: 'bg-yellow-100 text-yellow-700', icon: <Clock className="h-3 w-3" /> },
     rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700', icon: <X className="h-3 w-3" /> },
-    requires_update: { label: 'Needs Update', color: 'bg-orange-100 text-orange-700', icon: <AlertCircle className="h-3 w-3" /> },
+    draft: { label: 'Draft', color: 'bg-gray-100 text-gray-700', icon: <Edit className="h-3 w-3" /> },
     suspended: { label: 'Suspended', color: 'bg-gray-100 text-gray-700', icon: <Ban className="h-3 w-3" /> },
+    archived: { label: 'Archived', color: 'bg-gray-100 text-gray-700', icon: <AlertCircle className="h-3 w-3" /> },
   };
 
-  const config = statusConfig[vehicle.verificationStatus as keyof typeof statusConfig] || statusConfig.pending;
+  const config = statusConfig[vehicle.status] ?? statusConfig.draft;
 
   return (
     <Card className="overflow-hidden">
       <div className="relative aspect-video">
-        {primaryImage ? (
+        {primaryImageUrl ? (
           <Image
-            src={primaryImage.url}
+            src={primaryImageUrl}
             alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
             fill
             className="object-cover"
@@ -282,87 +269,31 @@ function HostVehicleCard({
             </span>
           </Badge>
         </div>
-
-        {/* Instant Book Badge */}
-        {vehicle.isInstantBook && (
-          <div className="absolute top-3 right-3">
-            <Badge variant="secondary" className="gap-1">
-              <Zap className="h-3 w-3" />
-              Instant Book
-            </Badge>
-          </div>
-        )}
-
-        {/* Verification Status */}
-        {!vehicle.isActive && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <Badge variant="outline" className="text-lg px-4 py-2">
-              Inactive
-            </Badge>
-          </div>
-        )}
       </div>
 
       <CardContent className="p-4 space-y-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="font-semibold truncate">
-              {vehicle.year} {vehicle.make} {vehicle.model}
-            </h3>
-            <p className="text-sm text-muted-foreground truncate">
-              {vehicle.locationCity}, {vehicle.locationState}
-            </p>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEdit(vehicle)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Eye className="mr-2 h-4 w-4" />
-                View Listing
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Calendar className="mr-2 h-4 w-4" />
-                Manage Calendar
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <DollarSign className="mr-2 h-4 w-4" />
-                Pricing Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-600" onClick={() => onDelete(vehicle.id)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-            </DropdownMenu>
+        <div className="min-w-0">
+          <h3 className="font-semibold truncate">
+            {vehicle.year} {vehicle.make} {vehicle.model}
+          </h3>
+          <p className="text-sm text-muted-foreground truncate">{vehicle.city}</p>
         </div>
 
         <div className="flex items-center gap-4 text-sm text-muted-foreground border-t pt-3">
           <span className="flex items-center gap-1">
             <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-            {vehicle.averageRating.toFixed(1)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Calendar className="h-3.5 w-3.5" />
-            {vehicle.totalBookings} bookings
+            {vehicle.rating.toFixed(1)}
           </span>
           <span className="flex items-center gap-1">
             <DollarSign className="h-3.5 w-3.5" />
-            {formatVehiclePrice(vehicle.totalEarnings)}
+            {formatVehiclePrice(vehicle.pricePerDay, vehicle.currencyCode)}/day
           </span>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline" className="gap-1">
             <Car className="h-3 w-3" />
-            {getVehicleTypeLabel(vehicle.vehicleType as any)}
+            {getVehicleTypeLabel(vehicle.vehicleType)}
           </Badge>
           <Badge variant="outline">{vehicle.transmission}</Badge>
           <Badge variant="outline">{vehicle.fuelType.replace('_', ' ')}</Badge>
@@ -370,16 +301,8 @@ function HostVehicleCard({
         </div>
 
         <div className="flex gap-2 pt-2 border-t">
-          <Button variant="outline" className="flex-1" onClick={() => onEdit(vehicle)}>
-            <Edit className="mr-2 h-4 w-4" />
-            Edit
-          </Button>
-          <Button variant="ghost" className="text-red-600 hover:text-red-700" onClick={() => onDelete(vehicle.id)} disabled={isDeleting}>
-            {isDeleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
+          <Button variant="ghost" className="text-red-600 hover:text-red-700 w-full" onClick={() => onDelete(vehicle.id)} disabled={isDeleting}>
+            {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </Button>
         </div>
       </CardContent>
@@ -403,5 +326,3 @@ function VehicleCardSkeleton() {
     </Card>
   );
 }
-
-// Import missing icons

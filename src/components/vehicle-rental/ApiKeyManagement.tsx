@@ -10,9 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Copy, Trash2, Eye, EyeOff, Key, Shield, Zap, Globe, Link as LinkIcon, Settings, RotateCcw, Loader2, Check, AlertTriangle } from 'lucide-react';
+import { Select } from '@/components/ui/select';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Plus, Copy, Trash2, Key, Zap, Globe, Link as LinkIcon, RotateCcw, Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { createApiKey, getApiKeys, deleteApiKey, regenerateApiKey, updateApiKey, type ApiKey, type ApiKeyScope, createWebhookEndpoint, getWebhookEndpoints, deleteWebhookEndpoint, updateWebhookEndpoint, type WebhookEndpoint, createExternalPlatformConnection, getExternalPlatformConnections, updateExternalPlatformConnection, deleteExternalPlatformConnection, type ExternalPlatformConnection } from '@/lib/vehicle-rental';
 
@@ -71,11 +71,8 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
 
   const [platformFormData, setPlatformFormData] = useState({
     platformName: '',
-    platformUrl: '',
-    apiKeyId: '',
-    syncEnabled: false,
-    syncFrequency: 'hourly',
-    fieldMapping: {},
+    externalAccountId: '',
+    autoSync: false,
   });
 
   const loadData = async () => {
@@ -103,11 +100,12 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
   const handleCreateApiKey = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { apiKey, fullKey } = await createApiKey({
-        hostId,
-        ...formData,
+      const { apiKey, plaintextKey } = await createApiKey(hostId, formData.name, formData.scopes, {
+        rateLimitPerMinute: formData.rateLimitPerMinute,
+        rateLimitPerDay: formData.rateLimitPerDay,
+        expiresAt: formData.expiresAt || undefined,
       });
-      setNewKey(fullKey);
+      setNewKey(plaintextKey);
       setApiKeys(prev => [apiKey, ...prev]);
       setShowCreateDialog(false);
       setFormData({ name: '', scopes: ['read'], rateLimitPerMinute: 60, rateLimitPerDay: 10000, expiresAt: '' });
@@ -120,8 +118,8 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
   const handleRegenerateKey = async (apiKeyId: string) => {
     setRegeneratingKeyId(apiKeyId);
     try {
-      const { apiKey, fullKey } = await regenerateApiKey(apiKeyId);
-      setNewKey(fullKey);
+      const { apiKey, plaintextKey } = await regenerateApiKey(apiKeyId);
+      setNewKey(plaintextKey);
       setApiKeys(prev => prev.map(k => k.id === apiKeyId ? apiKey : k));
       toast({ title: 'Key Regenerated', description: 'Your new API key is shown below. Save it now!' });
     } catch (error: any) {
@@ -155,14 +153,11 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
   const handleCreateWebhook = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { webhook, secret } = await createWebhookEndpoint({
-        hostId,
-        ...webhookFormData,
-      });
+      const webhook = await createWebhookEndpoint(hostId, webhookFormData.url, webhookFormData.events, webhookFormData.apiKeyId || undefined);
       setWebhooks(prev => [webhook, ...prev]);
       setShowWebhookDialog(false);
       setWebhookFormData({ url: '', events: ['booking.created', 'booking.confirmed', 'booking.cancelled', 'booking.completed'], isActive: true, apiKeyId: '' });
-      toast({ title: 'Webhook Created', description: `Webhook secret: ${secret}. Save it for signature verification.` });
+      toast({ title: 'Webhook Created', description: `Webhook secret: ${webhook.secret}. Save it for signature verification.` });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to create webhook', variant: 'destructive' });
     }
@@ -192,13 +187,13 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
   const handleCreatePlatform = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const connection = await createExternalPlatformConnection({
-        hostId,
-        ...platformFormData,
+      const connection = await createExternalPlatformConnection(hostId, platformFormData.platformName, {
+        externalAccountId: platformFormData.externalAccountId || undefined,
+        autoSync: platformFormData.autoSync,
       });
       setPlatformConnections(prev => [connection, ...prev]);
       setShowPlatformDialog(false);
-      setPlatformFormData({ platformName: '', platformUrl: '', apiKeyId: '', syncEnabled: false, syncFrequency: 'hourly', fieldMapping: {} });
+      setPlatformFormData({ platformName: '', externalAccountId: '', autoSync: false });
       toast({ title: 'Platform Connected', description: 'External platform connection created' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to create connection', variant: 'destructive' });
@@ -218,9 +213,9 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
 
   const handleTogglePlatformSync = async (connection: ExternalPlatformConnection) => {
     try {
-      const updated = await updateExternalPlatformConnection(connection.id, { syncEnabled: !connection.syncEnabled });
+      const updated = await updateExternalPlatformConnection(connection.id, { autoSync: !connection.autoSync });
       setPlatformConnections(prev => prev.map(p => p.id === connection.id ? updated : p));
-      toast({ title: updated.syncEnabled ? 'Sync Enabled' : 'Sync Disabled', description: `Platform sync has been ${updated.syncEnabled ? 'enabled' : 'disabled'}` });
+      toast({ title: updated.autoSync ? 'Sync Enabled' : 'Sync Disabled', description: `Platform sync has been ${updated.autoSync ? 'enabled' : 'disabled'}` });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to update connection', variant: 'destructive' });
     }
@@ -242,7 +237,7 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="api-keys">
             <Key className="mr-2 h-4 w-4" />
@@ -261,11 +256,9 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
         {/* API Keys Tab */}
         <TabsContent value="api-keys" className="mt-6">
           <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
+            <DialogTrigger>
+              <Plus className="mr-2 h-4 w-4" />
                 Create API Key
-              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
@@ -361,7 +354,7 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
                   <Alert variant="default">
                     <AlertTitle>Important: Save this key now</AlertTitle>
                     <AlertDescription>
-                      This is the only time you'll see the full API key. Store it securely - it cannot be recovered later.
+                      This is the only time you&apos;ll see the full API key. Store it securely - it cannot be recovered later.
                     </AlertDescription>
                   </Alert>
                   <div className="flex gap-2">
@@ -461,11 +454,9 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
         {/* Webhooks Tab */}
         <TabsContent value="webhooks" className="mt-6">
           <Dialog open={showWebhookDialog} onOpenChange={setShowWebhookDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
+            <DialogTrigger>
+              <Plus className="mr-2 h-4 w-4" />
                 Add Webhook
-              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
@@ -506,16 +497,15 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
                 </div>
                 <div>
                   <Label htmlFor="webhookApiKey">Associated API Key (optional)</Label>
-                  <Select value={webhookFormData.apiKeyId} onValueChange={v => setWebhookFormData(prev => ({ ...prev, apiKeyId: v }))}>
-                    <SelectTrigger id="webhookApiKey">
-                      <SelectValue placeholder="Select API key for authentication" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None (use webhook secret only)</SelectItem>
-                      {apiKeys.filter(k => k.isActive).map(key => (
-                        <SelectItem key={key.id} value={key.id}>{key.name} ({key.keyPrefix})</SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select
+                    id="webhookApiKey"
+                    value={webhookFormData.apiKeyId}
+                    onChange={e => setWebhookFormData(prev => ({ ...prev, apiKeyId: e.target.value }))}
+                  >
+                    <option value="">None (use webhook secret only)</option>
+                    {apiKeys.filter(k => k.isActive).map(key => (
+                      <option key={key.id} value={key.id}>{key.name} ({key.keyPrefix})</option>
+                    ))}
                   </Select>
                 </div>
                 <div className="flex items-center gap-2">
@@ -603,11 +593,9 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
         {/* Platforms Tab */}
         <TabsContent value="platforms" className="mt-6">
           <Dialog open={showPlatformDialog} onOpenChange={setShowPlatformDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
+            <DialogTrigger>
+              <Plus className="mr-2 h-4 w-4" />
                 Connect Platform
-              </Button>
             </DialogTrigger>
             <DialogContent className="max-w-lg">
               <DialogHeader>
@@ -625,50 +613,21 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="platformUrl">Platform URL (optional)</Label>
+                  <Label htmlFor="externalAccountId">External Account ID (optional)</Label>
                   <Input
-                    id="platformUrl"
-                    type="url"
-                    value={platformFormData.platformUrl}
-                    onChange={e => setPlatformFormData(prev => ({ ...prev, platformUrl: e.target.value }))}
-                    placeholder="https://partner-platform.com"
+                    id="externalAccountId"
+                    value={platformFormData.externalAccountId}
+                    onChange={e => setPlatformFormData(prev => ({ ...prev, externalAccountId: e.target.value }))}
+                    placeholder="Account or store ID on the external platform"
                   />
-                </div>
-                <div>
-                  <Label htmlFor="platformApiKey">API Key to Use</Label>
-                  <Select value={platformFormData.apiKeyId} onValueChange={v => setPlatformFormData(prev => ({ ...prev, apiKeyId: v }))}>
-                    <SelectTrigger id="platformApiKey">
-                      <SelectValue placeholder="Select an API key" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {apiKeys.filter(k => k.isActive && k.scopes.includes('write')).map(key => (
-                        <SelectItem key={key.id} value={key.id}>{key.name} ({key.keyPrefix})</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
                 </div>
                 <div className="flex items-center gap-2">
                   <Switch
-                    checked={platformFormData.syncEnabled}
-                    onCheckedChange={checked => setPlatformFormData(prev => ({ ...prev, syncEnabled: checked }))}
+                    checked={platformFormData.autoSync}
+                    onCheckedChange={checked => setPlatformFormData(prev => ({ ...prev, autoSync: checked }))}
                   />
                   <Label>Enable Auto-Sync</Label>
                 </div>
-                {platformFormData.syncEnabled && (
-                  <div>
-                    <Label htmlFor="syncFrequency">Sync Frequency</Label>
-                    <Select value={platformFormData.syncFrequency} onValueChange={v => setPlatformFormData(prev => ({ ...prev, syncFrequency: v }))}>
-                      <SelectTrigger id="syncFrequency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="hourly">Hourly</SelectItem>
-                        <SelectItem value="daily">Daily</SelectItem>
-                        <SelectItem value="manual">Manual Only</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="outline" onClick={() => setShowPlatformDialog(false)}>Cancel</Button>
                   <Button type="submit">Connect Platform</Button>
@@ -702,25 +661,24 @@ export function ApiKeyManagement({ hostId }: { hostId: string }) {
                         <div>
                           <h4 className="font-semibold">{connection.platformName}</h4>
                           <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                            <Badge variant={connection.syncEnabled ? 'default' : 'secondary'}>
-                              {connection.syncEnabled ? 'Sync Enabled' : 'Sync Disabled'}
+                            <Badge variant={connection.autoSync ? 'default' : 'secondary'}>
+                              {connection.autoSync ? 'Sync Enabled' : 'Sync Disabled'}
                             </Badge>
-                            <Badge variant="outline">{connection.syncFrequency}</Badge>
-                            <Badge variant={connection.syncStatus === 'success' ? 'default' : connection.syncStatus === 'failed' ? 'destructive' : 'outline'}>
+                            <Badge variant={connection.syncStatus === 'connected' ? 'default' : connection.syncStatus === 'failed' ? 'destructive' : 'outline'}>
                               {connection.syncStatus}
                             </Badge>
                           </div>
-                          {connection.platformUrl && (
-                            <a href={connection.platformUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1 mt-1">
+                          {connection.externalAccountId && (
+                            <span className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                               <LinkIcon className="h-3 w-3" />
-                              Visit Platform
-                            </a>
+                              Account: {connection.externalAccountId}
+                            </span>
                           )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <Switch
-                          checked={connection.syncEnabled}
+                          checked={connection.autoSync}
                           onCheckedChange={() => handleTogglePlatformSync(connection)}
                         />
                         <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700" onClick={() => handleDeletePlatform(connection.id)}>
