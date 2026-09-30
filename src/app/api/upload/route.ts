@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-// NOTE: intentionally still on @/lib/supabase/server, not @/lib/neon/server.
-// This route depends on `supabase.storage` (bucket upload + public URL),
-// which the Neon client (src/lib/neon/server.ts) does not implement — Neon's
-// object storage story wasn't part of this migration pass. Migrating this
-// file requires either standing up a Neon-side storage client (or an
-// S3/R2-compatible bucket) and wiring it in here, which is a real follow-up,
-// not a mechanical import swap. Left on Supabase for now — flagged for the
-// migration owner.
-import { createClient } from '@/lib/supabase/server';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
+import { uploadToR2, isR2Configured } from '@/lib/storage/r2';
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
 const ALLOWED_DOCUMENT_TYPES = [
@@ -21,10 +14,20 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
 const MAX_DOCUMENT_SIZE = 25 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  if (!isR2Configured()) {
+    return NextResponse.json(
+      {
+        error:
+          'File uploads are not configured on this deployment (missing R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / NEXT_PUBLIC_R2_PUBLIC_URL).',
+      },
+      { status: 503 },
+    );
+  }
 
-  if (!user) {
+  let user;
+  try {
+    ({ user } = await requireAuthenticatedUser());
+  } catch {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -60,31 +63,28 @@ export async function POST(req: NextRequest) {
   }
 
   const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-  const filePath = `${folder}/${fileName}`;
+  // bucket is kept as a logical prefix (mirrors the old Supabase bucket
+  // name) since R2 itself only has the one physical bucket configured here.
+  const filePath = `${bucket}/${folder}/${fileName}`;
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = new Uint8Array(arrayBuffer);
 
-  const { error } = await supabase.storage
-    .from(bucket)
-    .upload(filePath, buffer, {
-      contentType: file.type,
-      cacheControl: '3600',
-      upsert: false,
+  try {
+    const { url } = await uploadToR2(filePath, buffer, file.type);
+
+    return NextResponse.json({
+      url,
+      path: filePath,
+      bucket,
+      fileName,
+      size: file.size,
+      type: file.type,
     });
-
-  if (error) {
-    return NextResponse.json({ error: `Upload failed: ${error.message}` }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: `Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { status: 500 },
+    );
   }
-
-  const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(filePath);
-
-  return NextResponse.json({
-    url: urlData.publicUrl,
-    path: filePath,
-    bucket,
-    fileName,
-    size: file.size,
-    type: file.type,
-  });
 }
