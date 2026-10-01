@@ -1,10 +1,32 @@
 // ─── Ride Status Realtime ───────────────────────────────────
-// Real-time ride/delivery status tracking via Supabase Realtime.
-// Broadcasts status transitions to rider and driver clients.
+// Real-time ride/delivery status tracking — previously Supabase Realtime.
+//
+// NOTE (Neon migration gap): `@/lib/neon/client` (the Neon-backed browser
+// client, via SupabaseAuthAdapter + Data API) has no realtime/channel
+// primitive — confirmed during the ridely migration (see
+// src/lib/ridely/dispatch-engine.ts and src/lib/realtime/driver-location.ts,
+// which hit the exact same gap). There is no documented Neon equivalent as
+// of this migration. Even leaving these on @/lib/supabase/client would not
+// help: writes now go through Neon (src/lib/neon/server.ts), so the old
+// Supabase Postgres these channels watched never receives the inserts/
+// updates that would fire them — they would silently never call back
+// rather than error.
+//
+// Left as explicit no-ops (matching driver-location.ts's precedent) rather
+// than a broken `.channel()` call or a silent dead subscription, so a
+// caller sees the warning in dev instead of debugging "why don't ride
+// updates ever arrive". Follow-up: a polling hook on an interval, or a
+// real realtime channel once Neon exposes one.
 // ──────────────────────────────────────────────────────────────
 
-import { createClient as createBrowserClient } from '@/lib/supabase/client';
-import type { RideStatusEvent, RideStatus } from '@/types/ridely';
+import type { RideStatusEvent } from '@/types/ridely';
+
+function warnNoRealtime(fn: string): void {
+  console.warn(
+    `[realtime:ride-status] ${fn} is a no-op: Neon has no Supabase-Realtime ` +
+      'equivalent (no channel()/postgres_changes). See NOTE at the top of ride-status.ts.',
+  );
+}
 
 // ─── Client: Subscribe to Ride Status Changes ────────────────
 
@@ -12,39 +34,10 @@ export function subscribeToRideStatus(
   rideId: string,
   onStatusChange: (event: RideStatusEvent) => void,
 ): () => void {
-  const supabase = createBrowserClient();
-
-  const channel = supabase
-    .channel(`ride-status:${rideId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'ridely_rides',
-        filter: `id=eq.${rideId}`,
-      },
-      (payload: { new: Record<string, any> }) => {
-        const row = payload.new as any;
-
-        onStatusChange({
-          rideId: row.id,
-          status: row.status as RideStatus,
-          driverId: row.driver_id ?? undefined,
-          timestamp: row.updated_at,
-          metadata: {
-            driverLat: row.driver_location?.coordinates?.[1],
-            driverLng: row.driver_location?.coordinates?.[0],
-            estimatedArrival: row.estimated_arrival,
-          },
-        });
-      },
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  void rideId;
+  void onStatusChange;
+  warnNoRealtime('subscribeToRideStatus');
+  return () => {};
 }
 
 // ─── Client: Subscribe to Delivery Status Changes ────────────
@@ -53,39 +46,10 @@ export function subscribeToDeliveryStatus(
   deliveryId: string,
   onStatusChange: (event: RideStatusEvent) => void,
 ): () => void {
-  const supabase = createBrowserClient();
-
-  const channel = supabase
-    .channel(`delivery-status:${deliveryId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'ridely_deliveries',
-        filter: `id=eq.${deliveryId}`,
-      },
-      (payload: { new: Record<string, any> }) => {
-        const row = payload.new as any;
-
-        onStatusChange({
-          rideId: row.id,
-          status: row.status as unknown as RideStatus,
-          driverId: row.driver_id ?? undefined,
-          timestamp: row.updated_at,
-          metadata: {
-            driverLat: row.driver_location?.coordinates?.[1],
-            driverLng: row.driver_location?.coordinates?.[0],
-            estimatedArrival: row.estimated_arrival,
-          },
-        });
-      },
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  void deliveryId;
+  void onStatusChange;
+  warnNoRealtime('subscribeToDeliveryStatus');
+  return () => {};
 }
 
 // ─── Client: Subscribe to Food Delivery Status ───────────────
@@ -94,39 +58,10 @@ export function subscribeToFoodDeliveryStatus(
   orderId: string,
   onStatusChange: (event: RideStatusEvent) => void,
 ): () => void {
-  const supabase = createBrowserClient();
-
-  const channel = supabase
-    .channel(`food-status:${orderId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'ridely_food_deliveries',
-        filter: `id=eq.${orderId}`,
-      },
-      (payload: { new: Record<string, any> }) => {
-        const row = payload.new as any;
-
-        onStatusChange({
-          rideId: row.id,
-          status: row.status as unknown as RideStatus,
-          driverId: row.driver_id ?? undefined,
-          timestamp: row.updated_at,
-          metadata: {
-            restaurantAccepted: row.restaurant_accepted_at,
-            restaurantReady: row.restaurant_ready_at,
-            driverPickedUp: row.driver_picked_up_at,
-          },
-        });
-      },
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  void orderId;
+  void onStatusChange;
+  warnNoRealtime('subscribeToFoodDeliveryStatus');
+  return () => {};
 }
 
 // ─── Client: Subscribe to Driver Offer Responses ─────────────
@@ -136,28 +71,10 @@ export function subscribeToOfferResponse(
   rideId: string,
   onOfferUpdate: (driverId: string, status: string) => void,
 ): () => void {
-  const supabase = createBrowserClient();
-
-  const channel = supabase
-    .channel(`offers:${rideId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'driver_offers',
-        filter: `ride_id=eq.${rideId}`,
-      },
-      (payload: { new: Record<string, any> }) => {
-        const row = payload.new as any;
-        onOfferUpdate(row.driver_id, row.status);
-      },
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  void rideId;
+  void onOfferUpdate;
+  warnNoRealtime('subscribeToOfferResponse');
+  return () => {};
 }
 
 // ─── Client: Subscribe to New Incoming Offers (driver side) ──
@@ -185,43 +102,8 @@ export function subscribeToDriverOffers(
   driverId: string,
   onNewOffer: (offer: DriverOfferEvent) => void,
 ): () => void {
-  const supabase = createBrowserClient();
-
-  const channel = supabase
-    .channel(`driver-offers:${driverId}`)
-    .on(
-      'postgres_changes',
-      {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'driver_offers',
-        filter: `driver_id=eq.${driverId}`,
-      },
-      (payload: { new: Record<string, any> }) => {
-        const row = payload.new as any;
-
-        // Only surface offers that are still pending and not already
-        // expired by the time the realtime event arrives (clock skew,
-        // reconnect after a dropped connection, etc.).
-        if (row.status !== 'pending') return;
-        if (row.expires_at && new Date(row.expires_at).getTime() <= Date.now()) return;
-
-        onNewOffer({
-          offerId: row.id,
-          rideId: row.ride_id,
-          pickupAddress: row.pickup_address ?? null,
-          destinationAddress: row.destination_address ?? null,
-          distanceKm: row.distance_km != null ? Number(row.distance_km) : null,
-          estimatedDurationMin: row.estimated_duration_min != null ? Number(row.estimated_duration_min) : null,
-          estimatedEarnings: row.estimated_earnings != null ? Number(row.estimated_earnings) : null,
-          rideType: row.ride_type,
-          expiresAt: row.expires_at,
-        });
-      },
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
+  void driverId;
+  void onNewOffer;
+  warnNoRealtime('subscribeToDriverOffers');
+  return () => {};
 }

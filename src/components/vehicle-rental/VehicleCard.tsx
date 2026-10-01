@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Card, CardContent, CardFooter } from '@/components/ui/card-primitive';
 import { Badge } from '@/components/ui/badge-primitive';
 import { Button } from '@/components/ui/button-primitive';
-import { Heart, Star, MapPin, Shield, Zap } from 'lucide-react';
+import { Heart, Star, MapPin } from 'lucide-react';
 import { formatVehiclePrice, getVehicleTypeLabel, type Vehicle } from '@/lib/vehicle-rental';
 import { useAuth } from '@/hooks/useAuth';
 import { addToFavorites, removeFromFavorites, isFavorite } from '@/lib/vehicle-rental';
@@ -24,11 +24,9 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
   const [isCheckingFavorite, setIsCheckingFavorite] = useState(true);
   const [isToggling, setIsToggling] = useState(false);
 
-  const primaryImage = vehicle.images?.find(img => img.isPrimary && img.type.startsWith('exterior')) ||
-    vehicle.images?.find(img => img.type.startsWith('exterior')) ||
-    vehicle.images?.[0];
+  const primaryImageUrl = vehicle.coverImageUrl ?? vehicle.galleryImages?.[0];
 
-  const hostName = vehicle.hostProfiles?.companyName || 'Individual Host';
+  const hostName = vehicle.companyName || 'Individual Host';
 
   // Check favorite status on mount
   const checkFavorite = async () => {
@@ -75,9 +73,9 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
       <Card className="overflow-hidden h-full transition-all duration-300 hover:shadow-xl cursor-pointer">
         {/* Image */}
         <div className="relative aspect-video overflow-hidden">
-          {primaryImage ? (
+          {primaryImageUrl ? (
             <Image
-              src={primaryImage.url}
+              src={primaryImageUrl}
               alt={`${vehicle.year} ${vehicle.make} ${vehicle.model}`}
               fill
               className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -88,22 +86,6 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
               <span className="text-6xl">🚗</span>
             </div>
           )}
-
-          {/* Badges */}
-          <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-            {vehicle.isInstantBook && (
-              <Badge variant="secondary" className="gap-1">
-                <Zap className="h-3 w-3" />
-                Instant Book
-              </Badge>
-            )}
-            {vehicle.hostProfiles?.isVerified && (
-              <Badge variant="outline" className="gap-1 bg-background/90">
-                <Shield className="h-3 w-3" />
-                Verified Host
-              </Badge>
-            )}
-          </div>
 
           {/* Favorite Button */}
           <button
@@ -126,7 +108,7 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
           {/* Vehicle Type Badge */}
           <div className="absolute bottom-3 left-3">
             <Badge variant="outline" className="bg-background/90 backdrop-blur-sm gap-1">
-              {getVehicleTypeLabel(vehicle.vehicleType as any)}
+              {getVehicleTypeLabel(vehicle.vehicleType)}
             </Badge>
           </div>
         </div>
@@ -138,14 +120,11 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
               <h3 className="font-semibold text-lg truncate group-hover:text-primary transition-colors">
                 {vehicle.year} {vehicle.make} {vehicle.model}
               </h3>
-              {vehicle.trim && (
-                <p className="text-sm text-muted-foreground truncate">{vehicle.trim}</p>
-              )}
             </div>
-            {vehicle.averageRating > 0 && (
+            {vehicle.rating > 0 && (
               <div className="flex items-center gap-1 text-sm text-muted-foreground flex-shrink-0">
                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                <span className="font-medium">{vehicle.averageRating.toFixed(1)}</span>
+                <span className="font-medium">{vehicle.rating.toFixed(1)}</span>
                 <span className="text-xs">({vehicle.reviewCount})</span>
               </div>
             )}
@@ -154,9 +133,7 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
           {/* Location */}
           <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="truncate">
-              {vehicle.locationCity}, {vehicle.locationState}
-            </span>
+            <span className="truncate">{vehicle.city}</span>
           </div>
 
           {/* Specs */}
@@ -181,9 +158,6 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
           <div className="flex items-center gap-2 text-sm text-muted-foreground border-t pt-3">
             <span className="text-xs uppercase tracking-wide text-muted-foreground/70">Hosted by</span>
             <span className="font-medium text-foreground truncate max-w-[150px]">{hostName}</span>
-            {vehicle.hostProfiles?.isVerified && (
-              <Shield className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-            )}
           </div>
         </CardContent>
 
@@ -192,7 +166,7 @@ export function VehicleCard({ vehicle, variant = 'default' }: VehicleCardProps) 
           <div className="flex items-center justify-between">
             <div>
               <span className="text-2xl font-bold text-foreground">
-                {formatVehiclePrice(vehicle.dailyRate)}
+                {formatVehiclePrice(vehicle.pricePerDay, vehicle.currencyCode)}
               </span>
               <span className="text-muted-foreground ml-1">/day</span>
             </div>

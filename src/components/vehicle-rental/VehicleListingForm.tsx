@@ -1,76 +1,43 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button-primitive';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card-primitive';
-import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, X, Image as ImageIcon, CheckCircle, Loader2, Trash2, Plus } from 'lucide-react';
+import { Upload, Image as ImageIcon, Loader2, X } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-import { createVehicle, uploadVehicleImage, uploadVehicleDocument } from '@/lib/vehicle-rental';
-import type { VehicleType, VehicleTransmission, VehicleFuelType, VehicleCondition, VehicleImageType, VehicleDocumentType } from '@/types';
+import { createVehicle, uploadVehicleImage, type Vehicle } from '@/lib/vehicle-rental';
+import type { VehicleType, VehicleTransmission, VehicleFuelType } from '@/types';
 
 const vehicleListingSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters').max(100, 'Title too long'),
-  description: z.string().min(50, 'Description must be at least 50 characters').max(2000, 'Description too long'),
+  companyName: z.string().optional(),
+  isCompanyFleet: z.boolean(),
   vehicleType: z.enum(['sedan', 'suv', 'truck', 'van', 'coupe', 'convertible', 'hatchback', 'wagon', 'minivan', 'pickup', 'luxury', 'electric', 'hybrid', 'motorcycle', 'scooter', 'rv', 'trailer', 'bus']),
   make: z.string().min(1, 'Make is required'),
   model: z.string().min(1, 'Model is required'),
   year: z.number().min(1900).max(new Date().getFullYear() + 1),
-  trim: z.string().optional(),
-  color: z.string().min(1, 'Color is required'),
-  exteriorColorHex: z.string().optional(),
-  interiorColor: z.string().optional(),
-  interiorColorHex: z.string().optional(),
+  color: z.string().optional(),
   transmission: z.enum(['automatic', 'manual', 'cvt', 'semi_automatic']),
-  fuelType: z.enum(['gasoline', 'diesel', 'electric', 'hybrid', 'plug_in_hybrid', 'cng', 'lpg', 'hydrogen']),
-  engineSize: z.string().optional(),
-  horsepower: z.number().min(1).optional(),
-  drivetrain: z.string().optional(),
-  doors: z.number().min(2).max(5).default(4),
-  seats: z.number().min(1).max(15).default(5),
-  mileage: z.number().min(0).default(0),
-  condition: z.enum(['new', 'excellent', 'good', 'fair', 'poor']),
-  vin: z.string().length(17, 'VIN must be 17 characters').optional().or(z.literal('')),
+  fuelType: z.enum(['petrol', 'diesel', 'electric', 'hybrid', 'cng', 'lpg']),
+  seats: z.number().min(1).max(60),
+  vin: z.string().optional(),
   licensePlate: z.string().min(1, 'License plate is required'),
-  licensePlateState: z.string().optional(),
-  licensePlateCountry: z.string().default('US'),
-  registrationExpiryDate: z.string().optional(),
-  insurancePolicyNumber: z.string().optional(),
-  insuranceProvider: z.string().optional(),
-  insuranceExpiryDate: z.string().optional(),
-  features: z.array(z.string()).default([]),
-  amenities: z.array(z.string()).default([]),
-  rules: z.array(z.string()).default([]),
-  locationAddress: z.string().min(5, 'Address is required'),
-  locationCity: z.string().min(2, 'City is required'),
-  locationState: z.string().min(2, 'State is required'),
-  locationPostalCode: z.string().min(5, 'Postal code is required'),
-  locationCountryCode: z.string().default('US'),
-  locationLatitude: z.number().optional(),
-  locationLongitude: z.number().optional(),
-  dailyRate: z.number().min(1, 'Daily rate must be at least $1'),
-  weeklyDiscountPercent: z.number().min(0).max(100).default(0),
-  monthlyDiscountPercent: z.number().min(0).max(100).default(0),
-  minimumRentalDays: z.number().min(1).default(1),
-  maximumRentalDays: z.number().min(1).max(365).default(30),
-  securityDeposit: z.number().min(0).default(0),
-  cleaningFee: z.number().min(0).default(0),
-  deliveryAvailable: z.boolean().default(false),
-  deliveryRadiusKm: z.number().min(0).default(0),
-  deliveryFeePerKm: z.number().min(0).default(0),
-  pickupInstructions: z.string().optional(),
-  dropoffInstructions: z.string().optional(),
-  isInstantBook: z.boolean().default(false),
-  requiresApproval: z.boolean().default(true),
+  countryCode: z.string().min(2, 'Country is required'),
+  city: z.string().min(2, 'City is required'),
+  address: z.string().optional(),
+  pricePerDay: z.number().min(1, 'Daily rate must be at least 1'),
+  currencyCode: z.string(),
+  securityDeposit: z.number().min(0),
+  mileageLimitPerDay: z.number().min(0).optional(),
+  insuranceExpiry: z.string().optional(),
+  features: z.array(z.string()),
 });
 
 type VehicleListingFormData = z.infer<typeof vehicleListingSchema>;
@@ -104,178 +71,113 @@ const TRANSMISSION_OPTIONS: { value: VehicleTransmission; label: string }[] = [
 ];
 
 const FUEL_TYPE_OPTIONS: { value: VehicleFuelType; label: string }[] = [
-  { value: 'gasoline', label: 'Gasoline' },
+  { value: 'petrol', label: 'Petrol' },
   { value: 'diesel', label: 'Diesel' },
   { value: 'electric', label: 'Electric' },
   { value: 'hybrid', label: 'Hybrid' },
-  { value: 'plug_in_hybrid', label: 'Plug-in Hybrid' },
   { value: 'cng', label: 'CNG' },
   { value: 'lpg', label: 'LPG' },
-  { value: 'hydrogen', label: 'Hydrogen' },
-];
-
-const CONDITION_OPTIONS: { value: VehicleCondition; label: string }[] = [
-  { value: 'new', label: 'New' },
-  { value: 'excellent', label: 'Excellent' },
-  { value: 'good', label: 'Good' },
-  { value: 'fair', label: 'Fair' },
-  { value: 'poor', label: 'Poor' },
 ];
 
 const FEATURE_OPTIONS = [
   'Bluetooth', 'USB Ports', 'Apple CarPlay', 'Android Auto', 'Navigation', 'Backup Camera',
   'Blind Spot Monitoring', 'Lane Keep Assist', 'Adaptive Cruise Control', 'Parking Sensors',
-  'Sunroof/Moonroof', 'Leather Seats', 'Heated Seats', 'Ventilated Seats', 'Memory Seats',
-  'Premium Audio', 'Wireless Charging', 'Keyless Entry', 'Remote Start', 'All-Wheel Drive',
-  'Roof Rack', 'Tow Hitch', 'Bed Liner', 'Running Boards', 'Third Row Seating',
-];
-
-const AMENITY_OPTIONS = [
-  'Air Conditioning', 'Heating', 'GPS Navigation', 'Phone Mount', 'Charging Cables',
-  'First Aid Kit', 'Emergency Kit', 'Spare Tire', 'Jack & Tools', 'Owner\'s Manual',
-  'Roadside Assistance', 'Unlimited Mileage', 'Pet Friendly', 'Smoke Free', 'Child Seat Available',
-];
-
-const RULE_OPTIONS = [
-  'No smoking', 'No pets', 'No off-road driving', 'No racing', 'No towing',
-  'Must be 25+ years old', 'Clean license required', 'International license accepted',
-  'Return with same fuel level', 'No additional drivers without approval',
-];
-
-const IMAGE_TYPE_OPTIONS: { value: VehicleImageType; label: string; required: boolean }[] = [
-  { value: 'exterior_front', label: 'Front Exterior *', required: true },
-  { value: 'exterior_rear', label: 'Rear Exterior *', required: true },
-  { value: 'exterior_side', label: 'Side Exterior *', required: true },
-  { value: 'interior_front', label: 'Front Interior *', required: true },
-  { value: 'interior_rear', label: 'Rear Interior', required: false },
-  { value: 'dashboard', label: 'Dashboard', required: false },
-  { value: 'engine', label: 'Engine Bay', required: false },
-  { value: 'trunk', label: 'Trunk/Cargo Area', required: false },
-  { value: 'wheels', label: 'Wheels/Tires', required: false },
-];
-
-const DOCUMENT_TYPE_OPTIONS: { value: VehicleDocumentType; label: string; required: boolean }[] = [
-  { value: 'insurance', label: 'Insurance Policy *', required: true },
-  { value: 'registration', label: 'Vehicle Registration *', required: true },
-  { value: 'inspection', label: 'Safety Inspection *', required: true },
-  { value: 'title', label: 'Vehicle Title', required: false },
+  'Sunroof/Moonroof', 'Leather Seats', 'Heated Seats', 'Premium Audio', 'Wireless Charging',
+  'Keyless Entry', 'Remote Start', 'All-Wheel Drive', 'Roof Rack', 'Tow Hitch', 'Third Row Seating',
 ];
 
 interface ImageUpload {
   file: File;
   preview: string;
-  type: VehicleImageType;
-  isPrimary: boolean;
 }
 
-interface DocumentUpload {
-  file: File;
-  type: VehicleDocumentType;
-  expiryDate?: string;
+async function uploadDocument(file: File, folder: string): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('bucket', 'vehicles');
+  formData.append('folder', folder);
+  const res = await fetch('/api/upload', { method: 'POST', body: formData });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? 'Failed to upload document');
+  }
+  const { url } = (await res.json()) as { url: string };
+  return url;
 }
 
-export function VehicleListingForm({ 
-  hostId, 
+export function VehicleListingForm({
+  hostId,
   onSuccess,
-  initialData 
-}: { 
-  hostId: string; 
-  onSuccess?: (vehicle: any) => void;
+  initialData,
+}: {
+  hostId: string;
+  onSuccess?: (vehicle: Vehicle) => void;
   initialData?: Partial<VehicleListingFormData>;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageUploads, setImageUploads] = useState<ImageUpload[]>([]);
-  const [documentUploads, setDocumentUploads] = useState<DocumentUpload[]>([]);
-  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [insuranceDoc, setInsuranceDoc] = useState<File | null>(null);
+  const [registrationDoc, setRegistrationDoc] = useState<File | null>(null);
 
   const form = useForm<VehicleListingFormData>({
     resolver: zodResolver(vehicleListingSchema),
     defaultValues: {
       vehicleType: 'sedan',
       transmission: 'automatic',
-      fuelType: 'gasoline',
-      condition: 'good',
-      doors: 4,
+      fuelType: 'petrol',
       seats: 5,
-      mileage: 0,
-      licensePlateCountry: 'US',
-      dailyRate: 50,
-      weeklyDiscountPercent: 10,
-      monthlyDiscountPercent: 20,
-      minimumRentalDays: 1,
-      maximumRentalDays: 30,
+      countryCode: 'US',
+      currencyCode: 'USD',
+      pricePerDay: 50,
       securityDeposit: 200,
-      cleaningFee: 50,
-      deliveryAvailable: false,
-      deliveryRadiusKm: 0,
-      deliveryFeePerKm: 0,
-      isInstantBook: false,
-      requiresApproval: true,
+      isCompanyFleet: false,
       features: [],
-      amenities: [],
-      rules: [],
       ...initialData,
     },
   });
 
   const { watch, setValue } = form;
   const features = watch('features');
-  const amenities = watch('amenities');
-  const rules = watch('rules');
 
-  const handleImageUpload = (files: FileList, type: VehicleImageType) => {
-    Array.from(files).forEach(file => {
+  const handleImageUpload = (files: FileList) => {
+    Array.from(files).forEach((file) => {
       if (!file.type.startsWith('image/')) return;
       const preview = URL.createObjectURL(file);
-      setImageUploads(prev => [...prev, { file, preview, type, isPrimary: false }]);
+      setImageUploads((prev) => [...prev, { file, preview }]);
     });
   };
 
   const removeImageUpload = (index: number) => {
-    setImageUploads(prev => {
+    setImageUploads((prev) => {
       URL.revokeObjectURL(prev[index].preview);
       return prev.filter((_, i) => i !== index);
     });
   };
 
-  const handleDocumentUpload = (files: FileList, type: VehicleDocumentType) => {
-    Array.from(files).forEach(file => {
-      setDocumentUploads(prev => [...prev, { file, type, expiryDate: undefined }]);
-    });
-  };
-
-  const removeDocumentUpload = (index: number) => {
-    setDocumentUploads(prev => prev.filter((_, i) => i !== index));
-  };
-
   const handleSubmit = async (data: VehicleListingFormData) => {
     setIsSubmitting(true);
     try {
-      // Create vehicle first
-      const vehicle = await createVehicle({
+      const [insuranceDocUrl, registrationDocUrl] = await Promise.all([
+        insuranceDoc ? uploadDocument(insuranceDoc, `vehicles/${hostId}/documents`) : Promise.resolve(undefined),
+        registrationDoc ? uploadDocument(registrationDoc, `vehicles/${hostId}/documents`) : Promise.resolve(undefined),
+      ]);
+
+      const vehicle = await createVehicle(hostId, {
         ...data,
-        hostId,
-        features: data.features || [],
-        amenities: data.amenities || [],
-        rules: data.rules || [],
-        images: [],
         vin: data.vin || undefined,
-        registrationExpiryDate: data.registrationExpiryDate || undefined,
-        insuranceExpiryDate: data.insuranceExpiryDate || undefined,
+        insuranceExpiry: data.insuranceExpiry || undefined,
+        insuranceDocUrl,
+        registrationDocUrl,
+        galleryImages: [],
       });
 
-      // Upload images
+      let updated = vehicle;
       for (const upload of imageUploads) {
-        await uploadVehicleImage(vehicle.id, upload.file, upload.type, upload.isPrimary);
-      }
-
-      // Upload documents
-      for (const upload of documentUploads) {
-        await uploadVehicleDocument(vehicle.id, upload.file, upload.type, upload.expiryDate);
+        updated = await uploadVehicleImage(vehicle.id, upload.file, !updated.coverImageUrl);
       }
 
       toast({ title: 'Success!', description: 'Your vehicle has been listed and is pending review.' });
-      onSuccess?.(vehicle);
+      onSuccess?.(updated);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Failed to list vehicle', variant: 'destructive' });
     } finally {
@@ -286,12 +188,11 @@ export function VehicleListingForm({
   return (
     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
       <Tabs defaultValue="basics" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="basics">Basics</TabsTrigger>
           <TabsTrigger value="specs">Specs</TabsTrigger>
           <TabsTrigger value="pricing">Pricing</TabsTrigger>
-          <TabsTrigger value="images">Images</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="documents">Photos & Docs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="basics" className="space-y-6 mt-6">
@@ -301,40 +202,6 @@ export function VehicleListingForm({
               <CardDescription>Tell renters about your vehicle</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="title">Listing Title *</Label>
-                  <Input
-                    id="title"
-                    {...form.register('title')}
-                    placeholder="e.g., 2023 Toyota Camry - Clean, Reliable Sedan"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="vehicleType">Vehicle Type *</Label>
-                  <Select {...form.register('vehicleType')}>
-                    <SelectTrigger id="vehicleType">
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VEHICLE_TYPE_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  {...form.register('description')}
-                  rows={4}
-                  placeholder="Describe your vehicle's condition, features, and what makes it special. Mention any unique details renters should know."
-                />
-              </div>
-
               <div className="grid gap-4 md:grid-cols-4">
                 <div>
                   <Label htmlFor="make">Make *</Label>
@@ -349,25 +216,37 @@ export function VehicleListingForm({
                   <Input id="year" type="number" {...form.register('year', { valueAsNumber: true })} placeholder="2023" />
                 </div>
                 <div>
-                  <Label htmlFor="trim">Trim</Label>
-                  <Input id="trim" {...form.register('trim')} placeholder="LE, XLE, Limited" />
+                  <Label htmlFor="color">Color</Label>
+                  <Input id="color" {...form.register('color')} placeholder="White, Black, Silver" />
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <Label htmlFor="vehicleType">Vehicle Type *</Label>
+                <Select
+                  id="vehicleType"
+                  value={watch('vehicleType')}
+                  onChange={(e) => setValue('vehicleType', e.target.value as VehicleType)}
+                >
+                  {VEHICLE_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Switch checked={watch('isCompanyFleet')} onCheckedChange={(checked) => setValue('isCompanyFleet', checked)} />
                 <div>
-                  <Label htmlFor="color">Exterior Color *</Label>
-                  <Input id="color" {...form.register('color')} placeholder="White, Black, Silver, etc." />
-                </div>
-                <div>
-                  <Label htmlFor="exteriorColorHex">Color Hex Code</Label>
-                  <Input id="exteriorColorHex" {...form.register('exteriorColorHex')} placeholder="#FFFFFF" />
-                </div>
-                <div>
-                  <Label htmlFor="interiorColor">Interior Color</Label>
-                  <Input id="interiorColor" {...form.register('interiorColor')} placeholder="Black, Beige, Gray" />
+                  <Label>Company Fleet Vehicle</Label>
+                  <p className="text-sm text-muted-foreground">List this as part of a company/rental-company fleet</p>
                 </div>
               </div>
+              {watch('isCompanyFleet') && (
+                <div>
+                  <Label htmlFor="companyName">Company Name</Label>
+                  <Input id="companyName" {...form.register('companyName')} placeholder="Acme Rentals" />
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -378,33 +257,17 @@ export function VehicleListingForm({
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="locationAddress">Street Address *</Label>
-                <Input id="locationAddress" {...form.register('locationAddress')} placeholder="123 Main Street" />
+                <Label htmlFor="address">Street Address</Label>
+                <Input id="address" {...form.register('address')} placeholder="123 Main Street" />
               </div>
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="locationCity">City *</Label>
-                  <Input id="locationCity" {...form.register('locationCity')} placeholder="City" />
+                  <Label htmlFor="city">City *</Label>
+                  <Input id="city" {...form.register('city')} placeholder="City" />
                 </div>
                 <div>
-                  <Label htmlFor="locationState">State *</Label>
-                  <Input id="locationState" {...form.register('locationState')} placeholder="State" />
-                </div>
-                <div>
-                  <Label htmlFor="locationPostalCode">Postal Code *</Label>
-                  <Input id="locationPostalCode" {...form.register('locationPostalCode')} placeholder="ZIP Code" />
-                </div>
-                <div>
-                  <Label htmlFor="locationCountryCode">Country</Label>
-                  <Select value={form.watch('locationCountryCode')} onValueChange={(v) => setValue('locationCountryCode', v)}>
-                    <SelectTrigger id="locationCountryCode">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="US">United States</SelectItem>
-                      <SelectItem value="CA">Canada</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="countryCode">Country Code *</Label>
+                  <Input id="countryCode" {...form.register('countryCode')} placeholder="US" maxLength={2} />
                 </div>
               </div>
             </CardContent>
@@ -420,69 +283,29 @@ export function VehicleListingForm({
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
                   <Label htmlFor="transmission">Transmission *</Label>
-                  <Select {...form.register('transmission')}>
-                    <SelectTrigger id="transmission"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {TRANSMISSION_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select id="transmission" value={watch('transmission')} onChange={(e) => setValue('transmission', e.target.value as VehicleTransmission)}>
+                    {TRANSMISSION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </Select>
                 </div>
                 <div>
                   <Label htmlFor="fuelType">Fuel Type *</Label>
-                  <Select {...form.register('fuelType')}>
-                    <SelectTrigger id="fuelType"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {FUEL_TYPE_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
+                  <Select id="fuelType" value={watch('fuelType')} onChange={(e) => setValue('fuelType', e.target.value as VehicleFuelType)}>
+                    {FUEL_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
                   </Select>
                 </div>
-                <div>
-                  <Label htmlFor="condition">Condition *</Label>
-                  <Select {...form.register('condition')}>
-                    <SelectTrigger id="condition"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {CONDITION_OPTIONS.map(opt => (
-                        <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-4">
-                <div>
-                  <Label htmlFor="engineSize">Engine Size</Label>
-                  <Input id="engineSize" {...form.register('engineSize')} placeholder="2.0L, 3.5L V6" />
-                </div>
-                <div>
-                  <Label htmlFor="horsepower">Horsepower</Label>
-                  <Input id="horsepower" type="number" {...form.register('horsepower', { valueAsNumber: true })} placeholder="200" />
-                </div>
-                <div>
-                  <Label htmlFor="drivetrain">Drivetrain</Label>
-                  <Input id="drivetrain" {...form.register('drivetrain')} placeholder="FWD, RWD, AWD, 4WD" />
-                </div>
-                <div>
-                  <Label htmlFor="doors">Doors</Label>
-                  <Input id="doors" type="number" min="2" max="5" {...form.register('doors', { valueAsNumber: true })} />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-4">
                 <div>
                   <Label htmlFor="seats">Seats</Label>
-                  <Input id="seats" type="number" min="1" max="15" {...form.register('seats', { valueAsNumber: true })} />
+                  <Input id="seats" type="number" min="1" max="60" {...form.register('seats', { valueAsNumber: true })} />
                 </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <Label htmlFor="mileage">Mileage</Label>
-                  <Input id="mileage" type="number" min="0" {...form.register('mileage', { valueAsNumber: true })} placeholder="45,000" />
-                </div>
-                <div>
-                  <Label htmlFor="vin">VIN (17 characters)</Label>
+                  <Label htmlFor="vin">VIN</Label>
                   <Input id="vin" {...form.register('vin')} placeholder="1HGCM82633A123456" maxLength={17} />
                 </div>
                 <div>
@@ -491,73 +314,34 @@ export function VehicleListingForm({
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="licensePlateState">License Plate State</Label>
-                  <Input id="licensePlateState" {...form.register('licensePlateState')} placeholder="CA" />
-                </div>
-                <div>
-                  <Label htmlFor="registrationExpiryDate">Registration Expiry</Label>
-                  <Input id="registrationExpiryDate" type="date" {...form.register('registrationExpiryDate')} />
-                </div>
+              <div>
+                <Label htmlFor="insuranceExpiry">Insurance Expiry</Label>
+                <Input id="insuranceExpiry" type="date" {...form.register('insuranceExpiry')} />
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>Features & Amenities</CardTitle>
+              <CardTitle>Features</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <Label>Vehicle Features</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {FEATURE_OPTIONS.map(feature => (
-                    <label key={feature} className="inline-flex items-center gap-2 px-3 py-1.5 border rounded-md cursor-pointer hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        checked={features.includes(feature)}
-                        onChange={e => setValue('features', e.target.checked ? [...features, feature] : features.filter(f => f !== feature), { shouldDirty: true })}
-                        className="rounded border-input"
-                      />
-                      <span className="text-sm">{feature}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label>Amenities</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {AMENITY_OPTIONS.map(amenity => (
-                    <label key={amenity} className="inline-flex items-center gap-2 px-3 py-1.5 border rounded-md cursor-pointer hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        checked={amenities.includes(amenity)}
-                        onChange={e => setValue('amenities', e.target.checked ? [...amenities, amenity] : amenities.filter(a => a !== amenity), { shouldDirty: true })}
-                        className="rounded border-input"
-                      />
-                      <span className="text-sm">{amenity}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label>House Rules</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {RULE_OPTIONS.map(rule => (
-                    <label key={rule} className="inline-flex items-center gap-2 px-3 py-1.5 border rounded-md cursor-pointer hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        checked={rules.includes(rule)}
-                        onChange={e => setValue('rules', e.target.checked ? [...rules, rule] : rules.filter(r => r !== rule), { shouldDirty: true })}
-                        className="rounded border-input"
-                      />
-                      <span className="text-sm">{rule}</span>
-                    </label>
-                  ))}
-                </div>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {FEATURE_OPTIONS.map((feature) => (
+                  <label key={feature} className="inline-flex items-center gap-2 px-3 py-1.5 border rounded-md cursor-pointer hover:bg-muted">
+                    <input
+                      type="checkbox"
+                      checked={features.includes(feature)}
+                      onChange={(e) =>
+                        setValue('features', e.target.checked ? [...features, feature] : features.filter((f) => f !== feature), {
+                          shouldDirty: true,
+                        })
+                      }
+                      className="rounded border-input"
+                    />
+                    <span className="text-sm">{feature}</span>
+                  </label>
+                ))}
               </div>
             </CardContent>
           </Card>
@@ -566,164 +350,26 @@ export function VehicleListingForm({
         <TabsContent value="pricing" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Pricing & Availability</CardTitle>
+              <CardTitle>Pricing</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
                 <div>
-                  <Label htmlFor="dailyRate">Daily Rate ($) *</Label>
-                  <Input id="dailyRate" type="number" min="1" step="1" {...form.register('dailyRate', { valueAsNumber: true })} />
+                  <Label htmlFor="pricePerDay">Daily Rate *</Label>
+                  <Input id="pricePerDay" type="number" min="1" step="1" {...form.register('pricePerDay', { valueAsNumber: true })} />
                 </div>
                 <div>
-                  <Label htmlFor="weeklyDiscountPercent">Weekly Discount (%)</Label>
-                  <Input id="weeklyDiscountPercent" type="number" min="0" max="100" step="1" {...form.register('weeklyDiscountPercent', { valueAsNumber: true })} />
+                  <Label htmlFor="currencyCode">Currency</Label>
+                  <Input id="currencyCode" {...form.register('currencyCode')} placeholder="USD" maxLength={3} />
                 </div>
                 <div>
-                  <Label htmlFor="monthlyDiscountPercent">Monthly Discount (%)</Label>
-                  <Input id="monthlyDiscountPercent" type="number" min="0" max="100" step="1" {...form.register('monthlyDiscountPercent', { valueAsNumber: true })} />
-                </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <Label htmlFor="minimumRentalDays">Min Rental Days</Label>
-                  <Input id="minimumRentalDays" type="number" min="1" {...form.register('minimumRentalDays', { valueAsNumber: true })} />
-                </div>
-                <div>
-                  <Label htmlFor="maximumRentalDays">Max Rental Days</Label>
-                  <Input id="maximumRentalDays" type="number" min="1" max="365" {...form.register('maximumRentalDays', { valueAsNumber: true })} />
-                </div>
-                <div>
-                  <Label htmlFor="securityDeposit">Security Deposit ($)</Label>
+                  <Label htmlFor="securityDeposit">Security Deposit</Label>
                   <Input id="securityDeposit" type="number" min="0" step="1" {...form.register('securityDeposit', { valueAsNumber: true })} />
                 </div>
               </div>
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="cleaningFee">Cleaning Fee ($)</Label>
-                  <Input id="cleaningFee" type="number" min="0" step="1" {...form.register('cleaningFee', { valueAsNumber: true })} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Delivery Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Switch
-                  checked={form.watch('deliveryAvailable')}
-                  onCheckedChange={checked => setValue('deliveryAvailable', checked)}
-                />
-                <div>
-                  <Label>Offer Delivery</Label>
-                  <p className="text-sm text-muted-foreground">Deliver the vehicle to the renter's location</p>
-                </div>
-              </div>
-
-              {form.watch('deliveryAvailable') && (
-                <div className="grid gap-4 md:grid-cols-3 ml-10">
-                  <div>
-                    <Label htmlFor="deliveryRadiusKm">Delivery Radius (km)</Label>
-                    <Input id="deliveryRadiusKm" type="number" min="0" {...form.register('deliveryRadiusKm', { valueAsNumber: true })} />
-                  </div>
-                  <div>
-                    <Label htmlFor="deliveryFeePerKm">Fee per km ($)</Label>
-                    <Input id="deliveryFeePerKm" type="number" min="0" step="0.01" {...form.register('deliveryFeePerKm', { valueAsNumber: true })} />
-                  </div>
-                </div>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="pickupInstructions">Pickup Instructions</Label>
-                  <Textarea id="pickupInstructions" {...form.register('pickupInstructions')} rows={2} placeholder="e.g., Meet at the front desk, key in lockbox #1234" />
-                </div>
-                <div>
-                  <Label htmlFor="dropoffInstructions">Dropoff Instructions</Label>
-                  <Textarea id="dropoffInstructions" {...form.register('dropoffInstructions')} rows={2} placeholder="e.g., Return to same location, park in spot #5" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Booking Settings</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Switch
-                  checked={form.watch('isInstantBook')}
-                  onCheckedChange={checked => setValue('isInstantBook', checked)}
-                />
-                <div>
-                  <Label>Instant Book</Label>
-                  <p className="text-sm text-muted-foreground">Allow renters to book without approval</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <Switch
-                  checked={form.watch('requiresApproval')}
-                  onCheckedChange={checked => setValue('requiresApproval', checked)}
-                />
-                <div>
-                  <Label>Require Approval</Label>
-                  <p className="text-sm text-muted-foreground">Manually approve each booking request</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="images" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Vehicle Images</CardTitle>
-              <CardDescription>
-                Upload clear photos of your vehicle. Required images are marked with *.
-                At minimum, we need front, rear, side exterior, and front interior photos.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {IMAGE_TYPE_OPTIONS.map(({ value, label, required }) => (
-                  <div key={value} className="border-2 border-dashed rounded-lg p-4 transition-colors hover:border-primary/50">
-                    <Label className="block mb-2">{label} {required && <span className="text-red-500">*</span>}</Label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={e => e.target.files && handleImageUpload(e.target.files, value)}
-                      className="sr-only"
-                      id={`image-${value}`}
-                    />
-                    <label
-                      htmlFor={`image-${value}`}
-                      className="cursor-pointer flex flex-col items-center gap-2 p-4 bg-muted/50 rounded-md"
-                    >
-                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                      <span className="text-sm">Click to upload</span>
-                    </label>
-                    {imageUploads.filter(u => u.type === value).map((upload, idx) => (
-                      <div key={idx} className="relative mt-2">
-                        <img src={upload.preview} alt={value} className="h-24 w-full object-cover rounded" />
-                        <button
-                          type="button"
-                          onClick={() => removeImageUpload(imageUploads.findIndex(u => u === upload))}
-                          className="absolute top-1 right-1 rounded-full bg-red-500 text-white p-1 hover:bg-red-600"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                        {upload.isPrimary && (
-                          <CheckCircle className="absolute bottom-1 right-1 text-green-500 bg-white rounded-full p-0.5" />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ))}
+              <div>
+                <Label htmlFor="mileageLimitPerDay">Mileage Limit (per day)</Label>
+                <Input id="mileageLimitPerDay" type="number" min="0" {...form.register('mileageLimitPerDay', { valueAsNumber: true })} placeholder="Leave blank for unlimited" />
               </div>
             </CardContent>
           </Card>
@@ -732,50 +378,57 @@ export function VehicleListingForm({
         <TabsContent value="documents" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Required Documents</CardTitle>
-              <CardDescription>
-                Upload the required documents for verification. All documents must be valid and not expired.
-              </CardDescription>
+              <CardTitle>Vehicle Photos</CardTitle>
+              <CardDescription>Upload clear photos of your vehicle. The first photo becomes the cover image.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <input type="file" accept="image/*" multiple onChange={(e) => e.target.files && handleImageUpload(e.target.files)} className="sr-only" id="vehicle-images" />
+              <label htmlFor="vehicle-images" className="cursor-pointer flex flex-col items-center gap-2 p-8 bg-muted/50 rounded-md border-2 border-dashed hover:border-primary/50">
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm">Click to upload photos</span>
+              </label>
+              {imageUploads.length > 0 && (
+                <div className="grid gap-4 md:grid-cols-3">
+                  {imageUploads.map((upload, idx) => (
+                    <div key={idx} className="relative">
+                      <img src={upload.preview} alt="" className="h-24 w-full object-cover rounded" />
+                      <button
+                        type="button"
+                        onClick={() => removeImageUpload(idx)}
+                        className="absolute top-1 right-1 rounded-full bg-red-500 text-white p-1 hover:bg-red-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Verification Documents</CardTitle>
+              <CardDescription>Upload insurance and registration documents for verification.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                {DOCUMENT_TYPE_OPTIONS.map(({ value, label, required }) => (
-                  <div key={value} className="border-2 border-dashed rounded-lg p-4">
-                    <Label className="block mb-2">{label} {required && <span className="text-red-500">*</span>}</Label>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={e => e.target.files && handleDocumentUpload(e.target.files, value)}
-                      className="sr-only"
-                      id={`doc-${value}`}
-                    />
-                    <label
-                      htmlFor={`doc-${value}`}
-                      className="cursor-pointer flex flex-col items-center gap-2 p-4 bg-muted/50 rounded-md"
-                    >
-                      <Upload className="h-8 w-8 text-muted-foreground" />
-                      <span className="text-sm">Upload PDF or Image</span>
-                    </label>
-                    {documentUploads.filter(u => u.type === value).map((upload, idx) => (
-                      <div key={idx} className="relative mt-2 flex items-center gap-2 bg-muted p-2 rounded">
-                        <span className="text-sm flex-1">{upload.file.name}</span>
-                        <input
-                          type="date"
-                          value={upload.expiryDate || ''}
-                          onChange={e => setDocumentUploads(prev => prev.map((u, i) => i === idx ? { ...u, expiryDate: e.target.value } : u))}
-                          className="text-sm border rounded px-2 py-1"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeDocumentUpload(documentUploads.findIndex(u => u === upload))}
-                          className="text-red-500 hover:text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ))}
+                <div className="border-2 border-dashed rounded-lg p-4">
+                  <Label className="block mb-2">Insurance Policy</Label>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setInsuranceDoc(e.target.files?.[0] ?? null)} className="sr-only" id="doc-insurance" />
+                  <label htmlFor="doc-insurance" className="cursor-pointer flex flex-col items-center gap-2 p-4 bg-muted/50 rounded-md">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm">{insuranceDoc ? insuranceDoc.name : 'Upload PDF or Image'}</span>
+                  </label>
+                </div>
+                <div className="border-2 border-dashed rounded-lg p-4">
+                  <Label className="block mb-2">Vehicle Registration</Label>
+                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setRegistrationDoc(e.target.files?.[0] ?? null)} className="sr-only" id="doc-registration" />
+                  <label htmlFor="doc-registration" className="cursor-pointer flex flex-col items-center gap-2 p-4 bg-muted/50 rounded-md">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm">{registrationDoc ? registrationDoc.name : 'Upload PDF or Image'}</span>
+                  </label>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -783,7 +436,6 @@ export function VehicleListingForm({
       </Tabs>
 
       <div className="flex justify-end gap-4 pt-4 border-t sticky bottom-0 bg-background/95 backdrop-blur-sm">
-        <Button type="button" variant="outline">Save as Draft</Button>
         <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
           {isSubmitting ? (
             <>

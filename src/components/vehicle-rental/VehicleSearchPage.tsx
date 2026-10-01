@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button-primitive';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardFooter } from '@/components/ui/card-primitive';
 import { Badge } from '@/components/ui/badge-primitive';
 import { Calendar, MapPin, Car, Filter, X, ChevronLeft, ChevronRight, Heart, Star, MapPin as MapPinIcon } from 'lucide-react';
@@ -170,16 +170,15 @@ export function VehicleSearchPage() {
                   </div>
                   <div>
                     <Label htmlFor="vehicleType">Vehicle Type</Label>
-                    <Select value={selectedVehicleTypes[0] || ''} onValueChange={v => setSelectedVehicleTypes(v ? [v as VehicleType] : [])}>
-                      <SelectTrigger id="vehicleType">
-                        <SelectValue placeholder="Any type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">All Types</SelectItem>
-                        {VEHICLE_TYPES.map(t => (
-                          <SelectItem key={t.value} value={t.value}>{t.icon} {t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
+                    <Select
+                      id="vehicleType"
+                      value={selectedVehicleTypes[0] || ''}
+                      onChange={e => setSelectedVehicleTypes(e.target.value ? [e.target.value as VehicleType] : [])}
+                    >
+                      <option value="">All Types</option>
+                      {VEHICLE_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+                      ))}
                     </Select>
                   </div>
                   <div>
@@ -247,18 +246,14 @@ export function VehicleSearchPage() {
                   <div>
                     <Label className="block mb-2 font-medium">Make</Label>
                     <Select
+                      className="w-full"
                       value={selectedMakes[0] || ''}
-                      onValueChange={v => setSelectedMakes(v ? [v] : [])}
+                      onChange={e => setSelectedMakes(e.target.value ? [e.target.value] : [])}
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="All makes" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="">All Makes</SelectItem>
-                        {MAKES.map(make => (
-                          <SelectItem key={make} value={make}>{make}</SelectItem>
-                        ))}
-                      </SelectContent>
+                      <option value="">All Makes</option>
+                      {MAKES.map(make => (
+                        <option key={make} value={make}>{make}</option>
+                      ))}
                     </Select>
                   </div>
 
@@ -296,15 +291,14 @@ export function VehicleSearchPage() {
                   {/* Sort */}
                   <div>
                     <Label className="block mb-2 font-medium">Sort By</Label>
-                    <Select value={sortBy} onValueChange={setSortBy}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {SORT_OPTIONS.map(opt => (
-                          <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                        ))}
-                      </SelectContent>
+                    <Select
+                      className="w-full"
+                      value={sortBy}
+                      onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                    >
+                      {SORT_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
                     </Select>
                   </div>
 

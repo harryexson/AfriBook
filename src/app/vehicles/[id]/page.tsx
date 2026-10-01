@@ -15,13 +15,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: 'Vehicle Not Found' };
   }
 
+  const description = `Rent this ${vehicle.year} ${vehicle.make} ${vehicle.model} from a trusted local host.`;
+
   return {
-    title: `${vehicle.year} ${vehicle.make} ${vehicle.model} - Rent from $${vehicle.dailyRate}/day`,
-    description: vehicle.description?.slice(0, 160) || `Rent this ${vehicle.year} ${vehicle.make} ${vehicle.model} from a trusted local host.`,
+    title: `${vehicle.year} ${vehicle.make} ${vehicle.model} - Rent from $${vehicle.pricePerDay}/day`,
+    description,
     openGraph: {
       title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`,
-      description: vehicle.description?.slice(0, 160) || '',
-      images: vehicle.images?.[0]?.url ? [vehicle.images[0].url] : [],
+      description,
+      images: vehicle.coverImageUrl ? [vehicle.coverImageUrl] : [],
     },
   };
 }

@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { query } from "@/lib/neon/admin";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+interface GuestRow {
+  id: string;
+  guest_name: string | null;
+  check_in_status: string;
+  ticket_purchase_id: string | null;
+}
+
+interface TicketRow {
+  id: string;
+  buyer_name: string;
+  check_in_status: string;
+  order_status: string;
+}
 
 export async function POST(
   req: NextRequest,
@@ -32,13 +41,12 @@ export async function POST(
       );
     }
 
-    const { data: event } = await supabase
-      .from("events")
-      .select("id")
-      .eq("id", eventId)
-      .single();
+    const eventRows = await query<{ id: string }>(
+      `SELECT id FROM events WHERE id = $1`,
+      [eventId],
+    );
 
-    if (!event) {
+    if (!eventRows[0]) {
       return NextResponse.json(
         { success: false, error: "Event not found" },
         { status: 404 },
@@ -55,58 +63,56 @@ export async function POST(
     const now = new Date().toISOString();
 
     if (guestIds && guestIds.length > 0) {
-      const { data: guests } = await supabase
-        .from("event_guests")
-        .select("*")
-        .eq("event_id", eventId)
-        .in("id", guestIds);
+      const guests = await query<GuestRow>(
+        `SELECT id, guest_name, check_in_status, ticket_purchase_id
+         FROM event_guests
+         WHERE event_id = $1 AND id = ANY($2::uuid[])`,
+        [eventId, guestIds],
+      );
 
-      for (const guest of guests ?? []) {
+      for (const guest of guests) {
         if (guest.check_in_status === "checked_in") {
           results.push({
             id: guest.id,
             type: "guest",
-            name: guest.guest_name,
+            name: guest.guest_name ?? "",
             status: "already_checked_in",
           });
           continue;
         }
 
-        await supabase
-          .from("event_guests")
-          .update({
-            check_in_status: "checked_in",
-            checked_in_at: now,
-            checked_in_by: scannedBy ?? null,
-          })
-          .eq("id", guest.id);
+        await query(
+          `UPDATE event_guests
+           SET check_in_status = 'checked_in', checked_in_at = $1, checked_in_by = $2
+           WHERE id = $3`,
+          [now, scannedBy ?? null, guest.id],
+        );
 
-        await supabase.from("check_in_logs").insert({
-          event_id: eventId,
-          ticket_purchase_id: guest.ticket_purchase_id,
-          guest_id: guest.id,
-          scanned_by: scannedBy ?? "system",
-          scanned_at: now,
-          method,
-        });
+        await query(
+          `INSERT INTO check_in_logs
+             (event_id, ticket_purchase_id, guest_id, scanned_by, scanned_at, method)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [eventId, guest.ticket_purchase_id, guest.id, scannedBy ?? "system", now, method],
+        );
 
         results.push({
           id: guest.id,
           type: "guest",
-          name: guest.guest_name,
+          name: guest.guest_name ?? "",
           status: "checked_in",
         });
       }
     }
 
     if (ticketIds && ticketIds.length > 0) {
-      const { data: tickets } = await supabase
-        .from("ticket_purchases")
-        .select("*")
-        .eq("event_id", eventId)
-        .in("id", ticketIds);
+      const tickets = await query<TicketRow>(
+        `SELECT id, buyer_name, check_in_status, order_status
+         FROM ticket_purchases
+         WHERE event_id = $1 AND id = ANY($2::uuid[])`,
+        [eventId, ticketIds],
+      );
 
-      for (const ticket of tickets ?? []) {
+      for (const ticket of tickets) {
         if (ticket.check_in_status === "checked_in") {
           results.push({
             id: ticket.id,
@@ -128,22 +134,19 @@ export async function POST(
           continue;
         }
 
-        await supabase
-          .from("ticket_purchases")
-          .update({
-            check_in_status: "checked_in",
-            checked_in_at: now,
-          })
-          .eq("id", ticket.id);
+        await query(
+          `UPDATE ticket_purchases
+           SET check_in_status = 'checked_in', checked_in_at = $1
+           WHERE id = $2`,
+          [now, ticket.id],
+        );
 
-        await supabase.from("check_in_logs").insert({
-          event_id: eventId,
-          ticket_purchase_id: ticket.id,
-          guest_id: null,
-          scanned_by: scannedBy ?? "system",
-          scanned_at: now,
-          method,
-        });
+        await query(
+          `INSERT INTO check_in_logs
+             (event_id, ticket_purchase_id, guest_id, scanned_by, scanned_at, method)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [eventId, ticket.id, null, scannedBy ?? "system", now, method],
+        );
 
         results.push({
           id: ticket.id,
