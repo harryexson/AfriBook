@@ -132,7 +132,7 @@ export async function proxy(req: NextRequest) {
       // bucket rather than silently disabling the limit.
       const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
       const key = `${ip}:${bucket.prefix}`;
-      const result = checkRateLimit(key, bucket.limit, bucket.windowMs);
+      const result = await checkRateLimit(key, bucket.limit, bucket.windowMs);
       if (!result.allowed) {
         return NextResponse.json(
           { success: false, error: 'Too many requests, please try again shortly.' },

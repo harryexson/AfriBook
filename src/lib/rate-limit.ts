@@ -1,19 +1,16 @@
 // ─── Rate Limiting ────────────────────────────────────────────
-// No rate limiting existed anywhere in the API layer before this — auth,
-// search, and payment-adjacent endpoints were all unprotected against
-// abuse. This is an in-memory sliding-window limiter: zero new
-// dependencies, zero new environment variables, works correctly on a
-// single long-running Node server.
+// Sliding-window rate limiter with two backends:
 //
-// HONEST LIMITATION: on serverless/edge (Vercel, etc.), each function
-// instance gets its own memory, so limits are enforced per-instance, not
-// globally — a determined attacker distributed across many cold-started
-// instances could exceed the intended global limit. This is a real
-// starting point, not a complete solution. For a global limit across all
-// instances/regions, swap the store below for Upstash Redis
-// (`@upstash/ratelimit` + `@upstash/redis`) — the function signature here
-// is deliberately kept swap-compatible (same inputs/outputs) so that's a
-// contained change, not a rewrite of every call site.
+// 1. Upstash Redis (global): used when UPSTASH_REDIS_REST_URL and
+//    UPSTASH_REDIS_REST_TOKEN are set. Enforces limits globally across all
+//    serverless instances and regions via the Upstash REST API (no npm
+//    package needed — just fetch). Set up an Upstash Redis database at
+//    https://console.upstash.com and copy the REST URL + token into env.
+//
+// 2. In-memory (per-instance fallback): used when Upstash env vars are not
+//    set. Enforces limits only within a single function instance — adequate
+//    for a long-running Node server, a known gap on serverless/edge where
+//    each cold-started instance has its own map.
 // ──────────────────────────────────────────────────────────────
 
 interface WindowEntry {
@@ -22,9 +19,6 @@ interface WindowEntry {
 
 const store = new Map<string, WindowEntry>();
 
-// Periodic cleanup so this Map doesn't grow unbounded over a long-lived
-// instance — without this, memory would leak for every unique key
-// (IP+route) ever seen.
 let lastCleanup = Date.now();
 const CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -45,12 +39,78 @@ export interface RateLimitResult {
   retryAfterSeconds: number;
 }
 
+// ─── Upstash Redis sliding-window via REST API ────────────────
+// Uses ZADD + ZREMRANGEBYSCORE + ZCARD in a pipeline to implement a
+// sliding window without @upstash/redis or @upstash/ratelimit packages.
+async function checkRateLimitUpstash(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult | null> {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  const now = Date.now();
+  const windowStart = now - windowMs;
+  const member = String(now);
+
+  try {
+    const pipeline = [
+      ['ZREMRANGEBYSCORE', key, '-inf', String(windowStart)],
+      ['ZADD', key, String(now), member],
+      ['ZCARD', key],
+      ['PEXPIRE', key, String(windowMs)],
+    ];
+
+    const res = await fetch(`${url}/pipeline`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(pipeline),
+    });
+
+    if (!res.ok) return null;
+
+    const results = await res.json() as Array<{ result: unknown }>;
+    const count = Number(results[2]?.result ?? 0);
+
+    if (count > limit) {
+      // Already over limit; undo the ZADD we just did
+      await fetch(`${url}/zrem/${encodeURIComponent(key)}/${encodeURIComponent(member)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      return {
+        allowed: false,
+        limit,
+        remaining: 0,
+        retryAfterSeconds: Math.ceil(windowMs / 1000),
+      };
+    }
+
+    return {
+      allowed: true,
+      limit,
+      remaining: Math.max(0, limit - count),
+      retryAfterSeconds: 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Sliding-window check. `key` should already include both the identity
- * (IP, or user ID for authenticated routes) and the route/bucket name, so
- * different endpoints don't share the same counter.
+ * (IP, or user ID for authenticated routes) and the route/bucket name.
+ * Tries Upstash Redis first; falls back to in-memory when unavailable.
  */
-export function checkRateLimit(key: string, limit: number, windowMs: number): RateLimitResult {
+export async function checkRateLimit(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
+  const upstashResult = await checkRateLimitUpstash(key, limit, windowMs);
+  if (upstashResult !== null) return upstashResult;
+
+  // In-memory fallback
   cleanupIfDue(windowMs);
   const now = Date.now();
   const entry = store.get(key) ?? { timestamps: [] };
@@ -72,8 +132,7 @@ export function checkRateLimit(key: string, limit: number, windowMs: number): Ra
   return { allowed: true, limit, remaining: limit - entry.timestamps.length, retryAfterSeconds: 0 };
 }
 
-/** Route-prefix buckets, checked most-specific-first. Sensitive/write-heavy
- *  and payment-adjacent endpoints get tighter limits than general reads. */
+/** Route-prefix buckets, checked most-specific-first. */
 export const RATE_LIMIT_BUCKETS: { prefix: string; limit: number; windowMs: number }[] = [
   { prefix: '/api/vendor/payouts', limit: 5, windowMs: 60_000 },
   { prefix: '/api/driver/status', limit: 20, windowMs: 60_000 },
@@ -82,8 +141,8 @@ export const RATE_LIMIT_BUCKETS: { prefix: string; limit: number; windowMs: numb
   { prefix: '/api/ridely/deliveries', limit: 20, windowMs: 60_000 },
   { prefix: '/api/ridely/food-deliveries', limit: 20, windowMs: 60_000 },
   { prefix: '/api/order', limit: 20, windowMs: 60_000 },
-  { prefix: '/api/webhooks', limit: 200, windowMs: 60_000 }, // providers retry aggressively; don't choke real webhooks
-  { prefix: '/api', limit: 60, windowMs: 60_000 }, // default fallback for everything else under /api
+  { prefix: '/api/webhooks', limit: 200, windowMs: 60_000 },
+  { prefix: '/api', limit: 60, windowMs: 60_000 },
 ];
 
 export function getRateLimitBucket(pathname: string) {
