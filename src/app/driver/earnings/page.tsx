@@ -346,20 +346,22 @@ export default function EarningsPage() {
           </div>
         </div>
 
-        {data?.statement && data.statement.tripCount > 0 ? (
+        {data?.statement && data.statement.tripCount > 0 ? (() => {
+          const statement = data.statement;
+          return (
           <div className="space-y-1">
             {[
-              data.statement.lines.totalCustomerFare,
-              data.statement.lines.governmentTaxesFees,
-              data.statement.lines.insuranceOperationalExpenses,
-              data.statement.lines.customerPromotions,
-              data.statement.lines.amountPlatformKept,
+              statement.lines.totalCustomerFare,
+              statement.lines.governmentTaxesFees,
+              statement.lines.insuranceOperationalExpenses,
+              statement.lines.customerPromotions,
+              statement.lines.amountPlatformKept,
             ].map((line) => (
               <div key={line.label} className="flex items-center justify-between py-2.5 border-b border-border/60 last:border-0">
                 <span className="text-sm text-text-secondary max-w-[65%]">{line.label}</span>
                 <div className="text-right">
                   <p className={cn('text-sm font-semibold', line.amount < 0 ? 'text-text-primary' : 'text-text-primary')}>
-                    {line.amount < 0 ? '-' : ''}{formatCurrency(Math.abs(line.amount), data.statement.currencyCode)}
+                    {line.amount < 0 ? '-' : ''}{formatCurrency(Math.abs(line.amount), statement.currencyCode)}
                   </p>
                   <p className="text-xs text-text-tertiary">{line.percentage}%</p>
                 </div>
@@ -367,10 +369,10 @@ export default function EarningsPage() {
             ))}
 
             <div className="flex items-center justify-between py-3 mt-2 border-t-2 border-border">
-              <span className="text-sm font-semibold text-text-primary">{data.statement.lines.earningsFromFares.label}</span>
+              <span className="text-sm font-semibold text-text-primary">{statement.lines.earningsFromFares.label}</span>
               <div className="text-right">
-                <p className="text-sm font-bold text-emerald-600">{formatCurrency(data.statement.lines.earningsFromFares.amount, data.statement.currencyCode)}</p>
-                <p className="text-xs text-text-tertiary">{data.statement.lines.earningsFromFares.percentage}%</p>
+                <p className="text-sm font-bold text-emerald-600">{formatCurrency(statement.lines.earningsFromFares.amount, statement.currencyCode)}</p>
+                <p className="text-xs text-text-tertiary">{statement.lines.earningsFromFares.percentage}%</p>
               </div>
             </div>
 
@@ -379,21 +381,21 @@ export default function EarningsPage() {
                 <span className="text-sm text-text-secondary">Tips</span>
                 <p className="text-xs text-text-tertiary">Always 100% yours</p>
               </div>
-              <p className="text-sm font-semibold text-emerald-600">+{formatCurrency(data.statement.tips, data.statement.currencyCode)}</p>
+              <p className="text-sm font-semibold text-emerald-600">+{formatCurrency(statement.tips, statement.currencyCode)}</p>
             </div>
 
-            {(data.statement.extras.waitTimePay > 0 || data.statement.extras.cancellationFees > 0) && (
+            {(statement.extras.waitTimePay > 0 || statement.extras.cancellationFees > 0) && (
               <div className="flex flex-col gap-2 py-2.5 border-b border-border/60">
-                {data.statement.extras.waitTimePay > 0 && (
+                {statement.extras.waitTimePay > 0 && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-text-secondary"><Clock className="w-3.5 h-3.5" /> Wait-time pay (after 5 free min)</span>
-                    <span className="font-semibold text-emerald-600">+{formatCurrency(data.statement.extras.waitTimePay, data.statement.currencyCode)}</span>
+                    <span className="font-semibold text-emerald-600">+{formatCurrency(statement.extras.waitTimePay, statement.currencyCode)}</span>
                   </div>
                 )}
-                {data.statement.extras.cancellationFees > 0 && (
+                {statement.extras.cancellationFees > 0 && (
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-1.5 text-text-secondary"><XCircle className="w-3.5 h-3.5" /> Rider cancellation fees</span>
-                    <span className="font-semibold text-emerald-600">+{formatCurrency(data.statement.extras.cancellationFees, data.statement.currencyCode)}</span>
+                    <span className="font-semibold text-emerald-600">+{formatCurrency(statement.extras.cancellationFees, statement.currencyCode)}</span>
                   </div>
                 )}
               </div>
@@ -401,11 +403,12 @@ export default function EarningsPage() {
 
             <div className="flex items-center justify-between pt-4">
               <span className="text-base font-bold text-text-primary">Your total earnings</span>
-              <span className="text-base font-bold text-text-primary">{formatCurrency(data.statement.yourTotalEarnings, data.statement.currencyCode)}</span>
+              <span className="text-base font-bold text-text-primary">{formatCurrency(statement.yourTotalEarnings, statement.currencyCode)}</span>
             </div>
-            <p className="text-xs text-text-tertiary">Including tips · {data.statement.tripCount} trip{data.statement.tripCount === 1 ? '' : 's'}</p>
+            <p className="text-xs text-text-tertiary">Including tips · {statement.tripCount} trip{statement.tripCount === 1 ? '' : 's'}</p>
           </div>
-        ) : (
+          );
+        })() : (
           <p className="text-sm text-text-tertiary py-6 text-center">
             {loading ? 'Loading breakdown...' : 'No trips in this period yet'}
           </p>
