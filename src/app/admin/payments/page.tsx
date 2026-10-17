@@ -27,7 +27,7 @@ const FEE_CONFIG = [
   { method: 'Wallet', percentage: 1.0, fixed: 0, active: false },
 ]
 
-const COLORS = ['#F59E0B', '#8B5CF6', '#10B981', '#3B82F6', '#EC4899', '#64748B']
+const COLORS = ['#C5602F', '#8B5CF6', '#10B981', '#3B82F6', '#EC4899', '#64748B']
 
 export default function AdminPaymentsPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)

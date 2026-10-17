@@ -4,17 +4,8 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@/stores/auth-store'
-import { Globe, ArrowLeft, ShoppingBag, Calendar, Truck, Users, Building2, MapPin } from 'lucide-react'
+import { Globe, ArrowLeft, Users } from 'lucide-react'
 import Link from 'next/link'
-
-const floatingIcons = [
-  { Icon: ShoppingBag, x: '10%', y: '18%', size: 38, rotate: -12, delay: 0 },
-  { Icon: Calendar, x: '82%', y: '12%', size: 34, rotate: 8, delay: 0.4 },
-  { Icon: Truck, x: '75%', y: '72%', size: 42, rotate: -6, delay: 0.8 },
-  { Icon: ShoppingBag, x: '15%', y: '78%', size: 30, rotate: 15, delay: 1.2 },
-  { Icon: Building2, x: '50%', y: '45%', size: 28, rotate: -10, delay: 0.6 },
-  { Icon: MapPin, x: '88%', y: '42%', size: 26, rotate: 12, delay: 1.0 },
-]
 
 const stats = [
   { value: '500K+', label: 'Users' },
@@ -88,39 +79,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     <div className="min-h-screen flex">
       {/* Brand side - hidden on mobile */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-dark-500 via-dark-400 to-dark-600">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(245,158,11,0.15),transparent_60%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_rgba(245,158,11,0.1),transparent_50%)]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,_rgba(245,158,11,0.05),transparent_70%)]" />
-        </div>
-
-        {/* Floating icons */}
-        {floatingIcons.map((item, i) => {
-          const Icon = item.Icon
-          return (
-            <motion.div
-              key={i}
-              className="absolute text-amber-500/20"
-              style={{ left: item.x, top: item.y }}
-              initial={{ opacity: 0, scale: 0 }}
-              animate={{
-                opacity: 1,
-                scale: 1,
-                y: [0, -12, 0, 8, 0],
-                rotate: [item.rotate, item.rotate + 5, item.rotate, item.rotate - 5, item.rotate],
-              }}
-              transition={{
-                opacity: { delay: item.delay, duration: 0.5 },
-                scale: { delay: item.delay, duration: 0.5, type: 'spring' },
-                y: { delay: item.delay + 0.5, duration: 6, repeat: Infinity, ease: 'easeInOut' },
-                rotate: { delay: item.delay + 0.5, duration: 8, repeat: Infinity, ease: 'easeInOut' },
-              }}
-            >
-              <Icon size={item.size} />
-            </motion.div>
-          )
-        })}
+        {/* Photo-led brand panel (design reference) under an espresso scrim
+            so the testimonial and stats stay legible. */}
+        <img
+          src="/people/salon.jpg"
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-dark-700/90 via-dark-600/55 to-dark-500/35" />
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           {/* Logo */}

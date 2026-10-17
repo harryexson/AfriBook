@@ -212,7 +212,7 @@ export default function AdminPromotionsPage() {
               <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
               <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }} />
               <Legend />
-              <Bar dataKey="impressions" fill="#F59E0B" radius={[6, 6, 0, 0]} name="Impressions" />
+              <Bar dataKey="impressions" fill="#C5602F" radius={[6, 6, 0, 0]} name="Impressions" />
               <Bar dataKey="clicks" fill="#8B5CF6" radius={[6, 6, 0, 0]} name="Clicks" />
               <Bar dataKey="conversions" fill="#10B981" radius={[6, 6, 0, 0]} name="Conversions" />
             </BarChart>

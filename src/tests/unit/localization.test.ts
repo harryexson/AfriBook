@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { formatPrice } from '@/lib/localization';
 import {
   formatMoney,
   formatMoneySymbol,
@@ -262,5 +263,28 @@ describe('country configs — every market has a valid IANA timezone', () => {
     for (const [code, tz] of Object.entries(expected)) {
       expect(COUNTRIES[code]?.timezone, `${code}`).toBe(tz);
     }
+  });
+});
+
+describe('five-market price display', () => {
+  // Matches the display conventions in the AfriBook design brief.
+  it.each([
+    ['USD', 12.99, '$12.99'],
+    ['GBP', 12.99, '£12.99'],
+    ['CAD', 12.99, 'CA$12.99'],
+    ['MWK', 12999, 'MK 12,999'],
+    ['ZAR', 179, 'R 179.00'],
+  ])('formatPrice(%s, %s) -> %s', (code, amount, expected) => {
+    expect(formatPrice(amount as number, code as string)).toBe(expected);
+  });
+
+  it('keeps fractional amounts in high-unit currencies', () => {
+    expect(formatPrice(12999.5, 'MWK')).toBe('MK 12,999.50');
+  });
+
+  it('formatMoneySymbol agrees with formatPrice for overridden symbols', () => {
+    expect(formatMoneySymbol(12999, 'MWK')).toBe('MK 12,999');
+    expect(formatMoneySymbol(179, 'ZAR')).toBe('R 179.00');
+    expect(formatMoneySymbol(12.99, 'CAD')).toBe('CA$12.99');
   });
 });

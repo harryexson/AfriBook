@@ -286,7 +286,7 @@ export default function PressPage() {
                 {
                   title: 'Colors',
                   content:
-                    'Our primary brand color is Amber (#F59E0B). Secondary colors include Dark (#1A1A2E) and Surface (#FAFAFA). Always ensure sufficient contrast when placing text over brand colors.',
+                    'Our primary brand color is Amber (#C5602F). Secondary colors include Dark (#1A1A2E) and Surface (#FAFAFA). Always ensure sufficient contrast when placing text over brand colors.',
                 },
                 {
                   title: 'Typography',

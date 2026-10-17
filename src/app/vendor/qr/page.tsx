@@ -26,8 +26,8 @@ const QR_TYPES = [
 
 const QR_COLORS = [
   { fg: '#000000', bg: '#FFFFFF', label: 'Classic' },
-  { fg: '#F59E0B', bg: '#FFFFFF', label: 'Amber' },
-  { fg: '#1E1B2E', bg: '#FFFBEB', label: 'Dark' },
+  { fg: '#C5602F', bg: '#FFFFFF', label: 'Amber' },
+  { fg: '#1E1B2E', bg: '#FBF2EB', label: 'Dark' },
   { fg: '#10B981', bg: '#FFFFFF', label: 'Green' },
   { fg: '#8B5CF6', bg: '#FFFFFF', label: 'Purple' },
 ]

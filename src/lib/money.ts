@@ -1,4 +1,4 @@
-import { CURRENCIES, type CurrencyConfig } from './localization/currencies';
+import { CURRENCIES, formatCurrencyAmount, type CurrencyConfig } from './localization/currencies';
 import { COUNTRIES } from './localization/countries';
 
 /**
@@ -270,8 +270,8 @@ export function formatMoneySymbol(amount: number, currencyCode: string, locale?:
   const override = CURRENCY_SYMBOL_OVERRIDES[code];
   if (override) {
     const config = CURRENCIES[code];
-    const decimals = config?.decimalPlaces ?? 2;
-    const number = formatNumber(amount, locale ?? DEFAULT_LOCALE, decimals);
+    if (config) return formatCurrencyAmount(amount, config, override.symbol, override.position);
+    const number = formatNumber(amount, locale ?? DEFAULT_LOCALE, 2);
     return override.position === 'prefix'
       ? `${override.symbol}${number}`
       : `${number} ${override.symbol}`;

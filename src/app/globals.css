@@ -2,52 +2,66 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* AfriBook palette — see docs/design-references/afribook-reference.webp.
+   The `amber-*` scale name is kept so existing utilities keep working, but
+   its values are now the reference's terracotta/burnt-orange accent; `dark-*`
+   is now espresso brown (primary buttons, dark bands); surfaces are warm
+   cream/ivory. `olive-*` is the restrained positive-status green. */
 :root {
-  --color-amber-50: #fffbeb;
-  --color-amber-100: #fef3c7;
-  --color-amber-200: #fde68a;
-  --color-amber-300: #fcd34d;
-  --color-amber-400: #fbbf24;
-  --color-amber-500: #f59e0b;
-  --color-amber-600: #d97706;
-  --color-amber-700: #b45309;
-  --color-amber-800: #92400e;
-  --color-amber-900: #78350f;
+  --color-amber-50: #fbf2eb;
+  --color-amber-100: #f6e2d4;
+  --color-amber-200: #edc5aa;
+  --color-amber-300: #e2a07b;
+  --color-amber-400: #d67e54;
+  --color-amber-500: #c5602f;
+  --color-amber-600: #aa4f25;
+  --color-amber-700: #8b3f1e;
+  --color-amber-800: #6c321a;
+  --color-amber-900: #522716;
+  /* Not a darker step: every `*-amber-950` in the app is text/spinner on a
+     terracotta fill, which the reference sets in near-white. */
+  --color-amber-950: #fffaf5;
 
-  --color-dark-50: #e6e5eb;
-  --color-dark-100: #201e27;
-  --color-dark-200: #1b1922;
-  --color-dark-300: #16141c;
-  --color-dark-400: #121017;
-  --color-dark-500: #0e0c12;
-  --color-dark-600: #0a090e;
-  --color-dark-700: #07060a;
-  --color-dark-800: #050407;
-  --color-dark-900: #030205;
+  --color-dark-50: #efe7e0;
+  --color-dark-100: #4a3529;
+  --color-dark-200: #3d2c22;
+  --color-dark-300: #33251d;
+  --color-dark-400: #2b1f18;
+  --color-dark-500: #241a14;
+  --color-dark-600: #1e1611;
+  --color-dark-700: #19120e;
+  --color-dark-800: #130e0b;
+  --color-dark-900: #0d0a08;
 
-  --color-surface: #ffffff;
-  --color-surface-secondary: #f7f7f5;
-  --color-surface-tertiary: #eeede9;
-  --color-border: #e6e4df;
-  --color-border-light: #f1f0ed;
-  --color-text-primary: #1c1b19;
-  --color-text-secondary: #6e6a63;
-  --color-text-tertiary: #a6a199;
+  --color-olive-50: #f1f3e8;
+  --color-olive-100: #e1e6cc;
+  --color-olive-500: #5f6f36;
+  --color-olive-600: #4c5a2b;
+  --color-olive-700: #3c4722;
+
+  --color-surface: #fffcf8;
+  --color-surface-secondary: #f8f1e9;
+  --color-surface-tertiary: #f0e5d9;
+  --color-border: #e9ddd0;
+  --color-border-light: #f3ebe2;
+  --color-text-primary: #2a1c15;
+  --color-text-secondary: #6e5d52;
+  --color-text-tertiary: #a59486;
   --color-text-inverse: #ffffff;
 
   --font-heading: var(--font-sans);
 }
 
 .dark {
-  --color-surface: #0e0c12;
-  --color-surface-secondary: #16141c;
-  --color-surface-tertiary: #1b1922;
-  --color-border: #26232e;
-  --color-border-light: #1f1d26;
-  --color-text-primary: #f4f2ed;
-  --color-text-secondary: #a39f97;
-  --color-text-tertiary: #6e6a63;
-  --color-text-inverse: #1c1b19;
+  --color-surface: #17110d;
+  --color-surface-secondary: #1f1712;
+  --color-surface-tertiary: #281e17;
+  --color-border: #382a21;
+  --color-border-light: #2c211a;
+  --color-text-primary: #f6efe8;
+  --color-text-secondary: #bba99b;
+  --color-text-tertiary: #84725f;
+  --color-text-inverse: #2a1c15;
 }
 
 @theme inline {
@@ -64,6 +78,7 @@
   --color-amber-700: var(--color-amber-700);
   --color-amber-800: var(--color-amber-800);
   --color-amber-900: var(--color-amber-900);
+  --color-amber-950: var(--color-amber-950);
 
   --color-dark-50: var(--color-dark-50);
   --color-dark-100: var(--color-dark-100);
@@ -75,6 +90,12 @@
   --color-dark-700: var(--color-dark-700);
   --color-dark-800: var(--color-dark-800);
   --color-dark-900: var(--color-dark-900);
+
+  --color-olive-50: var(--color-olive-50);
+  --color-olive-100: var(--color-olive-100);
+  --color-olive-500: var(--color-olive-500);
+  --color-olive-600: var(--color-olive-600);
+  --color-olive-700: var(--color-olive-700);
 
   --color-surface: var(--color-surface);
   --color-surface-secondary: var(--color-surface-secondary);
@@ -102,20 +123,20 @@
   --radius-2xl: 1.75rem;
   --radius-3xl: 2.5rem;
 
-  --shadow-xs: 0 1px 2px rgba(28, 27, 25, 0.04);
+  --shadow-xs: 0 1px 2px rgba(42, 28, 21, 0.04);
   --shadow-sm:
-    0 1px 3px rgba(28, 27, 25, 0.05), 0 1px 2px rgba(28, 27, 25, 0.03);
+    0 1px 3px rgba(42, 28, 21, 0.05), 0 1px 2px rgba(42, 28, 21, 0.03);
   --shadow-md:
-    0 6px 16px rgba(28, 27, 25, 0.06), 0 2px 4px rgba(28, 27, 25, 0.04);
+    0 6px 16px rgba(42, 28, 21, 0.06), 0 2px 4px rgba(42, 28, 21, 0.04);
   --shadow-lg:
-    0 16px 40px rgba(28, 27, 25, 0.08), 0 4px 12px rgba(28, 27, 25, 0.04);
+    0 16px 40px rgba(42, 28, 21, 0.08), 0 4px 12px rgba(42, 28, 21, 0.04);
   --shadow-xl:
-    0 32px 64px rgba(28, 27, 25, 0.12), 0 8px 24px rgba(28, 27, 25, 0.07);
+    0 32px 64px rgba(42, 28, 21, 0.12), 0 8px 24px rgba(42, 28, 21, 0.07);
   --shadow-premium:
-    0 2px 8px rgba(28, 27, 25, 0.04), 0 12px 32px rgba(28, 27, 25, 0.06),
-    0 24px 56px rgba(28, 27, 25, 0.04);
-  --shadow-gold: 0 8px 24px rgba(180, 83, 9, 0.18);
-  --shadow-gold-lg: 0 16px 40px rgba(180, 83, 9, 0.22);
+    0 2px 8px rgba(42, 28, 21, 0.04), 0 12px 32px rgba(42, 28, 21, 0.06),
+    0 24px 56px rgba(42, 28, 21, 0.04);
+  --shadow-gold: 0 8px 24px rgba(170, 79, 37, 0.18);
+  --shadow-gold-lg: 0 16px 40px rgba(170, 79, 37, 0.22);
 }
 
 @theme inline {
@@ -134,12 +155,12 @@ body {
   background-image:
     radial-gradient(
       56rem 56rem at 115% -12%,
-      rgba(245, 158, 11, 0.05),
+      rgba(197, 96, 47, 0.05),
       transparent 60%
     ),
     radial-gradient(
       44rem 44rem at -12% 8%,
-      rgba(28, 27, 25, 0.03),
+      rgba(42, 28, 21, 0.03),
       transparent 55%
     );
   background-attachment: fixed;
@@ -161,7 +182,7 @@ h6 {
 }
 
 ::selection {
-  background: rgba(245, 158, 11, 0.22);
+  background: rgba(197, 96, 47, 0.22);
   color: var(--color-text-primary);
 }
 
@@ -171,32 +192,32 @@ h6 {
   background: linear-gradient(
     180deg,
     rgba(255, 255, 255, 0.92),
-    rgba(247, 247, 245, 0.72)
+    rgba(248, 241, 233, 0.72)
   );
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+  box-shadow: 0 24px 60px rgba(42, 28, 21, 0.12);
   backdrop-filter: blur(18px);
 }
 
 .glass-card {
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.42);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 60px rgba(42, 28, 21, 0.08);
   backdrop-filter: blur(16px);
 }
 
 .text-gradient-gold {
-  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+  background: linear-gradient(90deg, #d67e54, #c5602f);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .dark .premium-card {
-  background: rgba(16, 14, 24, 0.82);
+  background: rgba(36, 26, 20, 0.82);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
 .dark .glass-card {
-  background: rgba(15, 15, 25, 0.62);
+  background: rgba(36, 26, 20, 0.62);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
@@ -258,10 +279,10 @@ h6 {
 @keyframes glow {
   0%,
   100% {
-    box-shadow: 0 0 20px rgba(245, 158, 11, 0.15);
+    box-shadow: 0 0 20px rgba(197, 96, 47, 0.15);
   }
   50% {
-    box-shadow: 0 0 40px rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 40px rgba(197, 96, 47, 0.3);
   }
 }
 
@@ -300,7 +321,7 @@ h6 {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(245, 158, 11, 0.08),
+    rgba(197, 96, 47, 0.08),
     transparent
   );
   background-size: 200% 100%;
@@ -332,52 +353,52 @@ h6 {
 }
 
 .text-gradient-gold {
-  background: linear-gradient(100deg, #b45309, #f59e0b 45%, #b45309);
+  background: linear-gradient(100deg, #8b3f1e, #c5602f 45%, #8b3f1e);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .bg-gradient-gold {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, #c5602f, #aa4f25);
 }
 
 .bg-gradient-gold-light {
-  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  background: linear-gradient(135deg, #f6e2d4, #edc5aa);
 }
 
 .cover-amber {
   background:
     radial-gradient(
       80% 80% at 20% 15%,
-      rgba(245, 158, 11, 0.28),
+      rgba(197, 96, 47, 0.28),
       transparent 55%
     ),
     radial-gradient(
       70% 70% at 85% 85%,
-      rgba(180, 83, 9, 0.25),
+      rgba(170, 79, 37, 0.25),
       transparent 60%
     ),
-    linear-gradient(135deg, #1b1922, #0e0c12);
+    linear-gradient(135deg, #3d2c22, #1e1611);
 }
 
 .cover-gold {
   background:
     radial-gradient(
       80% 80% at 80% 15%,
-      rgba(245, 158, 11, 0.22),
+      rgba(197, 96, 47, 0.22),
       transparent 55%
     ),
     radial-gradient(
       70% 70% at 15% 90%,
-      rgba(217, 119, 6, 0.2),
+      rgba(170, 79, 37, 0.2),
       transparent 60%
     ),
-    linear-gradient(135deg, #201e27, #0e0c12);
+    linear-gradient(135deg, #4a3529, #1e1611);
 }
 
 .border-gradient-gold {
-  border-image: linear-gradient(135deg, #f59e0b, #d97706) 1;
+  border-image: linear-gradient(135deg, #c5602f, #aa4f25) 1;
 }
 
 [data-reach-dialog-overlay] {
@@ -417,10 +438,10 @@ h6 {
 }
 
 .glass-dark {
-  background: rgba(14, 12, 18, 0.62);
+  background: rgba(36, 26, 20, 0.62);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(197, 96, 47, 0.14);
 }
 
 .premium-card {
@@ -432,7 +453,7 @@ h6 {
   );
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-2xl);
-  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 80px rgba(42, 28, 21, 0.08);
   overflow: hidden;
   transition:
     transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
@@ -448,12 +469,12 @@ h6 {
   background:
     radial-gradient(
       circle at 10% 15%,
-      rgba(245, 158, 11, 0.12),
+      rgba(197, 96, 47, 0.12),
       transparent 22%
     ),
     radial-gradient(
       circle at 90% 75%,
-      rgba(16, 185, 129, 0.08),
+      rgba(95, 111, 54, 0.08),
       transparent 18%
     );
 }
@@ -467,8 +488,8 @@ h6 {
   /* No translateY/scale — design-system anti-pattern (see MASTER.md):
      this app is browsed in long scrolling lists, and cards animating on
      scroll reads as noisy, not premium. Border/shadow shift only. */
-  box-shadow: 0 32px 110px rgba(15, 23, 42, 0.16);
-  border-color: rgba(245, 158, 11, 0.28);
+  box-shadow: 0 32px 110px rgba(42, 28, 21, 0.16);
+  border-color: rgba(197, 96, 47, 0.28);
 }
 
 .hover-lift {
@@ -537,12 +558,12 @@ h6 {
   background:
     radial-gradient(
       36rem 36rem at 100% 0%,
-      rgba(245, 158, 11, 0.08),
+      rgba(197, 96, 47, 0.08),
       transparent 60%
     ),
     radial-gradient(
       32rem 32rem at 0% 100%,
-      rgba(28, 27, 25, 0.05),
+      rgba(42, 28, 21, 0.05),
       transparent 55%
     );
   pointer-events: none;

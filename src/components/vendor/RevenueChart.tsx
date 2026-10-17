@@ -125,8 +125,8 @@ export default function RevenueChart({ data, currencyCode = 'USD', loading }: Re
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="bookingsGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#C5602F" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#C5602F" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="ordersGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#64748B" stopOpacity={0.25} />
@@ -166,7 +166,7 @@ export default function RevenueChart({ data, currencyCode = 'USD', loading }: Re
               <Area
                 type="monotone"
                 dataKey="bookingsRevenue"
-                stroke="#F59E0B"
+                stroke="#C5602F"
                 strokeWidth={2.5}
                 fill="url(#bookingsGrad)"
                 stackId="revenue"
@@ -212,7 +212,7 @@ export default function RevenueChart({ data, currencyCode = 'USD', loading }: Re
                 formatter={(value: string) => (value === 'ordersRevenue' ? 'Orders' : 'Bookings')}
                 wrapperStyle={{ fontSize: '12px' }}
               />
-              <Bar dataKey="bookingsRevenue" fill="#F59E0B" radius={[6, 6, 0, 0]} stackId="revenue" />
+              <Bar dataKey="bookingsRevenue" fill="#C5602F" radius={[6, 6, 0, 0]} stackId="revenue" />
               <Bar dataKey="ordersRevenue" fill="#64748B" radius={[6, 6, 0, 0]} stackId="revenue" />
             </BarChart>
           )}

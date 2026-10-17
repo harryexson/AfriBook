@@ -125,8 +125,8 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading, titl
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="adminRevenueGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#C5602F" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#C5602F" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="adminFeesGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.3} />
@@ -141,7 +141,7 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading, titl
                 formatter={(value?: ValueType, name?: unknown) => [formatCurrency(Number(value ?? 0), currencyCode), String(name) === 'revenue' ? 'Revenue' : 'Volume'] as [string, string]}
               />
               <Legend />
-              <Area type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2.5} fill="url(#adminRevenueGrad)" name="Revenue" />
+              <Area type="monotone" dataKey="revenue" stroke="#C5602F" strokeWidth={2.5} fill="url(#adminRevenueGrad)" name="Revenue" />
               <Area type="monotone" dataKey="volume" stroke="#8B5CF6" strokeWidth={2} fill="url(#adminFeesGrad)" name="Volume" />
             </AreaChart>
           ) : (
@@ -154,7 +154,7 @@ export default function RevenueChart({ data, currencyCode = 'XAF', loading, titl
                 formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), currencyCode), 'Revenue'] as [string, string]}
               />
               <Legend />
-              <Bar dataKey="revenue" fill="#F59E0B" radius={[6, 6, 0, 0]} name="Revenue" />
+              <Bar dataKey="revenue" fill="#C5602F" radius={[6, 6, 0, 0]} name="Revenue" />
               <Bar dataKey="fees" fill="#8B5CF6" radius={[6, 6, 0, 0]} name="Fees" />
             </BarChart>
           )}

@@ -3,60 +3,60 @@
 // in this app comes from photography, not from UI surfaces — see
 // design-system/afribook/MASTER.md and src/lib/images.ts.
 export const colors = {
-  primary: "#F59E0B",
-  primaryDark: "#D97706",
-  primaryLight: "#FBBF24",
-  primarySurface: "#FEF3C7",
-  gold: "#FBBF24",
-  goldLight: "#FDE68A",
-  goldDark: "#D97706",
+  primary: "#C5602F",
+  primaryDark: "#AA4F25",
+  primaryLight: "#D67E54",
+  primarySurface: "#F6E2D4",
+  gold: "#D67E54",
+  goldLight: "#EDC5AA",
+  goldDark: "#AA4F25",
 
   // `canvas` is the page ground; `surface` is the content plane that sits on
   // it. Keeping them distinct is what lets cards read without borders.
-  canvas: "#F7F7F5",
-  surface: "#FFFFFF",
-  surfaceSecondary: "#F7F7F5",
-  surfaceTertiary: "#EEEDE9",
-  surfaceAccent: "#FFF7E5",
+  canvas: "#F8F1E9",
+  surface: "#FFFCF8",
+  surfaceSecondary: "#F8F1E9",
+  surfaceTertiary: "#F0E5D9",
+  surfaceAccent: "#FBF2EB",
 
   // Ink, not black — matches the web app's --color-text-primary exactly.
-  ink: "#1C1B19",
-  textPrimary: "#1C1B19",
-  textSecondary: "#6E6A63",
-  textTertiary: "#A6A199",
+  ink: "#33251D",
+  textPrimary: "#2A1C15",
+  textSecondary: "#6E5D52",
+  textTertiary: "#A59486",
   textInverse: "#FFFFFF",
 
-  border: "#E6E4DF",
-  borderLight: "#F1F0ED",
+  border: "#E9DDD0",
+  borderLight: "#F3EBE2",
 
-  success: "#10B981",
-  successLight: "#D1FAE5",
+  success: "#5F6F36",
+  successLight: "#E1E6CC",
   // Readable green *type* on successLight — the mid green fails contrast at
   // label sizes. Matches the web card's emerald-700 on emerald tint.
-  successDark: "#047857",
+  successDark: "#3C4722",
   error: "#EF4444",
   errorLight: "#FEE2E2",
-  warning: "#F59E0B",
-  warningLight: "#FEF3C7",
+  warning: "#D99A2B",
+  warningLight: "#F8EBCF",
   info: "#3B82F6",
   infoLight: "#DBEAFE",
 
   overlay: "rgba(0, 0, 0, 0.5)",
   // Scrim under text laid over photography.
-  photoScrim: "rgba(20, 20, 22, 0.42)",
+  photoScrim: "rgba(36, 26, 20, 0.42)",
 } as const;
 
 export const darkColors = {
   ...colors,
-  surface: "#0E0B16",
-  surfaceSecondary: "#161322",
-  surfaceTertiary: "#1A1728",
-  textPrimary: "#F9FAFB",
-  textSecondary: "#9CA3AF",
-  textTertiary: "#6B7280",
-  textInverse: "#111827",
-  border: "#2D2A3E",
-  borderLight: "#262334",
+  surface: "#17110D",
+  surfaceSecondary: "#1F1712",
+  surfaceTertiary: "#281E17",
+  textPrimary: "#F6EFE8",
+  textSecondary: "#BBA99B",
+  textTertiary: "#84725F",
+  textInverse: "#2A1C15",
+  border: "#382A21",
+  borderLight: "#2C211A",
 } as const;
 
 export const typography = {
@@ -111,28 +111,28 @@ export const borderRadius = {
 // the single biggest reason the previous UI read as unfinished.
 export const shadows = {
   sm: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
     elevation: 1,
   },
   md: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
   },
   lg: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06,
     shadowRadius: 24,
     elevation: 4,
   },
   xl: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 32,
@@ -141,7 +141,7 @@ export const shadows = {
   // Reserved for surfaces that genuinely float above content: sticky action
   // bars and sheets. Not for cards in a list.
   premium: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
