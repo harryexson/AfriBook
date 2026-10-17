@@ -12,7 +12,6 @@ import {
   Store,
   Car,
   MoreHorizontal,
-  Upload,
   Send,
   Clock,
   CheckCircle2,
@@ -140,10 +139,35 @@ export default function ReportIssuePage() {
   const [orderNumber, setOrderNumber] = useState('')
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [ticketNumber, setTicketNumber] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
+    if (!selectedType || saving) return
+    setSaving(true)
+    setSubmitError(null)
+    try {
+      const res = await fetch('/api/support/tickets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: selectedType, description, reference: orderNumber, email }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.status === 429) {
+        setSubmitError('Too many reports in a short time — please wait a minute and try again.')
+      } else if (!res.ok || !json.success) {
+        setSubmitError(json.error ?? 'Your report could not be sent. Please try again.')
+      } else {
+        setTicketNumber(json.data.ticketNumber)
+        setSubmitted(true)
+      }
+    } catch {
+      setSubmitError('Network error — your report was not sent. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -215,7 +239,7 @@ export default function ReportIssuePage() {
               Your report has been received. Our team will review it and get back to you within the expected timeframe.
             </p>
             <p className="text-sm text-text-tertiary mb-8">
-              Ticket reference: <span className="font-mono font-medium text-text-primary">#AFB-{Math.random().toString(36).substring(2, 8).toUpperCase()}</span>
+              Ticket reference: <span className="font-mono font-medium text-text-primary">{ticketNumber}</span>
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
@@ -227,6 +251,7 @@ export default function ReportIssuePage() {
               <button
                 onClick={() => {
                   setSubmitted(false)
+                  setTicketNumber(null)
                   setSelectedType(null)
                   setDescription('')
                   setOrderNumber('')
@@ -350,30 +375,25 @@ export default function ReportIssuePage() {
                     />
                   </div>
 
-                  {/* File Upload Area */}
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-2">
-                      Attach Evidence (optional)
-                    </label>
-                    <div className="p-8 rounded-2xl border-2 border-dashed border-border hover:border-amber-500/40 bg-surface-secondary transition-colors cursor-pointer text-center">
-                      <Upload className="w-8 h-8 text-text-tertiary mx-auto mb-3" />
-                      <p className="text-sm font-medium text-text-primary mb-1">
-                        Click to upload or drag and drop
-                      </p>
-                      <p className="text-xs text-text-tertiary">
-                        PNG, JPG, PDF up to 10MB each. Max 5 files.
-                      </p>
-                    </div>
-                  </div>
+                  <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-secondary">
+                    Have screenshots, receipts or photos? Mention them above — the support
+                    team will ask for them when they reply.
+                  </p>
+
+                  {submitError && (
+                    <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                      {submitError}
+                    </p>
+                  )}
 
                   <div className="flex flex-col sm:flex-row gap-4 pt-2">
                     <button
                       type="submit"
-                      disabled={!description.trim()}
+                      disabled={!description.trim() || saving}
                       className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-text-inverse font-medium text-sm transition-colors"
                     >
                       <Send className="w-4 h-4" />
-                      Submit Report
+                      {saving ? 'Sending…' : 'Submit Report'}
                     </button>
                     <Link
                       href="/help"

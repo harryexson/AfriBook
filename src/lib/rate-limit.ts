@@ -82,6 +82,8 @@ export const RATE_LIMIT_BUCKETS: { prefix: string; limit: number; windowMs: numb
   { prefix: '/api/ridely/deliveries', limit: 20, windowMs: 60_000 },
   { prefix: '/api/ridely/food-deliveries', limit: 20, windowMs: 60_000 },
   { prefix: '/api/order', limit: 20, windowMs: 60_000 },
+  { prefix: '/api/support/tickets', limit: 5, windowMs: 60_000 }, // public form, open to guests
+  { prefix: '/api/reviews', limit: 20, windowMs: 60_000 },
   { prefix: '/api/webhooks', limit: 200, windowMs: 60_000 }, // providers retry aggressively; don't choke real webhooks
   { prefix: '/api', limit: 60, windowMs: 60_000 }, // default fallback for everything else under /api
 ];

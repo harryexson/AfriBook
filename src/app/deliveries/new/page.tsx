@@ -181,15 +181,6 @@ const slideVariants = {
   exit: (direction: number) => ({ x: direction < 0 ? 40 : -40, opacity: 0 }),
 }
 
-// ── Helpers ────────────────────────────────────────────────────
-
-function generateTrackingNumber(): string {
-  const prefix = 'AFR'
-  const timestamp = Date.now().toString(36).toUpperCase().slice(-6)
-  const random = Math.random().toString(36).toUpperCase().slice(2, 6)
-  return `${prefix}-${timestamp}-${random}`
-}
-
 // ── Page ───────────────────────────────────────────────────────
 
 export default function NewDeliveryPage() {
@@ -296,21 +287,13 @@ export default function NewDeliveryPage() {
   //     different, currently-incompatible pricing models. Wiring this to
   //     the real endpoint means deciding which model is authoritative
   //     first, which is a product call, not something to guess silently.
+  // Until that's decided, refuse honestly rather than show a confirmation
+  // and an invented tracking number for a delivery that was never created.
   const handleConfirm = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      setTrackingNumber(generateTrackingNumber())
-      setDirection(1)
-      setCurrentStep('confirmation')
-    } catch {
-      setError('Failed to create delivery. Please try again.')
-    } finally {
-      setLoading(false)
-    }
+    setError(
+      'Online parcel booking isn’t live yet — no delivery has been created and you haven’t been charged. ' +
+        'Your details are kept on this page if you’d like to try again later.',
+    )
   }, [])
 
   // ── Step Validation ────────────────────────────────────────
