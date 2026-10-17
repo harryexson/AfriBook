@@ -72,6 +72,8 @@ export default function ReviewForm({
             <button
               key={star}
               type="button"
+              aria-label={`${star} star${star === 1 ? '' : 's'}`}
+              aria-pressed={rating === star}
               onClick={() => setRating(star)}
               onMouseEnter={() => setHoveredRating(star)}
               onMouseLeave={() => setHoveredRating(0)}

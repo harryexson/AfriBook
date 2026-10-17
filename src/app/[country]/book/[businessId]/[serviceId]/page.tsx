@@ -8,14 +8,17 @@ import {
   ChevronLeft, Shield, Check, Clock, MapPin, User,
   Sparkles, SearchX,
 } from 'lucide-react'
-import { cn, formatCurrency } from '@/lib/utils'
-import { getCountryConfig } from '@/lib/localization'
+import { cn } from '@/lib/utils'
+import { getCountryConfig, formatPrice } from '@/lib/localization'
 import { getCurrencyForCountry } from '@/lib/money'
 import type { CountryConfig } from '@/lib/localization/countries'
 import { getCountryBusinesses, getCountryServices, getStaffForBusiness } from '@/lib/countries-data'
 import BookingCalendar from '@/components/marketplace/BookingCalendar'
-import PriceBreakdown from '@/components/marketplace/PriceBreakdown'
-import type { PriceLineItem } from '@/components/marketplace/PriceBreakdown'
+import { useAuth } from '@/hooks/useAuth'
+import { zonedWallTimeToUtc, formatInTimezone } from '@/lib/time'
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']
 
 export default function BookingPage() {
   const params = useParams()
@@ -51,13 +54,12 @@ export default function BookingPage() {
   const [selectedTime, setSelectedTime] = useState<string>()
   const [selectedStaff, setSelectedStaff] = useState<string>()
   const [notes, setNotes] = useState('')
-  const [customerName, setCustomerName] = useState('')
-  const [customerEmail, setCustomerEmail] = useState('')
-  const [customerPhone, setCustomerPhone] = useState('')
-  const [promoCode, setPromoCode] = useState<string | null>(null)
-  const [promoApplied, setPromoApplied] = useState(false)
-  const [promoError, setPromoError] = useState<string | null>(null)
   const [step, setStep] = useState(1)
+  const [submit, setSubmit] = useState<{ state: 'idle' } | { state: 'saving' } | { state: 'error'; message: string }>({
+    state: 'idle',
+  })
+  const [booking, setBooking] = useState<{ id: string; status: string; start: Date } | null>(null)
+  const { user, authenticated } = useAuth()
 
   const staffSlots = useMemo(() => staff.map((s) => ({
     staffId: s.id,
@@ -88,42 +90,69 @@ export default function BookingPage() {
     )
   }
 
-  // No add-ons data model exists on Service yet (checked src/types/index.ts)
-  // — the previous MOCK_ADDONS ("Gift Wrapping", "Express Delivery") were
-  // food-delivery-specific and nonsensical on e.g. a haircut booking.
-  // Dropped rather than faked; a real add-ons feature is a separate,
-  // larger addition (would need a schema field + vendor-side management).
-  const subtotal = service.price
-  const platformFee = subtotal * 0.1
-  const taxRate = country?.taxRate ?? 0.075
-  const tax = subtotal * taxRate
-  const discount = promoApplied ? subtotal * 0.1 : 0
-  const total = subtotal + platformFee + tax - discount
+  // The quoted amount is exactly what POST /api/booking stores (the service
+  // price). Platform fees, tax and promo codes used to be added here on the
+  // client only, so the customer saw a total the booking never recorded.
+  const total = service.price
+  const priceCurrency = service.currencyCode ?? currencyCode
 
-  const priceItems: PriceLineItem[] = [
-    { label: service.name, amount: service.price, type: 'subtotal' },
-    { label: 'Platform fee (10%)', amount: platformFee, type: 'fee' },
-    { label: country?.taxName ?? 'Tax', amount: tax, type: 'tax' },
-    ...(discount > 0 ? [{ label: 'Discount', amount: discount, type: 'discount' as const }] : []),
-    { label: 'Total', amount: total, type: 'total' },
-  ]
+  // Catalogue/preview listings use non-database ids; /api/booking can't
+  // create a booking for them, so say so instead of failing at the end.
+  const isBookable = UUID.test(business.id) && UUID.test(service.id)
 
-  const handlePromoApply = (code: string) => {
-    if (code.toLowerCase() === 'welcome20') {
-      setPromoCode(code)
-      setPromoApplied(true)
-      setPromoError(null)
-    } else {
-      setPromoError('Invalid promo code')
-    }
-  }
+  // Slots follow the business's own hours for the picked weekday; a closed
+  // day yields no slots.
+  const dayKey = selectedDate ? WEEKDAYS[selectedDate.getDay()] : WEEKDAYS[new Date().getDay()]
+  const dayHours = business.hours.find((h) => h.day === dayKey)
+  const businessHours =
+    !dayHours || dayHours.isClosed ? { open: '00:00', close: '00:00' } : { open: dayHours.open, close: dayHours.close }
 
   const canProceedStep1 = selectedDate && selectedTime
-  const canProceedStep2 = customerName && customerEmail
+  const canProceedStep2 = authenticated
+  const loginHref = `/login?redirect=${encodeURIComponent(`/${countryCode}/book/${business.id}/${service.id}`)}`
 
-  const handleBook = () => {
-    console.log('Booking confirmed:', { business: business.id, service: service.id, staff: selectedStaff, date: selectedDate, time: selectedTime, notes, total })
-    router.push(`/${params?.country}/order/${'ORD-' + Math.random().toString(36).substring(2, 8).toUpperCase()}`)
+  const handleBook = async () => {
+    if (!selectedDate || !selectedTime || !isBookable) return
+    const [h, m] = selectedTime.split(':').map(Number)
+    const start = zonedWallTimeToUtc(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      selectedDate.getDate(),
+      h,
+      m,
+      country?.timezone,
+    )
+    const end = new Date(start.getTime() + (service.duration || 30) * 60_000)
+
+    setSubmit({ state: 'saving' })
+    try {
+      const res = await fetch('/api/booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: business.id,
+          serviceId: service.id,
+          staffId: selectedStaff && UUID.test(selectedStaff) ? selectedStaff : null,
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          notes: notes.trim() || null,
+        }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.status === 401) {
+        setSubmit({ state: 'error', message: 'Your session expired — sign in again to send this booking.' })
+        return
+      }
+      if (!res.ok) {
+        setSubmit({ state: 'error', message: json.error ?? 'The booking could not be created.' })
+        return
+      }
+      setBooking({ id: json.id, status: json.status ?? 'pending', start })
+      setSubmit({ state: 'idle' })
+      setStep(4)
+    } catch {
+      setSubmit({ state: 'error', message: 'Network error — no booking was created. Please try again.' })
+    }
   }
 
   return (
@@ -168,7 +197,7 @@ export default function BookingPage() {
                   onDateSelect={setSelectedDate}
                   selectedTime={selectedTime}
                   onTimeSelect={setSelectedTime}
-                  businessHours={{ open: '07:00', close: '18:00' }}
+                  businessHours={businessHours}
                   duration={service.duration || 30}
                   staffSlots={staffSlots}
                   selectedStaffId={selectedStaff}
@@ -198,40 +227,27 @@ export default function BookingPage() {
                 animate={{ opacity: 1, x: 0 }}
                 className="space-y-6"
               >
-                {/* Contact Info */}
-                <div className="bg-surface rounded-2xl border border-border p-6 space-y-4">
-                  <h2 className="text-lg font-bold font-heading text-text-primary">Your details</h2>
-
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-1.5">Full name</label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Enter your full name"
-                      className="w-full px-4 py-2.5 rounded-xl bg-surface-secondary border border-border text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-1.5">Email</label>
-                    <input
-                      type="email"
-                      value={customerEmail}
-                      onChange={(e) => setCustomerEmail(e.target.value)}
-                      placeholder="your@email.com"
-                      className="w-full px-4 py-2.5 rounded-xl bg-surface-secondary border border-border text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-text-primary mb-1.5">Phone</label>
-                    <input
-                      type="tel"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder={country?.phoneFormat ?? '+234 XXX XXX XXXX'}
-                      className="w-full px-4 py-2.5 rounded-xl bg-surface-secondary border border-border text-text-primary placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition-all"
-                    />
-                  </div>
+                {/* Account — bookings are tied to the signed-in profile
+                    (customer_id), so there's no separate contact form whose
+                    values would never be sent. */}
+                <div className="bg-surface rounded-2xl border border-border p-6">
+                  <h2 className="text-lg font-bold font-heading text-text-primary">Your account</h2>
+                  {authenticated ? (
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Booking as <span className="font-semibold text-text-primary">{user?.name || user?.email}</span>.
+                      {business.name} will see your profile contact details.
+                    </p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-sm text-text-secondary">Sign in so {business.name} knows who&apos;s booking.</p>
+                      <Link
+                        href={loginHref}
+                        className="rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-amber-600"
+                      >
+                        Sign in to continue
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}
@@ -276,7 +292,7 @@ export default function BookingPage() {
                 {/* Summary */}
                 <div className="space-y-3">
                   {[
-                    { icon: User, label: 'Customer', value: customerName },
+                    { icon: User, label: 'Customer', value: user?.name || user?.email || '' },
                     { icon: Clock, label: 'Date & Time', value: selectedDate ? `${selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${selectedTime}` : '' },
                     { icon: Clock, label: 'Duration', value: `${service.duration} minutes` },
                     { icon: MapPin, label: 'Location', value: business.address?.formatted || `${business.address?.city ?? ''}, ${country?.name ?? ''}` },
@@ -296,27 +312,97 @@ export default function BookingPage() {
                   </div>
                 )}
 
-                <PriceBreakdown
-                  items={priceItems}
-                  currencyCode={service.currencyCode ?? currencyCode}
-                  promoCode={promoCode}
-                  onApplyPromo={handlePromoApply}
-                  onRemovePromo={() => { setPromoCode(null); setPromoApplied(false); setPromoError(null) }}
-                  promoError={promoError}
-                  promoApplied={promoApplied}
-                  platformFeePercent={10}
-                />
+                <div className="flex items-center justify-between border-t border-border pt-4">
+                  <span className="text-sm text-text-secondary">Price</span>
+                  <span className="font-mono text-lg font-bold tabular-nums text-text-primary">
+                    {formatPrice(total, priceCurrency)}
+                  </span>
+                </div>
+                <p className="-mt-3 text-xs text-text-tertiary">
+                  You won&apos;t be charged now. Your request goes to {business.name}, who confirms the time.
+                </p>
+
+                {!isBookable && (
+                  <p role="note" className="rounded-xl bg-surface-secondary p-3 text-sm text-text-secondary">
+                    This is a preview listing. Online booking opens once {business.name} is set up on AfriBook.
+                  </p>
+                )}
+
+                {submit.state === 'error' && (
+                  <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                    {submit.message}
+                    {!authenticated && (
+                      <>
+                        {' '}
+                        <Link href={loginHref} className="font-semibold underline">
+                          Sign in
+                        </Link>
+                      </>
+                    )}
+                  </p>
+                )}
 
                 <button
                   onClick={handleBook}
-                  className="w-full py-3.5 rounded-xl bg-amber-500 text-white font-bold text-base hover:bg-amber-600 transition-all shadow-sm"
+                  disabled={!isBookable || submit.state === 'saving'}
+                  className="w-full rounded-xl bg-amber-500 py-3.5 text-base font-bold text-white shadow-sm transition-all hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-surface-tertiary disabled:text-text-tertiary"
                 >
-                  Book Now &middot; {formatCurrency(total, service.currencyCode ?? currencyCode)}
+                  {submit.state === 'saving'
+                    ? 'Sending request…'
+                    : `Request booking · ${formatPrice(total, priceCurrency)}`}
                 </button>
 
                 <button onClick={() => setStep(2)} className="w-full text-center text-sm text-text-secondary hover:text-text-primary transition-colors">
                   &larr; Edit details
                 </button>
+              </motion.div>
+            )}
+
+            {/* Step 4: request sent — reflects the stored booking, which is
+                still pending until the business confirms it. */}
+            {step === 4 && booking && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="space-y-5 rounded-2xl border border-border bg-surface p-8 text-center"
+              >
+                <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-olive-50 text-olive-600">
+                  <Check className="h-7 w-7" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-text-primary">Booking request sent</h2>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {service.name} at {business.name}
+                  </p>
+                </div>
+                <dl className="mx-auto max-w-sm space-y-2 rounded-2xl bg-surface-secondary p-4 text-left text-sm">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-text-secondary">When</dt>
+                    <dd className="text-right font-medium text-text-primary">
+                      {formatInTimezone(booking.start, country?.timezone, {
+                        weekday: 'short',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-text-secondary">Status</dt>
+                    <dd className="font-medium capitalize text-text-primary">{booking.status} — awaiting the business</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-text-secondary">Reference</dt>
+                    <dd className="font-mono text-xs text-text-primary">{booking.id.slice(0, 8).toUpperCase()}</dd>
+                  </div>
+                </dl>
+                <Link
+                  href="/account"
+                  className="inline-flex rounded-full bg-dark-300 px-6 py-3 text-sm font-semibold text-white hover:bg-dark-200"
+                >
+                  Go to my account
+                </Link>
               </motion.div>
             )}
           </div>
@@ -341,7 +427,7 @@ export default function BookingPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-text-secondary">Price</span>
-                  <span className="font-semibold text-text-primary">{formatCurrency(service.price, service.currencyCode ?? currencyCode)}</span>
+                  <span className="font-semibold text-text-primary">{formatPrice(service.price, priceCurrency)}</span>
                 </div>
                 {step >= 1 && selectedDate && selectedTime && (
                   <div className="flex justify-between">

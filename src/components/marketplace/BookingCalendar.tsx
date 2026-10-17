@@ -34,13 +34,28 @@ interface BookingCalendarProps {
   className?: string
 }
 
-function generateTimeSlots(open: string, close: string, duration: number, now: Date, bookedTimes?: string[]): TimeSlot[] {
+export function generateTimeSlots(
+  open: string,
+  close: string,
+  duration: number,
+  now: Date,
+  selectedDate?: Date,
+  bookedTimes?: string[],
+): TimeSlot[] {
   const [openH, openM] = open.split(':').map(Number)
   const [closeH, closeM] = close.split(':').map(Number)
   const openMin = openH * 60 + openM
   const closeMin = closeH * 60 + closeM
   const slots: TimeSlot[] = []
-  const currentMin = now.getHours() * 60 + now.getMinutes()
+  // Only today's earlier slots are in the past. This used to compare every
+  // date's slots against the current time of day, so on any evening every
+  // slot on every future date showed as unavailable.
+  const isToday =
+    !!selectedDate &&
+    selectedDate.getFullYear() === now.getFullYear() &&
+    selectedDate.getMonth() === now.getMonth() &&
+    selectedDate.getDate() === now.getDate()
+  const currentMin = isToday ? now.getHours() * 60 + now.getMinutes() : -1
 
   for (let m = openMin; m + duration <= closeMin; m += duration + 15) {
     const h = Math.floor(m / 60)
@@ -84,8 +99,10 @@ export default function BookingCalendar({
   const [month, setMonth] = useState<Date>(today)
 
   const timeSlots = useMemo(
-    () => generateTimeSlots(businessHours.open, businessHours.close, duration, localNow),
-    [businessHours, duration, localNow],
+    () => generateTimeSlots(businessHours.open, businessHours.close, duration, localNow, selectedDate),
+    // localNow is a fresh Date each render; key on the minute, not identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [businessHours.open, businessHours.close, duration, selectedDate, Math.floor(localNow.getTime() / 60000)],
   )
 
   const handleDateSelect = (date: Date | undefined) => {

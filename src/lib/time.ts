@@ -65,3 +65,30 @@ export function formatInTimezone(
 export function getTzDateKey(date: Date, timeZone?: string): string {
   return toTimezoneDate(date, timeZone).toISOString().slice(0, 10)
 }
+
+/**
+ * The UTC instant for a wall-clock time in `timeZone` — e.g. 10:00 on
+ * 2026-11-03 in Africa/Lagos → 2026-11-03T09:00:00.000Z. `year/month/day`
+ * are the calendar date as the customer picked it (month is 1-based).
+ * Without a timezone, the time is read in the runtime's local zone.
+ */
+export function zonedWallTimeToUtc(
+  year: number,
+  month: number,
+  day: number,
+  hour: number,
+  minute: number,
+  timeZone?: string,
+): Date {
+  if (!timeZone) return new Date(year, month - 1, day, hour, minute)
+  const asIfUtc = Date.UTC(year, month - 1, day, hour, minute)
+  // Offset of the zone at (approximately) that instant; a second pass
+  // corrects the rare case where the guess straddles a DST change.
+  let guess = asIfUtc
+  for (let i = 0; i < 2; i++) {
+    const p = getTzParts(new Date(guess), timeZone)
+    const shown = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second)
+    guess = asIfUtc - (shown - guess)
+  }
+  return new Date(guess)
+}

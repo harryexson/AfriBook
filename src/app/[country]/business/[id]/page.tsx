@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Star, MapPin, Clock, Phone, Mail, Globe, ChevronLeft, ChevronRight,
-  Share2, Heart, ThumbsUp, MessageCircle, Users, Scissors,
-  ShoppingBag, Timer, Map, Check, Image, Video,
+  Share2, Heart, MessageCircle, Users, Scissors,
+  ShoppingBag, Timer, Map, Check, Image,
 } from 'lucide-react'
 import Link from 'next/link'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -18,7 +18,8 @@ import ProviderCard from '@/components/marketplace/ProviderCard'
 import ReviewForm from '@/components/marketplace/ReviewForm'
 import MapEmbed from '@/components/shared/MapEmbed'
 import Button from '@/components/ui/Button'
-import type { Business, Service, Review } from '@/types'
+import { useAuth } from '@/hooks/useAuth'
+import type { Business, Service } from '@/types'
 import { getCountryBusinesses, getCountryServices, getStaffForBusiness } from '@/lib/countries-data'
 import { galleryFor, bucketFor } from '@/lib/images'
 import { getWeekdayKey, formatInTimezone } from '@/lib/time'
@@ -26,7 +27,17 @@ import { getWeekdayKey, formatInTimezone } from '@/lib/time'
 
 const DAY_LABELS: Record<string, string> = { mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun' }
 const DAY_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']
-const NOW = Date.now()
+
+/** A row from the `reviews` table, as returned by /api/reviews. */
+interface StoredReview {
+  id: string
+  rating: number
+  title: string | null
+  content: string | null
+  is_verified: boolean
+  reply_from_business?: string | null
+  created_at: string
+}
 
 /**
  * Which tabs make sense for a given vertical. 'Products' and 'Menu' are
@@ -77,6 +88,30 @@ export default function BusinessDetailPage() {
   const [isFav, setIsFav] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showAllHours, setShowAllHours] = useState(false)
+  const { authenticated } = useAuth()
+  const [reviews, setReviews] = useState<StoredReview[]>([])
+  const [reviewsStatus, setReviewsStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [reviewSubmit, setReviewSubmit] = useState<
+    { state: 'idle' } | { state: 'saving' } | { state: 'saved' } | { state: 'error'; message: string }
+  >({ state: 'idle' })
+
+  useEffect(() => {
+    if (!businessId) return
+    let cancelled = false
+    setReviewsStatus('loading')
+    fetch(`/api/reviews?businessId=${encodeURIComponent(businessId)}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled) return
+        if (!json.success) throw new Error()
+        setReviews(json.data.reviews)
+        setReviewsStatus('ready')
+      })
+      .catch(() => !cancelled && setReviewsStatus('error'))
+    return () => {
+      cancelled = true
+    }
+  }, [businessId])
 
   if (!business) {
     return (
@@ -101,26 +136,26 @@ export default function BusinessDetailPage() {
 
   const staff = getStaffForBusiness(business, services)
 
-  const reviews: Review[] = [
-    {
-      id: 'r1', businessId: business.id, userId: 'u1', targetType: 'business', targetId: business.id,
-      rating: Math.min(5, Math.round(business.rating)), title: 'Excellent service', isVerifiedPurchase: true,
-      body: `Booked ${services[0]?.name ?? business.category} and the experience was fantastic. Prompt, professional and great value for money.`,
-      images: [], isApproved: true, createdAt: new Date(NOW - 3 * 86400000).toISOString(), updatedAt: '',
-    },
-    {
-      id: 'r2', businessId: business.id, userId: 'u2', targetType: 'business', targetId: business.id,
-      rating: Math.max(3, Math.round(business.rating) - 1), title: 'Great experience', isVerifiedPurchase: false,
-      body: `Really enjoyed the ${services[1]?.name ?? 'service'} — friendly team and smooth booking through AfriBook.`,
-      images: [], isApproved: true, createdAt: new Date(NOW - 6 * 86400000).toISOString(), updatedAt: '',
-    },
-    {
-      id: 'r3', businessId: business.id, userId: 'u3', targetType: 'business', targetId: business.id,
-      rating: Math.min(5, Math.round(business.rating)), title: 'Highly recommended', isVerifiedPurchase: true,
-      body: `I have used ${business.name} for months now. Consistent quality and excellent customer service every single time.`,
-      images: [], isApproved: true, createdAt: new Date(NOW - 9 * 86400000).toISOString(), updatedAt: '',
-    },
-  ]
+  const submitReview = async (data: { rating: number; title: string; body: string }) => {
+    setReviewSubmit({ state: 'saving' })
+    try {
+      const res = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: business.id, ...data }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        setReviewSubmit({ state: 'error', message: json.error ?? 'Could not save your review' })
+        return
+      }
+      setReviews((prev) => [json.data.review, ...prev])
+      setReviewSubmit({ state: 'saved' })
+      setShowReviewForm(false)
+    } catch {
+      setReviewSubmit({ state: 'error', message: 'Network error — your review was not saved' })
+    }
+  }
 
   const galleryImages = galleryFor(business.id, business.category, business.media?.galleryUrls)
   const startingPrice = services.length > 0 ? Math.min(...services.map((s) => s.price)) : 0
@@ -227,8 +262,8 @@ export default function BusinessDetailPage() {
                   <MapPin className="w-4 h-4" />
                   {business.address.city}, {business.address.state || country?.name}
                 </span>
-                <span className={cn('flex items-center gap-1', isOpen ? 'text-emerald-500' : 'text-red-500')}>
-                  <span className={cn('w-2 h-2 rounded-full', isOpen ? 'bg-emerald-500' : 'bg-red-500')} />
+                <span className={cn('flex items-center gap-1', isOpen ? 'text-olive-600' : 'text-red-500')}>
+                  <span className={cn('w-2 h-2 rounded-full', isOpen ? 'bg-olive-500' : 'bg-red-500')} />
                   {isOpen ? `Open - closes ${todayHours?.close}` : 'Closed'}
                   <span className="text-text-tertiary">({localTime} {country?.name})</span>
                 </span>
@@ -303,30 +338,6 @@ export default function BusinessDetailPage() {
                         </div>
                       ))}
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold font-heading text-text-primary mb-3 flex items-center gap-2">
-                        <Video className="w-5 h-5 text-amber-500" />
-                        Video Showcase
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {[
-                          { title: `${business.category} at ${business.name}`, duration: '2:30' },
-                          { title: `${business.name} Experience`, duration: '4:15' },
-                        ].map((video, i) => (
-                          <div key={i} className="rounded-xl overflow-hidden bg-surface-secondary border border-border group cursor-pointer">
-                            <div className="aspect-video bg-gradient-to-br from-amber-500/10 to-orange-500/10 flex items-center justify-center relative">
-                              <div className="w-14 h-14 rounded-full bg-amber-500/90 flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-                                <svg className="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                              </div>
-                              <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-0.5 rounded">{video.duration}</span>
-                            </div>
-                            <div className="p-3">
-                              <p className="text-sm font-medium text-text-primary">{video.title}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </div>
                 )}
 
@@ -374,79 +385,120 @@ export default function BusinessDetailPage() {
                   </div>
                 )}
 
-                {/* Reviews Tab */}
+                {/* Reviews Tab — only reviews actually stored in the
+                    `reviews` table; nothing is invented to fill the space. */}
                 {currentTab === 'reviews' && (
                   <div className="space-y-6">
-                    {/* Rating summary */}
-                    <div className="flex items-start gap-6 pb-6 border-b border-border">
-                      <div className="text-center">
-                        <span className="text-4xl font-bold text-text-primary">{business.rating.toFixed(1)}</span>
-                        <div className="flex items-center justify-center gap-0.5 mt-1">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star key={i} className={cn('w-4 h-4', i < Math.round(business.rating) ? 'text-amber-500 fill-amber-500' : 'text-text-tertiary')} />
-                          ))}
-                        </div>
-                        <span className="text-xs text-text-tertiary">{business.reviewCount} reviews</span>
+                    {reviewsStatus === 'loading' && (
+                      <div className="space-y-3" aria-busy="true">
+                        {[0, 1].map((i) => (
+                          <div key={i} className="h-20 animate-pulse rounded-2xl bg-surface-secondary" />
+                        ))}
                       </div>
-                      <div className="flex-1 space-y-1">
-                        {[5, 4, 3, 2, 1].map((star) => {
-                          const count = reviews.filter((r) => Math.round(r.rating) === star).length
-                          const pct = reviews.length > 0 ? (count / reviews.length) * 100 : 0
-                          return (
-                            <div key={star} className="flex items-center gap-2 text-sm">
-                              <span className="w-8 text-text-secondary text-right">{star}</span>
-                              <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                              <div className="flex-1 h-2 rounded-full bg-surface-tertiary overflow-hidden">
-                                <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${pct}%` }} />
-                              </div>
-                              <span className="w-8 text-xs text-text-tertiary">{count}</span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
+                    )}
 
-                    {/* Review list */}
-                    <div className="space-y-5">
-                      {reviews.map((review) => (
-                        <div key={review.id} className="pb-5 border-b border-border last:border-0">
-                          <div className="flex items-start gap-3">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center text-white font-bold text-sm shrink-0">
-                              {review.userId.charAt(0).toUpperCase()}
+                    {reviewsStatus === 'error' && (
+                      <p className="rounded-2xl border border-border bg-surface-secondary p-4 text-sm text-text-secondary">
+                        Reviews couldn&apos;t be loaded right now. Please try again later.
+                      </p>
+                    )}
+
+                    {reviewsStatus === 'ready' && reviews.length === 0 && (
+                      <div className="rounded-2xl border border-border bg-surface-secondary p-6 text-center">
+                        <MessageCircle className="mx-auto h-8 w-8 text-text-tertiary" />
+                        <p className="mt-3 font-semibold text-text-primary">No reviews on AfriBook yet</p>
+                        <p className="mt-1 text-sm text-text-secondary">
+                          Reviews from customers who book through AfriBook will appear here.
+                        </p>
+                      </div>
+                    )}
+
+                    {reviewsStatus === 'ready' && reviews.length > 0 && (
+                      <>
+                        <div className="flex items-center gap-4 border-b border-border pb-5">
+                          <span className="font-mono text-4xl font-bold tabular-nums text-text-primary">
+                            {(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)}
+                          </span>
+                          <div>
+                            <div className="flex gap-0.5">
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={cn(
+                                    'h-4 w-4',
+                                    i < Math.round(reviews.reduce((s, r) => s + r.rating, 0) / reviews.length)
+                                      ? 'fill-amber-500 text-amber-500'
+                                      : 'text-text-tertiary',
+                                  )}
+                                />
+                              ))}
                             </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-text-primary">Anonymous</span>
-                                <div className="flex items-center gap-0.5">
-                                  {Array.from({ length: 5 }).map((_, i) => (
-                                    <Star key={i} className={cn('w-3.5 h-3.5', i < review.rating ? 'text-amber-500 fill-amber-500' : 'text-text-tertiary')} />
-                                  ))}
-                                </div>
-                              </div>
-                              {review.title && <h5 className="font-medium text-text-primary mt-1">{review.title}</h5>}
-                              {review.body && <p className="text-sm text-text-secondary mt-1">{review.body}</p>}
-                              <div className="flex items-center gap-3 mt-2 text-xs text-text-tertiary">
-                                <span>{new Date(review.createdAt).toLocaleDateString()}</span>
-                                {review.isVerifiedPurchase && (
-                                  <span className="flex items-center gap-1 text-emerald-500"><Check className="w-3 h-3" />Verified purchase</span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-3 mt-2">
-                                <button className="flex items-center gap-1 text-xs text-text-secondary hover:text-text-primary transition-colors"><ThumbsUp className="w-3.5 h-3.5" />Helpful</button>
-                              </div>
-                            </div>
+                            <p className="mt-1 text-xs text-text-tertiary">
+                              {reviews.length} review{reviews.length === 1 ? '' : 's'} on AfriBook
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
 
-                    {/* Write review */}
-                    <button
-                      onClick={() => setShowReviewForm(!showReviewForm)}
-                      className="w-full py-3 rounded-xl border-2 border-dashed border-border text-text-secondary hover:border-amber-500/50 hover:text-amber-500 font-medium transition-all"
-                    >
-                      {showReviewForm ? 'Cancel' : 'Write a review'}
-                    </button>
+                        <ul className="space-y-5">
+                          {reviews.map((review) => (
+                            <li key={review.id} className="border-b border-border pb-5 last:border-0">
+                              <div className="flex items-center gap-2">
+                                <div className="flex gap-0.5">
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <Star
+                                      key={i}
+                                      className={cn('h-3.5 w-3.5', i < review.rating ? 'fill-amber-500 text-amber-500' : 'text-text-tertiary')}
+                                    />
+                                  ))}
+                                </div>
+                                {review.is_verified && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-olive-50 px-2 py-0.5 text-[11px] font-semibold text-olive-700">
+                                    <Check className="h-3 w-3" />
+                                    Booked on AfriBook
+                                  </span>
+                                )}
+                                <span className="ml-auto text-xs text-text-tertiary">
+                                  {new Date(review.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                              {review.title && <h5 className="mt-2 font-semibold text-text-primary">{review.title}</h5>}
+                              {review.content && <p className="mt-1 text-sm text-text-secondary">{review.content}</p>}
+                              {review.reply_from_business && (
+                                <p className="mt-3 rounded-xl bg-surface-secondary p-3 text-sm text-text-secondary">
+                                  <span className="font-semibold text-text-primary">Reply from {business.name}: </span>
+                                  {review.reply_from_business}
+                                </p>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+
+                    {reviewSubmit.state === 'saved' && (
+                      <p role="status" className="rounded-xl bg-olive-50 p-3 text-sm font-medium text-olive-700">
+                        Thanks — your review is published.
+                      </p>
+                    )}
+
+                    {authenticated ? (
+                      <button
+                        onClick={() => {
+                          setShowReviewForm(!showReviewForm)
+                          setReviewSubmit({ state: 'idle' })
+                        }}
+                        className="w-full rounded-xl border-2 border-dashed border-border py-3 font-medium text-text-secondary transition-all hover:border-amber-500/50 hover:text-amber-600"
+                      >
+                        {showReviewForm ? 'Cancel' : 'Write a review'}
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/login?redirect=${encodeURIComponent(`/${countryCode}/business/${business.id}`)}`}
+                        className="block w-full rounded-xl border-2 border-dashed border-border py-3 text-center font-medium text-text-secondary transition-all hover:border-amber-500/50 hover:text-amber-600"
+                      >
+                        Sign in to write a review
+                      </Link>
+                    )}
 
                     <AnimatePresence>
                       {showReviewForm && (
@@ -456,13 +508,18 @@ export default function BusinessDetailPage() {
                           exit={{ height: 0, opacity: 0 }}
                           className="overflow-hidden"
                         >
+                          {reviewSubmit.state === 'error' && (
+                            <p role="alert" className="mb-3 rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                              {reviewSubmit.message}
+                            </p>
+                          )}
                           <ReviewForm
                             businessName={business.name}
-                            onSubmit={(data) => {
-                              console.log('Review submitted:', data)
-                              setShowReviewForm(false)
-                            }}
+                            onSubmit={({ rating, title, body }) => submitReview({ rating, title, body })}
                           />
+                          {reviewSubmit.state === 'saving' && (
+                            <p className="mt-2 text-sm text-text-tertiary">Saving your review…</p>
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
