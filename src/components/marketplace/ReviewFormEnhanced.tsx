@@ -598,7 +598,7 @@ function ConfettiAnimation() {
   const pieces = Array.from({ length: 40 }, (_, i) => ({
     id: i,
     color:
-      ['#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899'][
+      ['#c5602f', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#ec4899'][
         i % 6
       ],
     left: Math.random() * 100,

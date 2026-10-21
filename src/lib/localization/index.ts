@@ -1,5 +1,5 @@
 import { COUNTRIES } from './countries';
-import { CURRENCIES } from './currencies';
+import { CURRENCIES, formatCurrencyAmount } from './currencies';
 import { LANGUAGES } from './languages';
 import { TRANSLATIONS, type Translations } from './translations';
 import {
@@ -87,10 +87,12 @@ export function formatPrice(
 ): string {
   const currency = CURRENCIES[currencyCode];
   if (!currency) return `${amount}`;
-  const dec = currency.decimalPlaces;
-  const fixed = amount.toFixed(dec);
-  const { symbol, format } = currency;
-  const formatted = format === 'amount symbol' ? `${fixed} ${symbol}` : `${symbol}${fixed}`;
+  const formatted = formatCurrencyAmount(
+    amount,
+    currency,
+    currency.symbol,
+    currency.format === 'amount symbol' ? 'suffix' : 'prefix',
+  );
   if (locale === 'ar' || locale === 'ae' || locale === 'eg') {
     return `\u200F${formatted}`;
   }

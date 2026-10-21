@@ -574,7 +574,7 @@ export default function AdminPromoCodesPage() {
                                     <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
                                     <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
                                     <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '8px', fontSize: '12px' }} />
-                                    <Line type="monotone" dataKey="count" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3, fill: '#F59E0B' }} />
+                                    <Line type="monotone" dataKey="count" stroke="#C5602F" strokeWidth={2} dot={{ r: 3, fill: '#C5602F' }} />
                                   </LineChart>
                                 </ResponsiveContainer>
                               </div>

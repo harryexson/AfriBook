@@ -99,7 +99,7 @@ export default function AdminAnalyticsPage() {
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={platform?.revenueTrend ?? []}>
               <defs>
-                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} /><stop offset="95%" stopColor="#F59E0B" stopOpacity={0} /></linearGradient>
+                <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#C5602F" stopOpacity={0.3} /><stop offset="95%" stopColor="#C5602F" stopOpacity={0} /></linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
               <XAxis dataKey="date" tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
@@ -107,7 +107,7 @@ export default function AdminAnalyticsPage() {
               <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
                 formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), 'USD'), 'Revenue'] as [string, string]} />
               <Legend />
-              <Area type="monotone" dataKey="revenueUSD" stroke="#F59E0B" strokeWidth={2.5} fill="url(#revGrad)" name="Revenue" />
+              <Area type="monotone" dataKey="revenueUSD" stroke="#C5602F" strokeWidth={2.5} fill="url(#revGrad)" name="Revenue" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -126,7 +126,7 @@ export default function AdminAnalyticsPage() {
               <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
                 formatter={(value?: ValueType) => [formatCurrency(Number(value ?? 0), 'USD'), 'Volume'] as [string, string]} />
               <Legend />
-              <Bar dataKey="volumeUSD" fill="#F59E0B" radius={[6, 6, 0, 0]} name="Volume (USD)" />
+              <Bar dataKey="volumeUSD" fill="#C5602F" radius={[6, 6, 0, 0]} name="Volume (USD)" />
             </BarChart>
           </ResponsiveContainer>
         </div>

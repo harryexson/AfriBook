@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { VehicleSearchPage } from '@/components/vehicle-rental/VehicleSearchPage';
 
@@ -7,5 +8,11 @@ export const metadata: Metadata = {
 };
 
 export default function VehiclesPage() {
-  return <VehicleSearchPage />;
+  // VehicleSearchPage reads useSearchParams(), which needs a Suspense
+  // boundary or the static prerender of /vehicles fails the build.
+  return (
+    <Suspense fallback={null}>
+      <VehicleSearchPage />
+    </Suspense>
+  );
 }

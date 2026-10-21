@@ -35,34 +35,34 @@ export const colors = {
   olive: "#8C9A58",
   mint: "#E9EFDC",
 
-  success: "#10B981",
-  successLight: "#D1FAE5",
+  success: "#5F6F36",
+  successLight: "#E1E6CC",
   // Readable green *type* on successLight — the mid green fails contrast at
   // label sizes. Matches the web card's emerald-700 on emerald tint.
-  successDark: "#047857",
+  successDark: "#3C4722",
   error: "#EF4444",
   errorLight: "#FEE2E2",
-  warning: "#F59E0B",
-  warningLight: "#FEF3C7",
+  warning: "#D99A2B",
+  warningLight: "#F8EBCF",
   info: "#3B82F6",
   infoLight: "#DBEAFE",
 
   overlay: "rgba(0, 0, 0, 0.5)",
   // Scrim under text laid over photography.
-  photoScrim: "rgba(20, 20, 22, 0.42)",
+  photoScrim: "rgba(36, 26, 20, 0.42)",
 } as const;
 
 export const darkColors = {
   ...colors,
-  surface: "#0E0B16",
-  surfaceSecondary: "#161322",
-  surfaceTertiary: "#1A1728",
-  textPrimary: "#F9FAFB",
-  textSecondary: "#9CA3AF",
-  textTertiary: "#6B7280",
-  textInverse: "#111827",
-  border: "#2D2A3E",
-  borderLight: "#262334",
+  surface: "#17110D",
+  surfaceSecondary: "#1F1712",
+  surfaceTertiary: "#281E17",
+  textPrimary: "#F6EFE8",
+  textSecondary: "#BBA99B",
+  textTertiary: "#84725F",
+  textInverse: "#2A1C15",
+  border: "#382A21",
+  borderLight: "#2C211A",
 } as const;
 
 export const typography = {
@@ -117,28 +117,28 @@ export const borderRadius = {
 // the single biggest reason the previous UI read as unfinished.
 export const shadows = {
   sm: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
     shadowRadius: 2,
     elevation: 1,
   },
   md: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
   },
   lg: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06,
     shadowRadius: 24,
     elevation: 4,
   },
   xl: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.08,
     shadowRadius: 32,
@@ -147,7 +147,7 @@ export const shadows = {
   // Reserved for surfaces that genuinely float above content: sticky action
   // bars and sheets. Not for cards in a list.
   premium: {
-    shadowColor: "#1C1B19",
+    shadowColor: "#2A1C15",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
     shadowRadius: 24,

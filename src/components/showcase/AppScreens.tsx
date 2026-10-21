@@ -195,12 +195,12 @@ export function RidesAppScreen() {
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 240 420" fill="none">
           <path
             d="M30 360 C 70 330, 60 240, 120 200 S 180 90, 210 60"
-            stroke="#F59E0B"
+            stroke="#C5602F"
             strokeWidth="2.5"
             strokeDasharray="1 6"
             strokeLinecap="round"
           />
-          <circle cx="30" cy="360" r="7" fill="#F59E0B" />
+          <circle cx="30" cy="360" r="7" fill="#C5602F" />
           <circle cx="210" cy="60" r="7" fill="#3B82F6" />
         </svg>
       </div>
@@ -371,7 +371,7 @@ export function DeliveryAppScreen() {
             strokeDasharray="2 6"
             strokeLinecap="round"
           />
-          <circle cx="40" cy="90" r="7" fill="#F59E0B" />
+          <circle cx="40" cy="90" r="7" fill="#C5602F" />
           <circle cx="50" cy="380" r="7" fill="#10B981" />
         </svg>
       </div>

@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { VehicleDetailPage } from '@/components/vehicle-rental/VehicleDetailPage';
-import { getVehicle } from '@/lib/vehicle-rental';
+import { getVehicleServer as getVehicle } from '@/lib/vehicle-rental-server';
 
 interface Props {
   params: Promise<{ id: string }>;

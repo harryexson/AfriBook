@@ -672,7 +672,7 @@ export default function CustomerOnboardingPage() {
                   transition={{ delay: 0.5 + i * 0.05, type: 'spring' }}
                   className="absolute w-3 h-3 rounded-full"
                   style={{
-                    background: ['#F59E0B', '#10B981', '#3B82F6', '#EF4444', '#8B5CF6'][i % 5],
+                    background: ['#C5602F', '#10B981', '#3B82F6', '#EF4444', '#8B5CF6'][i % 5],
                     top: `${10 + Math.random() * 80}%`,
                     left: `${5 + Math.random() * 90}%`,
                   }}

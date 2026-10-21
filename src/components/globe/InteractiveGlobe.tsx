@@ -70,7 +70,7 @@ function EarthMaterial() {
       uLightDirection: { value: new THREE.Vector3(1, 0.5, 1).normalize() },
       uOceanColor: { value: new THREE.Color('#0d1117') },
       uLandColor: { value: new THREE.Color('#1d242c') },
-      uBorderColor: { value: new THREE.Color('#f59e0b') },
+      uBorderColor: { value: new THREE.Color('#c5602f') },
     }),
     []
   )
@@ -315,7 +315,7 @@ function CountryMarkerMesh({
     [onClick]
   )
 
-  const color = isSelected || isFocused ? '#f59e0b' : '#fbbf24'
+  const color = isSelected || isFocused ? '#c5602f' : '#d67e54'
 
   return (
     <group position={position}>
@@ -436,7 +436,7 @@ function Scene({
       {/* Lighting */}
       <ambientLight intensity={0.4} />
       <directionalLight position={[5, 3, 5]} intensity={1.4} color="#ffffff" />
-      <pointLight position={[-5, -3, -5]} intensity={0.25} color="#f59e0b" />
+      <pointLight position={[-5, -3, -5]} intensity={0.25} color="#c5602f" />
 
       {/* Stars background */}
       <Stars

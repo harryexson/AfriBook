@@ -22,7 +22,7 @@ const ITEM = {
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.22, 1, 0.36, 1] as const } },
 }
 
-const SERVICE_COLORS = ['#F59E0B', '#64748B', '#0EA5E9', '#8B5CF6', '#10B981', '#EF4444']
+const SERVICE_COLORS = ['#C5602F', '#64748B', '#0EA5E9', '#8B5CF6', '#10B981', '#EF4444']
 
 interface AnalyticsState {
   currencyCode: string
@@ -158,8 +158,8 @@ export default function AnalyticsPage() {
             <AreaChart data={analytics?.revenueByDay ?? []}>
               <defs>
                 <linearGradient id="bookingsGrad2" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#C5602F" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#C5602F" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="ordersGrad2" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#64748B" stopOpacity={0.25} />
@@ -176,7 +176,7 @@ export default function AnalyticsPage() {
                   String(name) === 'ordersRevenue' ? 'Orders' : 'Bookings',
                 ] as [string, string]}
               />
-              <Area type="monotone" dataKey="bookingsRevenue" stroke="#F59E0B" strokeWidth={2.5} fill="url(#bookingsGrad2)" stackId="rev" />
+              <Area type="monotone" dataKey="bookingsRevenue" stroke="#C5602F" strokeWidth={2.5} fill="url(#bookingsGrad2)" stackId="rev" />
               <Area type="monotone" dataKey="ordersRevenue" stroke="#64748B" strokeWidth={2} fill="url(#ordersGrad2)" stackId="rev" />
             </AreaChart>
           </ResponsiveContainer>
@@ -197,7 +197,7 @@ export default function AnalyticsPage() {
                 <XAxis dataKey="hour" tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 10, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} allowDecimals={false} />
                 <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }} />
-                <Bar dataKey="count" fill="#F59E0B" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" fill="#C5602F" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

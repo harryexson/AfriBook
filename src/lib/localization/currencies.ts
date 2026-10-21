@@ -156,3 +156,26 @@ export const CURRENCIES: Record<string, CurrencyConfig> = {
   TOP: { code: 'TOP', symbol: 'T$', name: 'Tongan Paʻanga', nativeName: 'Paʻanga', decimalPlaces: 2, format: 'symbol amount', exchangeRate: 2.3 },
   VUV: { code: 'VUV', symbol: 'VT', name: 'Vanuatu Vatu', nativeName: 'Vatu', decimalPlaces: 0, format: 'amount symbol', exchangeRate: 119 },
 };
+
+/**
+ * The one display rule for a price: thousands grouped, a space after a
+ * letter symbol ("MK 12,999", "R 179.00") but not after a glyph ("$12.99",
+ * "CA$12.99"), and whole amounts in high-unit currencies (MWK, NGN, …)
+ * shown without ".00", since nobody writes kwacha to the tambala.
+ * Display only — never use this to round a transaction amount.
+ */
+export function formatCurrencyAmount(
+  amount: number,
+  currency: Pick<CurrencyConfig, 'decimalPlaces' | 'exchangeRate'>,
+  symbol: string,
+  position: 'prefix' | 'suffix',
+): string {
+  const highUnit = currency.exchangeRate >= 100;
+  const decimals = highUnit && Number.isInteger(amount) ? 0 : currency.decimalPlaces;
+  const number = new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(amount);
+  if (position === 'suffix') return `${number} ${symbol}`;
+  return /[A-Za-z]$/.test(symbol) ? `${symbol} ${number}` : `${symbol}${number}`;
+}

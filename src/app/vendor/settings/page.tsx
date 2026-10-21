@@ -190,8 +190,8 @@ export default function VendorSettingsPage() {
                   <div>
                     <h4 className="font-semibold text-text-primary text-sm mb-3">Accent Color</h4>
                     <div className="flex gap-3">
-                      {['#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#14B8A6'].map((c) => (
-                        <button key={c} className="w-10 h-10 rounded-full border-4 border-surface shadow" style={{ backgroundColor: c, boxShadow: `0 0 0 2px ${c === '#F59E0B' ? c : 'transparent'}` }} />
+                      {['#C5602F', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444', '#14B8A6'].map((c) => (
+                        <button key={c} className="w-10 h-10 rounded-full border-4 border-surface shadow" style={{ backgroundColor: c, boxShadow: `0 0 0 2px ${c === '#C5602F' ? c : 'transparent'}` }} />
                       ))}
                     </div>
                   </div>

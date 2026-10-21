@@ -1,12 +1,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import {
-  Search, Star, Users, ShoppingBag, ArrowRight,
-  Clock, Calendar, Zap, Store,
-} from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Star, Clock, Zap } from 'lucide-react'
 import { getCountryConfig, formatPrice } from '@/lib/localization'
+import { photoFor } from '@/lib/media/images'
+import { CategoryPhotoRail, DiscoverGrid, TwinBanners, type PhotoLink } from '@/components/marketplace/HomeDiscovery'
 import type { CountryConfig } from '@/lib/localization/countries'
 import {
   getCountryBusinesses,
@@ -106,56 +104,59 @@ export default async function CountryHomePage({
     .map((s) => ({ service: s, business: businessById.get(s.businessId) }))
     .filter((x): x is { service: Service; business: Business } => Boolean(x.business))
 
+  // "From" prices only where the catalogue actually has a priced service in
+  // that vertical — otherwise the card shows its tagline alone.
+  const fromPrice = (pattern: RegExp) => {
+    const priced = services.filter((s) => {
+      const b = businessById.get(s.businessId)
+      return s.price > 0 && b && pattern.test(`${b.category} ${b.name} ${s.name}`)
+    })
+    if (priced.length === 0) return undefined
+    const cheapest = priced.reduce((a, b) => (b.price < a.price ? b : a))
+    return formatPrice(cheapest.price, cheapest.currencyCode)
+  }
+  const search = (category: string) => `/${code}/search?category=${encodeURIComponent(category)}`
+  const tile = (id: string, bucket: string) => photoFor(id, bucket, null, { width: 320, ratio: 0.75 })
+
+  const rail: PhotoLink[] = [
+    { label: 'Rides', href: '/rides/book', src: tile('rail-rides', 'rides'), alt: 'Car on a city street' },
+    { label: 'Food delivery', href: '/food', src: '/food/grill.jpg', alt: 'Grilled skewers and sides' },
+    { label: 'Stays', href: '/stays', src: tile('rail-stays-2', 'stays'), alt: 'Hotel bedroom' },
+    { label: 'Home services', href: search('Home Services'), src: '/people/cleaning.jpg', alt: 'Cleaner at work in a home' },
+    { label: 'Beauty & wellness', href: search('Beauty & Wellness'), src: '/people/spa.jpg', alt: 'Spa treatment' },
+    { label: 'Local marketplace', href: '/marketplace', src: tile('rail-market', 'generic'), alt: 'Local shop' },
+  ]
+
+  const discover: PhotoLink[] = [
+    { label: 'Restaurants', href: '/food', src: '/food/continental.jpg', alt: 'Plated restaurant dish', tagline: 'Local flavours, great vibes', fromPrice: fromPrice(/food|dining|restaurant|kitchen/i) },
+    { label: 'Hotels', href: '/stays', src: tile('disc-hotels', 'stays'), alt: 'Hotel room', tagline: 'Comfortable stays, anywhere' },
+    { label: 'Barber & Salon', href: search('Beauty & Wellness'), src: '/people/barber.jpg', alt: 'Barber giving a haircut', tagline: 'Look good, feel great', fromPrice: fromPrice(/barber|salon|hair|beauty/i) },
+    { label: 'Photography', href: `/${code}/search?q=photography`, src: '/people/photography.jpg', alt: 'Photographer with camera', tagline: 'Capture your moments', fromPrice: fromPrice(/photo/i) },
+    { label: 'Home Repair', href: search('Home Services'), src: tile('disc-repair', 'home'), alt: 'Technician at work', tagline: 'Skilled pros, trusted service', fromPrice: fromPrice(/repair|plumb|electric|clean|home/i) },
+    { label: 'Fashion & Apparel', href: '/marketplace', src: '/people/tailoring.jpg', alt: 'Tailor at work', tagline: 'Pre-loved & new styles', fromPrice: fromPrice(/fashion|tailor|apparel/i) },
+  ]
+
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="flex flex-col">
       <SuperHero country={countryConfig} code={code} />
 
-      {/* Trust strip — real catalogue numbers, set quietly under the hero
-          rather than reversed out over a gradient. */}
-      <section className="border-b border-border bg-surface-secondary">
-        <div className="mx-auto grid max-w-7xl grid-cols-2 gap-6 px-4 pb-12 sm:grid-cols-4 sm:px-6 lg:px-8">
-          {[
-            { icon: Store, label: 'Businesses', value: stats.businesses },
-            { icon: ShoppingBag, label: 'Bookings', value: stats.bookings },
-            { icon: Users, label: 'Users', value: stats.users },
-            { icon: Clock, label: 'Rides & Delivery', value: stats.deliveries },
-          ].map((s) => (
-            <div key={s.label} className="flex items-center gap-3">
-              <s.icon className="h-4 w-4 shrink-0 text-text-tertiary" />
-              <div className="min-w-0">
-                <p className="font-mono text-lg font-bold tabular-nums text-text-primary">{s.value}</p>
-                <p className="truncate text-xs text-text-secondary">{s.label}</p>
-              </div>
-            </div>
+      <CategoryPhotoRail items={rail} />
+
+      <DiscoverGrid items={discover} viewAllHref={`/${code}/search`} />
+
+      {/* Every category, kept as quiet chips so none lose their entry point. */}
+      <section className="pb-16">
+        <div className="mx-auto flex max-w-7xl flex-wrap gap-2 px-4 sm:px-6 lg:px-8">
+          {countryConfig.categories.map((cat) => (
+            <Link
+              key={cat}
+              href={search(cat)}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3.5 py-2 text-sm text-text-secondary transition-colors hover:border-amber-300 hover:text-amber-700"
+            >
+              <CategoryIcon name={cat} className="h-4 w-4" />
+              {cat}
+            </Link>
           ))}
-        </div>
-      </section>
-
-      {/* Categories */}
-      <section className="py-16 sm:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <SectionHeader
-            title="Browse by category"
-            subtitle={`Find services available in ${countryConfig.name}`}
-            viewAllHref={`/${code}/search`}
-          />
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            {countryConfig.categories.map((cat) => (
-              <Link
-                key={cat}
-                href={`/${code}/search?category=${encodeURIComponent(cat)}`}
-                className="group flex flex-col items-center gap-3 p-5 rounded-2xl bg-surface-secondary border border-border hover:border-amber-500/30 transition-colors duration-200"
-              >
-                <IconTile size="lg">
-                  <CategoryIcon name={cat} />
-                </IconTile>
-                <span className="text-sm font-semibold text-text-primary text-center group-hover:text-amber-500 transition-colors">
-                  {cat}
-                </span>
-              </Link>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -247,22 +248,28 @@ export default async function CountryHomePage({
           page in the app; /sell exists but nothing on the homepage ever
           pointed to it. Stats are the real per-country numbers already
           computed above (getCountryStats), not invented figures. */}
-      <section className="py-16 sm:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <CtaBanner
-            icon={Store}
-            eyebrow="Sell on AfriBook"
-            title={`Grow your business in ${countryConfig.name}`}
-            description={`Join ${stats.providers} vendors already reaching customers across ${countryConfig.name} on AfriBook — list your services or products in minutes.`}
-            ctaLabel="Become a Vendor"
-            ctaHref="/sell"
-            stats={[
-              { label: 'Active vendors', value: stats.providers },
-              { label: 'Bookings so far', value: stats.bookings },
-            ]}
-          />
-        </div>
-      </section>
+      <div className="pt-16 sm:pt-20">
+        <TwinBanners
+          events={{
+            eyebrow: 'Upcoming events',
+            title: 'Music. Culture. Community.',
+            body: `Discover concerts, festivals and events near you in ${countryConfig.name}.`,
+            cta: 'View events',
+            href: '/events',
+            src: photoFor('banner-events', 'events', null, { width: 360, ratio: 0.8 }),
+            alt: 'Crowd at a live concert',
+          }}
+          vendor={{
+            eyebrow: 'For sellers',
+            title: 'Your talent. Your customers. Your business.',
+            body: `Join ${stats.providers} vendors reaching customers across ${countryConfig.name} — list services or products in minutes.`,
+            cta: 'Become a Vendor',
+            href: '/sell',
+            src: '/people/salon.jpg',
+            alt: 'Salon owner at work',
+          }}
+        />
+      </div>
     </div>
   )
 }

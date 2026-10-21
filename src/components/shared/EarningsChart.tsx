@@ -120,7 +120,7 @@ export default function EarningsChart({ data, currencyCode = 'XAF', loading }: E
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
                 formatter={((value: number, name: string) => [formatCurrency(value, currencyCode), name.charAt(0).toUpperCase() + name.slice(1)]) as any}
               />
-              <Bar dataKey="fares" stackId="a" fill="#F59E0B" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="fares" stackId="a" fill="#C5602F" radius={[0, 0, 0, 0]} />
               <Bar dataKey="tips" stackId="a" fill="#10B981" radius={[0, 0, 0, 0]} />
               <Bar dataKey="bonuses" stackId="a" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
             </BarChart>
@@ -128,8 +128,8 @@ export default function EarningsChart({ data, currencyCode = 'XAF', loading }: E
             <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="faresGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#F59E0B" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#F59E0B" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#C5602F" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#C5602F" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="tipsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
@@ -147,7 +147,7 @@ export default function EarningsChart({ data, currencyCode = 'XAF', loading }: E
                 contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
                 formatter={((value: number, name: string) => [formatCurrency(value, currencyCode), name.charAt(0).toUpperCase() + name.slice(1)]) as any}
               />
-              <Area type="monotone" dataKey="fares" stroke="#F59E0B" strokeWidth={2} fill="url(#faresGrad)" />
+              <Area type="monotone" dataKey="fares" stroke="#C5602F" strokeWidth={2} fill="url(#faresGrad)" />
               <Area type="monotone" dataKey="tips" stroke="#10B981" strokeWidth={2} fill="url(#tipsGrad)" />
               <Area type="monotone" dataKey="bonuses" stroke="#8B5CF6" strokeWidth={2} fill="url(#bonusesGrad)" />
             </AreaChart>

@@ -409,7 +409,7 @@ export default function AdminAdCampaignsPage() {
                 <YAxis tick={{ fontSize: 12, fill: 'var(--color-text-tertiary)' }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                 <Tooltip contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }} />
                 <Legend />
-                <Line type="monotone" dataKey="impressions" stroke="#F59E0B" strokeWidth={2.5} dot={{ r: 4, fill: '#F59E0B' }} name="Impressions" />
+                <Line type="monotone" dataKey="impressions" stroke="#C5602F" strokeWidth={2.5} dot={{ r: 4, fill: '#C5602F' }} name="Impressions" />
                 <Line type="monotone" dataKey="clicks" stroke="#8B5CF6" strokeWidth={2.5} dot={{ r: 4, fill: '#8B5CF6' }} name="Clicks" />
               </LineChart>
             </ResponsiveContainer>
@@ -501,7 +501,7 @@ export default function AdminAdCampaignsPage() {
                   <div className="mt-3 h-10">
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={campaign.dailyData}>
-                        <Line type="monotone" dataKey="impressions" stroke="#F59E0B" strokeWidth={1.5} dot={false} />
+                        <Line type="monotone" dataKey="impressions" stroke="#C5602F" strokeWidth={1.5} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>

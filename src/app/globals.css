@@ -2,6 +2,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* AfriBook palette — see docs/design-references/afribook-reference.webp.
+   The `amber-*` scale name is kept so existing utilities keep working, but
+   its values are now the reference's terracotta/burnt-orange accent; `dark-*`
+   is now espresso brown (primary buttons, dark bands); surfaces are warm
+   cream/ivory. `olive-*` is the restrained positive-status green. */
 :root {
   /* ── AfriBook warm-earthy palette ─────────────────────── */
   --color-cream:      #fbf4ed;

@@ -95,7 +95,7 @@ export default function AdminDisputesPage() {
                   contentStyle={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '12px', fontSize: '13px' }}
                   formatter={(value?: ValueType) => [`${Number(value ?? 0)}h`, 'Avg Time'] as [string, string]}
                 />
-                <Bar dataKey="avgHours" fill="#F59E0B" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="avgHours" fill="#C5602F" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
