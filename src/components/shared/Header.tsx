@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useCountry } from './CountryProvider'
+import { COUNTRIES } from '@/lib/localization/countries'
 import MobileNav from './MobileNav'
 import CountrySelector from './CountrySelector'
 import Button from '@/components/ui/Button'
@@ -69,7 +70,9 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const { user, authenticated, signOut } = useAuth()
-  const { country: selectedCountry } = useCountry()
+  const { country: contextCountry } = useCountry()
+  const urlCountryCode = /^\/([A-Za-z]{2})(?:\/|$)/.exec(pathname ?? '')?.[1]?.toUpperCase()
+  const selectedCountry = (urlCountryCode && COUNTRIES[urlCountryCode]) || contextCountry
 
   const isHeroRoute = shouldUseTransparentHeader(pathname ?? '')
   const solid = scrolled || !isHeroRoute
