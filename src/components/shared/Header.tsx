@@ -29,7 +29,6 @@ const NAV_LINKS = [
 // Routes that have a dark hero behind the header and rely on the
 // transparent (light-on-dark) treatment. Everything else gets a solid header.
 const TRANSPARENT_HEADER_PATHS = new Set([
-  '/',
   '/about',
   '/business',
   '/deliveries',

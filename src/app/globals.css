@@ -16,6 +16,30 @@
   --color-olive:      #8c9a58;
   --color-mint:       #e9efdc;
 
+  /* ── Terracotta ramp (remaps legacy `amber-*` utilities) ─ */
+  --color-amber-50:  #fdf3ee;
+  --color-amber-100: #f9e0d3;
+  --color-amber-200: #f2c3a9;
+  --color-amber-300: #e8a07b;
+  --color-amber-400: #d97a4d;
+  --color-amber-500: #c95f32;
+  --color-amber-600: #a94723;
+  --color-amber-700: #8a3a1d;
+  --color-amber-800: #6f3019;
+  --color-amber-900: #5a2815;
+
+  /* ── Warm espresso ramp (remaps legacy `dark-*` utilities) */
+  --color-dark-50:  #efe7df;
+  --color-dark-100: #3d2416;
+  --color-dark-200: #2e1b0e;
+  --color-dark-300: #27170f;
+  --color-dark-400: #201207;
+  --color-dark-500: #1a0f08;
+  --color-dark-600: #140b06;
+  --color-dark-700: #0f0804;
+  --color-dark-800: #0a0503;
+  --color-dark-900: #060302;
+
   /* ── Semantic surface/text tokens (light) ────────────── */
   --color-surface:           var(--color-paper);
   --color-surface-secondary: var(--color-cream);
@@ -56,6 +80,29 @@
   --color-line:       var(--color-line);
   --color-olive:      var(--color-olive);
   --color-mint:       var(--color-mint);
+
+  /* legacy ramps remapped to the warm palette */
+  --color-amber-50:  var(--color-amber-50);
+  --color-amber-100: var(--color-amber-100);
+  --color-amber-200: var(--color-amber-200);
+  --color-amber-300: var(--color-amber-300);
+  --color-amber-400: var(--color-amber-400);
+  --color-amber-500: var(--color-amber-500);
+  --color-amber-600: var(--color-amber-600);
+  --color-amber-700: var(--color-amber-700);
+  --color-amber-800: var(--color-amber-800);
+  --color-amber-900: var(--color-amber-900);
+
+  --color-dark-50:  var(--color-dark-50);
+  --color-dark-100: var(--color-dark-100);
+  --color-dark-200: var(--color-dark-200);
+  --color-dark-300: var(--color-dark-300);
+  --color-dark-400: var(--color-dark-400);
+  --color-dark-500: var(--color-dark-500);
+  --color-dark-600: var(--color-dark-600);
+  --color-dark-700: var(--color-dark-700);
+  --color-dark-800: var(--color-dark-800);
+  --color-dark-900: var(--color-dark-900);
 
   --color-surface:           var(--color-surface);
   --color-surface-secondary: var(--color-surface-secondary);
