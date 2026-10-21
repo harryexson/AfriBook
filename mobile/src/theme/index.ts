@@ -3,31 +3,33 @@
 // in this app comes from photography, not from UI surfaces — see
 // design-system/afribook/MASTER.md and src/lib/images.ts.
 export const colors = {
-  primary: "#F59E0B",
-  primaryDark: "#D97706",
-  primaryLight: "#FBBF24",
-  primarySurface: "#FEF3C7",
-  gold: "#FBBF24",
-  goldLight: "#FDE68A",
-  goldDark: "#D97706",
+  // Terracotta is the only brand accent — matches the web app's remapped
+  // amber-500 ramp. Colour comes from photography, not UI surfaces.
+  primary: "#C95F32",
+  primaryDark: "#A94723",
+  primaryLight: "#D97A4D",
+  primarySurface: "#F5DED0",
+  gold: "#D97A4D",
+  goldLight: "#F5DED0",
+  goldDark: "#A94723",
 
   // `canvas` is the page ground; `surface` is the content plane that sits on
   // it. Keeping them distinct is what lets cards read without borders.
-  canvas: "#F7F7F5",
-  surface: "#FFFFFF",
-  surfaceSecondary: "#F7F7F5",
-  surfaceTertiary: "#EEEDE9",
-  surfaceAccent: "#FFF7E5",
+  canvas: "#FBF4ED",
+  surface: "#FFFDFA",
+  surfaceSecondary: "#FBF4ED",
+  surfaceTertiary: "#F5DED0",
+  surfaceAccent: "#FDF3EE",
 
   // Ink, not black — matches the web app's --color-text-primary exactly.
-  ink: "#1C1B19",
-  textPrimary: "#1C1B19",
-  textSecondary: "#6E6A63",
-  textTertiary: "#A6A199",
-  textInverse: "#FFFFFF",
+  ink: "#2D211B",
+  textPrimary: "#2D211B",
+  textSecondary: "#887A70",
+  textTertiary: "#B0A295",
+  textInverse: "#FFFDFA",
 
-  border: "#E6E4DF",
-  borderLight: "#F1F0ED",
+  border: "#EADED3",
+  borderLight: "#F2E9E0",
 
   success: "#10B981",
   successLight: "#D1FAE5",
