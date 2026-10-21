@@ -20,7 +20,7 @@ import CategoryIcon from '@/components/marketplace/CategoryIcon'
 import IconTile from '@/components/ui/IconTile'
 import SectionHeader from '@/components/ui/SectionHeader'
 import CtaBanner from '@/components/marketplace/CtaBanner'
-import HeroMosaic from '@/components/marketplace/HeroMosaic'
+import SuperHero from '@/components/marketplace/SuperHero'
 import type { Business, Service } from '@/types'
 
 export function generateStaticParams() {
@@ -64,9 +64,6 @@ export async function generateMetadata({
   }
 }
 
-// ─── Hero treatment (site-wide amber/dark brand) ──────────────
-const HERO_GRADIENT = 'from-amber-600 via-amber-700 to-dark-800'
-
 // ─── Category icons ───────────────────────────────────────────
 // One distinct icon per category — previously five icons (Store, Sparkles,
 // MapPin, Star, TrendingUp) were each reused across 2-3 unrelated
@@ -98,7 +95,6 @@ export default async function CountryHomePage({
   const businesses = getCountryBusinesses(countryCode)
   const services = getCountryServices(countryCode)
   const stats = getCountryStats(countryCode)
-  const heroGradient = HERO_GRADIENT
   const isRTL = countryConfig.isRTL
   const code = countryCode
 
@@ -112,7 +108,7 @@ export default async function CountryHomePage({
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="flex flex-col">
-      <HeroMosaic country={countryConfig} code={code} businessCount={stats.businesses} />
+      <SuperHero country={countryConfig} code={code} />
 
       {/* Trust strip — real catalogue numbers, set quietly under the hero
           rather than reversed out over a gradient. */}

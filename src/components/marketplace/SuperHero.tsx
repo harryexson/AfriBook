@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { Car, Utensils, BedDouble, Sparkles, MapPin, ArrowRight } from 'lucide-react'
 import { useCountry } from '@/components/shared/CountryProvider'
+import type { CountryConfig } from '@/lib/localization/countries'
 
 type TabKey = 'rides' | 'food' | 'stays' | 'services'
 
@@ -53,9 +54,18 @@ const TABS: TabConfig[] = [
   },
 ]
 
-export default function SuperHero() {
+interface SuperHeroProps {
+  /** Server-resolved country (from the /[country] route). Falls back to
+   *  the client CountryProvider context when omitted (e.g. on `/`). */
+  country?: CountryConfig
+  code?: string
+}
+
+export default function SuperHero({ country: countryProp, code }: SuperHeroProps = {}) {
   const router = useRouter()
-  const { country, countryCode } = useCountry()
+  const ctx = useCountry()
+  const country = countryProp ?? ctx.country
+  const countryCode = code ?? ctx.countryCode
   const [active, setActive] = useState<TabKey>('rides')
   const [fieldOne, setFieldOne] = useState('')
   const [fieldTwo, setFieldTwo] = useState('')
