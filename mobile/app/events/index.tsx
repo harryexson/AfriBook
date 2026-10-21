@@ -99,9 +99,6 @@ export default function EventScreen() {
               <Text style={styles.eventPrice}>
                 {event.price == null ? 'Free' : formatMoney(event.price, currencyCode)}
               </Text>
-              <TouchableOpacity style={styles.buyButton}>
-                <Text style={styles.buyButtonText}>Get Tickets</Text>
-              </TouchableOpacity>
             </View>
           </TouchableOpacity>
         ))}

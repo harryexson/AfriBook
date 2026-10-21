@@ -221,7 +221,7 @@ export default function FoodOrderScreen() {
                             </Text>
                           </View>
                           <View style={styles.addButton}>
-                            <Ionicons name="add" size={19} color={colors.textInverse} />
+                            <Ionicons name="add" size={19} color={colors.ink} />
                           </View>
                         </PressableScale>
                       ))}
@@ -250,8 +250,8 @@ export default function FoodOrderScreen() {
                 <Text style={styles.cartTotal}>{formatMoney(cartSubtotal, currencyCode)}</Text>
               </View>
               <Button
-                title="View cart"
-                variant="ink"
+                title="View basket"
+                variant="primary"
                 onPress={() => router.push('/food/cart')}
                 iconRight={<Ionicons name="arrow-forward" size={16} color={colors.textInverse} />}
               />
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.ink,
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

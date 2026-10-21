@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet, FlatList, Alert, Image,
+  ActivityIndicator, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import PressableScale from '../../src/components/ui/PressableScale';
 import { imageSourceFor } from '../../src/lib/images';
 import { useMarketStore } from '../../src/stores/market-store';
+import { useAuthStore } from '../../src/stores/auth-store';
+import { api } from '../../src/lib/api';
 import { formatMoneySymbol } from '../../src/lib/money';
 import { colors, spacing, borderRadius, typography, shadows } from '../../src/theme';
 
@@ -33,90 +36,87 @@ interface Hotel {
   rooms: Room[];
 }
 
-const MOCK_HOTELS: Hotel[] = [
-  {
-    id: 'h1',
-    name: 'Eko Atlantic Suites',
-    city: 'Lagos',
-    country: 'Nigeria',
-    rating: 4.8,
-    reviewCount: 312,
-    pricePerNight: 95000,
-    amenities: ['Free WiFi', 'Pool', 'Gym', 'Restaurant', 'Airport shuttle'],
-    rooms: [
-      { id: 'r1', name: 'Standard Room', description: 'Comfortable queen bed with city view', pricePerNight: 75000, guests: 2, size: '28 m²' },
-      { id: 'r2', name: 'Deluxe Room', description: 'King bed, ocean-facing balcony', pricePerNight: 95000, guests: 2, size: '36 m²' },
-      { id: 'r3', name: 'Executive Suite', description: 'Separate lounge and work area', pricePerNight: 145000, guests: 3, size: '58 m²' },
-    ],
-  },
-  {
-    id: 'h2',
-    name: 'Serena Palm Hotel',
-    city: 'Nairobi',
-    country: 'Kenya',
-    rating: 4.6,
-    reviewCount: 198,
-    pricePerNight: 18500,
-    amenities: ['Free WiFi', 'Pool', 'Spa', 'Bar', 'Parking'],
-    rooms: [
-      { id: 'r1', name: 'Standard Room', description: 'Garden-view twin room', pricePerNight: 15000, guests: 2, size: '24 m²' },
-      { id: 'r2', name: 'Superior Room', description: 'Queen bed, city view', pricePerNight: 18500, guests: 2, size: '30 m²' },
-      { id: 'r3', name: 'Family Suite', description: 'Two bedrooms and a lounge', pricePerNight: 28000, guests: 4, size: '64 m²' },
-    ],
-  },
-  {
-    id: 'h3',
-    name: 'Victoria Falls Lodge',
-    city: 'Livingstone',
-    country: 'Zambia',
-    rating: 4.9,
-    reviewCount: 265,
-    pricePerNight: 4200,
-    amenities: ['Free WiFi', 'Pool', 'Safari desk', 'Restaurant', 'Fireplace'],
-    rooms: [
-      { id: 'r1', name: 'Garden Room', description: 'Lush garden outlook', pricePerNight: 3200, guests: 2, size: '26 m²' },
-      { id: 'r2', name: 'River View Room', description: 'Views over the Zambezi', pricePerNight: 4200, guests: 2, size: '32 m²' },
-      { id: 'r3', name: 'Luxury Tent', description: 'Glamping suite with plunge pool', pricePerNight: 6800, guests: 2, size: '45 m²' },
-    ],
-  },
-  {
-    id: 'h4',
-    name: 'Accra Pearl Hotel',
-    city: 'Accra',
-    country: 'Ghana',
-    rating: 4.5,
-    reviewCount: 141,
-    pricePerNight: 1450,
-    amenities: ['Free WiFi', 'Restaurant', 'Conference room', 'Parking'],
-    rooms: [
-      { id: 'r1', name: 'Standard Room', description: 'Modern queen room', pricePerNight: 1200, guests: 2, size: '22 m²' },
-      { id: 'r2', name: 'Business Room', description: 'Desk and high-speed internet', pricePerNight: 1450, guests: 2, size: '28 m²' },
-    ],
-  },
-  {
-    id: 'h5',
-    name: 'Table Bay Oasis',
-    city: 'Cape Town',
-    country: 'South Africa',
-    rating: 4.7,
-    reviewCount: 389,
-    pricePerNight: 3250,
-    amenities: ['Free WiFi', 'Pool', 'Beach access', 'Spa', 'Valet parking'],
-    rooms: [
-      { id: 'r1', name: 'Harbour Room', description: 'Views over the marina', pricePerNight: 2700, guests: 2, size: '30 m²' },
-      { id: 'r2', name: 'Ocean Suite', description: 'Corner suite with sea views', pricePerNight: 3250, guests: 2, size: '44 m²' },
-      { id: 'r3', name: 'Presidential Suite', description: 'Private terrace and butler service', pricePerNight: 8900, guests: 4, size: '96 m²' },
-    ],
-  },
-];
-
 type BookingStep = 'browse' | 'detail' | 'confirmed';
+
+interface StayHotelResponse {
+  id: string;
+  name: string;
+  city: string;
+  country: string;
+  rating: number;
+  reviewCount: number;
+  priceFrom: number;
+  galleryImages: string[];
+  amenities: string[];
+}
+
+interface StayRoomResponse {
+  id: string;
+  name: string;
+  description: string;
+  pricePerNight: number;
+  maxOccupancy: number;
+  sizeSqm: number | null;
+}
+
+function toHotel(h: StayHotelResponse): Hotel {
+  return {
+    id: h.id,
+    name: h.name,
+    city: h.city,
+    country: h.country,
+    rating: h.rating,
+    reviewCount: h.reviewCount,
+    pricePerNight: h.priceFrom,
+    image: h.galleryImages?.[0],
+    amenities: h.amenities ?? [],
+    rooms: [],
+  };
+}
+
+function toRoom(r: StayRoomResponse): Room {
+  return {
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    pricePerNight: r.pricePerNight,
+    guests: r.maxOccupancy,
+    size: r.sizeSqm ? `${r.sizeSqm} m²` : '',
+  };
+}
 
 export default function StaysScreen() {
   const router = useRouter();
   const currencyCode = useMarketStore((s) => s.currencyCode());
+  const countryCode = useMarketStore((s) => s.countryCode);
+  const user = useAuthStore((s) => s.user);
 
-  const [hotels] = React.useState<Hotel[]>(MOCK_HOTELS);
+  const [hotels, setHotels] = React.useState<Hotel[]>([]);
+  const [listLoading, setListLoading] = React.useState(true);
+  const [listError, setListError] = React.useState<string | null>(null);
+  const [detailLoading, setDetailLoading] = React.useState(false);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [bookingError, setBookingError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setListLoading(true);
+    setListError(null);
+    api
+      .get<{ data: StayHotelResponse[] }>(`/api/stays?countryCode=${countryCode}`)
+      .then((res) => {
+        if (!cancelled) setHotels((res.data ?? []).map(toHotel));
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setListError(err instanceof Error ? err.message : 'Could not load stays');
+      })
+      .finally(() => {
+        if (!cancelled) setListLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [countryCode]);
   const [selectedHotel, setSelectedHotel] = React.useState<Hotel | null>(null);
   const [selectedRoom, setSelectedRoom] = React.useState<Room | null>(null);
   const [checkIn, setCheckIn] = React.useState('');
@@ -138,17 +138,28 @@ export default function StaysScreen() {
   const taxes = Math.round(roomSubtotal * 0.075);
   const total = roomSubtotal + platformFee + taxes;
 
-  const openHotel = (hotel: Hotel) => {
-    setSelectedHotel(hotel);
+  const openHotel = async (hotel: Hotel) => {
+    setSelectedHotel({ ...hotel, rooms: [] });
     setSelectedRoom(null);
     setCheckIn('');
     setCheckOut('');
-    setGuests(hotel.rooms[0]?.guests ?? 2);
+    setBookingError(null);
     setStep('detail');
+    setDetailLoading(true);
+    try {
+      const res = await api.get<{ data: { rooms: StayRoomResponse[] } }>(`/api/stays/${hotel.id}`);
+      const rooms = (res.data?.rooms ?? []).map(toRoom);
+      setSelectedHotel({ ...hotel, rooms });
+      setGuests(rooms[0]?.guests ?? 2);
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'Could not load rooms');
+    } finally {
+      setDetailLoading(false);
+    }
   };
 
-  const confirmBooking = () => {
-    if (!selectedRoom) {
+  const confirmBooking = async () => {
+    if (!selectedHotel || !selectedRoom) {
       Alert.alert('Select a room', 'Choose a room type to continue.');
       return;
     }
@@ -160,9 +171,39 @@ export default function StaysScreen() {
       Alert.alert('Invalid dates', 'Check-out must be after check-in.');
       return;
     }
-    const code = `ST-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-    setBookingCode(code);
-    setStep('confirmed');
+    if (!user) {
+      Alert.alert('Sign in to book', 'You need an AfriBook account to reserve a stay.');
+      return;
+    }
+
+    setSubmitting(true);
+    setBookingError(null);
+    try {
+      const res = await api.post<{ persisted?: boolean; data?: { bookingCode?: string } }>(
+        '/api/stays/bookings',
+        {
+          hotelId: selectedHotel.id,
+          roomId: selectedRoom.id,
+          checkInDate: checkIn,
+          checkOutDate: checkOut,
+          guests,
+          guestName: user.name,
+          guestEmail: user.email,
+          guestPhone: user.phone,
+        },
+      );
+      const code = res.data?.bookingCode;
+      if (!res.persisted || !code) {
+        setBookingError('The booking could not be saved. Nothing was reserved; please try again.');
+        return;
+      }
+      setBookingCode(code);
+      setStep('confirmed');
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'Booking failed. Nothing was reserved.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (step === 'confirmed' && selectedHotel) {
@@ -214,7 +255,7 @@ export default function StaysScreen() {
             </View>
             <View style={styles.summaryDivider} />
             <View style={styles.summaryRow}>
-              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalLabel}>Estimated total</Text>
               <Text style={styles.totalValue}>{formatMoneySymbol(total, currencyCode)}</Text>
             </View>
           </View>
@@ -264,6 +305,10 @@ export default function StaysScreen() {
 
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Select room</Text>
+            {detailLoading && <ActivityIndicator color={colors.ink} style={{ marginVertical: spacing.xl }} />}
+            {!detailLoading && selectedHotel.rooms.length === 0 && (
+              <Text style={styles.metaText}>No rooms are listed for this stay yet.</Text>
+            )}
             {selectedHotel.rooms.map((room) => (
               <TouchableOpacity
                 key={room.id}
@@ -291,21 +336,35 @@ export default function StaysScreen() {
               <View style={styles.formRow}>
                 <View style={styles.formField}>
                   <Text style={styles.formLabel}>Check-in</Text>
-                  <TouchableOpacity onPress={() => {}} style={styles.dateField}>
+                  <View style={styles.dateField}>
                     <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.dateText, !checkIn && styles.datePlaceholder]}>
-                      {checkIn || 'YYYY-MM-DD'}
-                    </Text>
-                  </TouchableOpacity>
+                    <TextInput
+                      value={checkIn}
+                      onChangeText={setCheckIn}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={colors.textTertiary}
+                      autoCapitalize="none"
+                      maxLength={10}
+                      accessibilityLabel="Check-in date"
+                      style={styles.dateInput}
+                    />
+                  </View>
                 </View>
                 <View style={styles.formField}>
                   <Text style={styles.formLabel}>Check-out</Text>
-                  <TouchableOpacity onPress={() => {}} style={styles.dateField}>
+                  <View style={styles.dateField}>
                     <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-                    <Text style={[styles.dateText, !checkOut && styles.datePlaceholder]}>
-                      {checkOut || 'YYYY-MM-DD'}
-                    </Text>
-                  </TouchableOpacity>
+                    <TextInput
+                      value={checkOut}
+                      onChangeText={setCheckOut}
+                      placeholder="YYYY-MM-DD"
+                      placeholderTextColor={colors.textTertiary}
+                      autoCapitalize="none"
+                      maxLength={10}
+                      accessibilityLabel="Check-out date"
+                      style={styles.dateInput}
+                    />
+                  </View>
                 </View>
               </View>
               <View style={styles.formRow}>
@@ -323,12 +382,13 @@ export default function StaysScreen() {
                 </View>
               </View>
               <Text style={styles.dateHint}>
-                Tap a date field to edit (format YYYY-MM-DD).
+                Enter dates as YYYY-MM-DD. Final pricing is confirmed when you book.
               </Text>
             </View>
           </View>
         </ScrollView>
 
+        {bookingError && <Text style={styles.bookingErrorText}>{bookingError}</Text>}
         <View style={styles.cartBar}>
           <View style={styles.cartInfo}>
             <Text style={styles.cartTotal}>
@@ -336,8 +396,12 @@ export default function StaysScreen() {
             </Text>
             <Text style={styles.cartCount}>{nights} night{nights > 1 ? 's' : ''}</Text>
           </View>
-          <TouchableOpacity style={styles.primaryButton} onPress={confirmBooking}>
-            <Text style={styles.primaryButtonText}>Book Now</Text>
+          <TouchableOpacity
+            style={[styles.primaryButton, (submitting || !selectedRoom) && { opacity: 0.6 }]}
+            onPress={confirmBooking}
+            disabled={submitting || !selectedRoom}
+          >
+            <Text style={styles.primaryButtonText}>{submitting ? 'Reserving…' : 'Book Now'}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -355,6 +419,15 @@ export default function StaysScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.hotelList}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          listLoading ? (
+            <ActivityIndicator color={colors.ink} style={{ marginTop: spacing['3xl'] }} />
+          ) : (
+            <Text style={styles.metaText}>
+              {listError ?? 'No stays are listed in this market yet.'}
+            </Text>
+          )
+        }
         renderItem={({ item }) => (
           <PressableScale
             style={styles.hotelCard}
@@ -577,6 +650,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
     marginBottom: spacing.xs,
+  },
+  dateInput: {
+    flex: 1,
+    fontSize: typography.fontSize.md,
+    color: colors.textPrimary,
+    paddingVertical: 0,
+  },
+  bookingErrorText: {
+    color: colors.error,
+    fontSize: typography.fontSize.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
   },
   dateField: {
     flexDirection: 'row',
