@@ -31,6 +31,10 @@ export const colors = {
   border: "#EADED3",
   borderLight: "#F2E9E0",
 
+  // Olive is reserved for confirmations and live-status chips.
+  olive: "#8C9A58",
+  mint: "#E9EFDC",
+
   success: "#10B981",
   successLight: "#D1FAE5",
   // Readable green *type* on successLight — the mid green fails contrast at
