@@ -128,7 +128,7 @@ export function useRealtime<T extends PayloadRow = any>(
 
     return () => {
       if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
+        supabase?.removeChannel(channelRef.current);
         channelRef.current = null;
       }
       if (reconnectTimeoutRef.current) {

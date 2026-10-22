@@ -27,6 +27,7 @@ export function useAuth() {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    if (!supabase) { const error = new Error('Mobile sign-in is not configured yet. Please use the website to sign in.'); setError(error.message); return { error }; }
     setStatus('loading');
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) {
@@ -41,6 +42,7 @@ export function useAuth() {
   }, []);
 
   const signUp = useCallback(async (email: string, password: string, metadata?: Partial<User>) => {
+    if (!supabase) { const error = new Error('Mobile sign-in is not configured yet. Please use the website to sign in.'); setError(error.message); return { error }; }
     setStatus('loading');
     const { data, error: authError } = await supabase.auth.signUp({
       email,
@@ -102,7 +104,6 @@ export function useAuth() {
 }
 
 async function fetchProfile(userId: string): Promise<User> {
-  const supabase = createClient();
   const supabase = createClient();
   const { data, error } = await supabase
     .from('users')
