@@ -23,6 +23,11 @@ import {
 // Uses Safaricom Daraja API
 // ──────────────────────────────────────────────────────────────
 
+// Daraja ResultCodes that definitively end an STK push without payment:
+// 1 insufficient funds, 1032 cancelled by customer, 1037 phone unreachable,
+// 2001 wrong PIN. Any other code is treated as still in progress.
+const TERMINAL_FAILURE_CODES = new Set(['1', '1032', '1037', '2001']);
+
 export class MpesaProvider implements PaymentProvider {
   readonly code = 'mpesa';
   readonly name = 'M-Pesa';
@@ -347,10 +352,39 @@ export class MpesaProvider implements PaymentProvider {
 
   // ─── Status Check ────────────────────────────────────────────
 
+  /**
+   * Authoritative status via the Daraja STK Query API. Callback bodies are not
+   * signed by Safaricom, so a callback must never be trusted on its own; this
+   * lookup is what confirms it. Anything not clearly confirmed stays `processing`.
+   */
   async getTransactionStatus(
-    _providerTransactionId: string,
+    providerTransactionId: string,
   ): Promise<OrchestratorPaymentStatus> {
-    // M-Pesa status is checked asynchronously via callback
+    const timestamp = this.getTimestamp();
+    const token = await this.getAccessToken();
+
+    const res = await fetch(`${this.baseUrl}/mpesa/stkpushquery/v1/query`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        BusinessShortCode: this.shortcode,
+        Password: this.generatePassword(timestamp),
+        Timestamp: timestamp,
+        CheckoutRequestID: providerTransactionId,
+      }),
+    });
+
+    const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+
+    // Still in flight, or Daraja returned an error envelope: not a verdict.
+    if (!res.ok || data.ResultCode === undefined) return 'processing';
+
+    const resultCode = String(data.ResultCode);
+    if (resultCode === '0') return 'succeeded';
+    if (TERMINAL_FAILURE_CODES.has(resultCode)) return 'failed';
     return 'processing';
   }
 

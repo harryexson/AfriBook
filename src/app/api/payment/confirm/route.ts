@@ -23,18 +23,22 @@ export async function POST(req: NextRequest) {
   const effectiveId = transactionId ?? paymentIntentId;
 
   try {
-    const result = await confirmPayment(effectiveId);
+    const { createPaymentDb } = await import('@/lib/payments/db');
+    const db = await createPaymentDb();
+    const { data: owned } = await db
+      .from('payment_transactions')
+      .select('id')
+      .eq('id', effectiveId)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (result.success) {
-      const { createPaymentDb } = await import('@/lib/payments/db');
-      const db = await createPaymentDb();
-
-      await db
-        .from('payment_transactions')
-        .update({ status: 'succeeded', updated_at: new Date().toISOString() })
-        .eq('id', effectiveId);
+    if (!owned) {
+      return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
     }
 
+    // Status is decided by the orchestrator's provider-verified lookup; this
+    // route never writes a terminal status itself.
+    const result = await confirmPayment(effectiveId);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Payment confirmation failed';
