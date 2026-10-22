@@ -13,11 +13,12 @@ import { colors, borderRadius, spacing, typography, shadows } from '../theme';
 import { COUNTRIES, CountryConfig } from '../constants/countries';
 
 interface CountryPickerProps {
+  compact?: boolean;
   selectedCode: string;
   onSelect: (country: CountryConfig) => void;
 }
 
-export default function CountryPicker({ selectedCode, onSelect }: CountryPickerProps) {
+export default function CountryPicker({ selectedCode, onSelect, compact = false }: CountryPickerProps) {
   const [visible, setVisible] = useState(false);
   const [search, setSearch] = useState('');
   const selected = COUNTRIES[selectedCode];
@@ -31,14 +32,16 @@ export default function CountryPicker({ selectedCode, onSelect }: CountryPickerP
   return (
     <>
       <TouchableOpacity
-        style={styles.trigger}
+        style={[styles.trigger, compact && { backgroundColor: '#FFFFFF', borderRadius: 24, paddingHorizontal: 10, minHeight: 44, borderWidth: 1, borderColor: '#EEE7DF' }]}
+        accessibilityRole="button"
+        accessibilityLabel={`Country and currency: ${selected?.name}, ${selected?.currency.code}`}
         activeOpacity={0.7}
         onPress={() => setVisible(true)}
       >
         <Text style={styles.flag}>{selected?.flag ?? '🏳️'}</Text>
-        <Text style={styles.code} numberOfLines={1}>
+        <View style={{ flexShrink: 1 }}><Text style={[styles.code, compact && { fontSize: 9, fontWeight: '500', letterSpacing: 0 }]} numberOfLines={1}>
           {selected?.name ?? 'Select country'}
-        </Text>
+        </Text>{compact && <Text style={{ fontSize: 10, color: colors.textPrimary, marginTop: 2 }}>{selected?.currency.symbol} {selected?.currency.code}</Text>}</View>
         <Ionicons name="chevron-down" size={15} color={colors.textSecondary} />
       </TouchableOpacity>
 

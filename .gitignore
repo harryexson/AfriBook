@@ -47,3 +47,8 @@ next-env.d.ts
 dev-server.log
 prod-server.log
 prod-server.err.log
+
+# Local validation output and private Neon CLI results
+baseline-*.log
+redesign-*.log
+.neon-*.local.*

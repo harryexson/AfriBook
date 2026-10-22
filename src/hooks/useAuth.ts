@@ -84,6 +84,7 @@ export function useAuth() {
 
   /** Listen to auth state changes */
   useEffect(() => {
+    void initialize();
     const { data: listener } = supabase.auth.onAuthStateChange(async (event: string, session: { user?: { id: string } } | null) => {
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);

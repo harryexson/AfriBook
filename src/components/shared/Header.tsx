@@ -15,6 +15,7 @@ import { useCountry } from './CountryProvider'
 import MobileNav from './MobileNav'
 import CountrySelector from './CountrySelector'
 import Button from '@/components/ui/Button'
+import BrandMark from './BrandMark'
 
 const NAV_LINKS = [
   { label: 'Hotels', href: '/stays', icon: BedDouble },
@@ -29,7 +30,6 @@ const NAV_LINKS = [
 // Routes that have a dark hero behind the header and rely on the
 // transparent (light-on-dark) treatment. Everything else gets a solid header.
 const TRANSPARENT_HEADER_PATHS = new Set([
-  '/',
   '/about',
   '/business',
   '/deliveries',
@@ -59,7 +59,22 @@ function shouldUseTransparentHeader(pathname: string): boolean {
   return false
 }
 
+type HeaderAuth = Pick<ReturnType<typeof useAuth>, 'user' | 'authenticated' | 'signOut'>
+
+function ConnectedHeader() {
+  return <HeaderContent auth={useAuth()} />
+}
+
 export default function Header() {
+  // Public discovery remains usable before deployment credentials are added.
+  // Private routes and all mutations still require the real auth backend.
+  if (!process.env.NEXT_PUBLIC_NEON_DATA_API_URL || !process.env.NEXT_PUBLIC_NEON_URL) {
+    return <HeaderContent auth={{ user: null, authenticated: false, signOut: async () => {} }} />
+  }
+  return <ConnectedHeader />
+}
+
+function HeaderContent({ auth }: { auth: HeaderAuth }) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -69,7 +84,7 @@ export default function Header() {
 
   const userMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
-  const { user, authenticated, signOut } = useAuth()
+  const { user, authenticated, signOut } = auth
   const { country: selectedCountry } = useCountry()
 
   const isHeroRoute = shouldUseTransparentHeader(pathname ?? '')
@@ -105,7 +120,7 @@ export default function Header() {
           <div className="flex items-center justify-between h-16 md:h-20 gap-4">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2 shrink-0">
-              <Globe className={cn('w-7 h-7 text-amber-500', solid ? '' : 'text-white')} />
+              <BrandMark className="w-7 h-7 text-amber-500" />
               <span className={cn(
                 'text-xl font-bold font-heading tracking-tight',
                 solid ? 'text-dark-300 dark:text-white' : 'text-white'
@@ -121,13 +136,12 @@ export default function Header() {
                   key={link.label}
                   href={link.href}
                   className={cn(
-                    'flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                    'flex items-center gap-1.5 px-2 py-2 rounded-lg text-xs font-medium transition-colors',
                     solid
                       ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
                   )}
                 >
-                  <link.icon className="w-4 h-4" />
                   {link.label}
                 </Link>
               ))}
@@ -165,23 +179,17 @@ export default function Header() {
               <button
                 onClick={() => setCountryModalOpen(true)}
                 className={cn(
-                  'hidden sm:flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors',
+                  'flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-border text-xs font-medium transition-colors',
                   solid
                     ? 'text-text-secondary hover:text-text-primary hover:bg-surface-secondary'
                     : 'text-white/70 hover:text-white hover:bg-white/10'
                 )}
               >
                 <span className="text-base">{selectedCountry?.flag ?? '🌍'}</span>
+                <span className="hidden xl:inline">{selectedCountry.name}</span>
+                <span>{selectedCountry.currency.code}</span>
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
-
-              {/* Currency display */}
-              <span className={cn(
-                'hidden md:block text-sm font-mono font-medium',
-                solid ? 'text-text-secondary' : 'text-white/60'
-              )}>
-                {selectedCountry?.currency.symbol ?? '$'}
-              </span>
 
               {/* Desktop auth */}
               <div className="hidden lg:flex items-center gap-3 ml-2">
@@ -260,7 +268,7 @@ export default function Header() {
                     >
                       Sign In
                     </Link>
-                    <Button href="/register" size="sm">
+                    <Button href="/onboarding/vendor" size="sm">
                       <Store className="h-4 w-4" />
                       Become a Vendor
                     </Button>
@@ -321,7 +329,7 @@ export default function Header() {
         </div>
       </header>
 
-      <MobileNav open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      <MobileNav open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} user={user} authenticated={authenticated} />
       <CountrySelector open={countryModalOpen} onClose={() => setCountryModalOpen(false)} />
     </>
   )

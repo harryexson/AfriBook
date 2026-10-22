@@ -10,7 +10,9 @@
  * (we couldn't reach the server) instead of parroting the exception text.
  */
 export function describeAuthError(err: unknown, fallback = 'Something went wrong. Please try again.'): string {
-  const message = err instanceof Error ? err.message : undefined
+  const message = err instanceof Error ? err.message :
+    err && typeof err === 'object' && 'message' in err && typeof err.message === 'string'
+      ? err.message : undefined
 
   // Matched on message text, not `instanceof TypeError` — Supabase's auth-js
   // catches the raw fetch TypeError and re-throws it wrapped in its own error

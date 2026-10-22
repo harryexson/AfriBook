@@ -21,6 +21,8 @@ export default function PhoneVerification({ destination, onVerify, onResend, onB
   const [code, setCode] = useState(['', '', '', '', '', ''])
   const [error, setError] = useState('')
   const [resending, setResending] = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const verificationInFlight = useRef(false)
   const [countdown, setCountdown] = useState(30)
   const inputRefs = useRef<(HTMLInputElement | null)[]>([])
 
@@ -63,6 +65,7 @@ export default function PhoneVerification({ destination, onVerify, onResend, onB
   }
 
   const handleSubmit = async () => {
+    if (verificationInFlight.current || loading) return
     const fullCode = code.join('')
     if (fullCode.length !== 6) {
       setError('Please enter the full 6-digit code')
@@ -73,9 +76,14 @@ export default function PhoneVerification({ destination, onVerify, onResend, onB
     // wizard regardless of what was typed) — a wrong or expired code throws,
     // and with no catch here that error had nowhere to go.
     try {
+      verificationInFlight.current = true
+      setVerifying(true)
       await onVerify(fullCode)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'That code didn\'t work. Please try again.')
+    } finally {
+      verificationInFlight.current = false
+      setVerifying(false)
     }
   }
 
@@ -86,6 +94,8 @@ export default function PhoneVerification({ destination, onVerify, onResend, onB
       setCountdown(30)
       setCode(['', '', '', '', '', ''])
       inputRefs.current[0]?.focus()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not resend the code. Please try again.')
     } finally {
       setResending(false)
     }
@@ -174,7 +184,7 @@ export default function PhoneVerification({ destination, onVerify, onResend, onB
       {/* Verify button */}
       <button
         onClick={handleSubmit}
-        disabled={loading || code.some((d) => !d)}
+        disabled={loading || verifying || resending || code.some((d) => !d)}
         className={cn(
           'w-full py-3 rounded-xl font-semibold text-sm transition-all',
           'bg-gradient-to-r from-amber-500 to-amber-600 text-white',
@@ -182,7 +192,7 @@ export default function PhoneVerification({ destination, onVerify, onResend, onB
           'disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]'
         )}
       >
-        {loading ? (
+        {loading || verifying ? (
           <div className="flex items-center justify-center gap-2">
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             Verifying...
@@ -201,7 +211,7 @@ export default function PhoneVerification({ destination, onVerify, onResend, onB
         ) : (
           <button
             onClick={handleResend}
-            disabled={resending}
+            disabled={resending || verifying}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-amber-600 hover:text-amber-700 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={cn('w-4 h-4', resending && 'animate-spin')} />

@@ -52,7 +52,7 @@ function fieldsFor(tab: TabKey, city: string): [Field, Field] {
  * module for that vertical and passes what was typed as query params; it does
  * not pretend to quote a fare or check availability itself.
  */
-export default function HeroSearch({ code, city }: { code: string; city: string }) {
+export default function HeroSearch({ city }: { code: string; city: string }) {
   const [tab, setTab] = useState<TabKey>('rides')
   const router = useRouter()
   const reduceMotion = useReducedMotion()
@@ -67,21 +67,20 @@ export default function HeroSearch({ code, city }: { code: string; city: string 
     }
     const qs = params.toString() ? `?${params.toString()}` : ''
     const base =
-      tab === 'rides' ? '/rides/book' : tab === 'food' ? '/food' : tab === 'stays' ? '/stays' : `/${code}/search`
+      tab === 'rides' ? '/rides/book' : tab === 'food' ? '/food' : tab === 'stays' ? '/stays' : '/marketplace/services'
     router.push(`${base}${qs}`)
   }
 
   return (
     <div className="rounded-[1.75rem] border border-border bg-surface p-3 shadow-lg sm:p-4">
-      <div role="tablist" aria-label="What are you looking for?" className="flex gap-1 overflow-x-auto">
+      <div aria-label="What are you looking for?" className="flex gap-1 overflow-x-auto">
         {TABS.map(({ key, label, icon: Icon }) => {
           const active = key === tab
           return (
             <button
               key={key}
               type="button"
-              role="tab"
-              aria-selected={active}
+              aria-pressed={active}
               onClick={() => setTab(key)}
               className={cn(
                 'relative inline-flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition-colors',
@@ -115,7 +114,7 @@ export default function HeroSearch({ code, city }: { code: string; city: string 
             {fields.map(({ name, label, placeholder, icon: Icon }) => (
               <label
                 key={name}
-                className="flex items-center gap-3 rounded-2xl border border-border bg-surface-secondary/60 px-4 py-3 focus-within:border-amber-400"
+                className="flex items-center gap-3 rounded-[10px] border border-border bg-surface-secondary/60 px-4 py-3 focus-within:border-amber-400"
               >
                 <Icon className="h-4 w-4 shrink-0 text-amber-600" />
                 <span className="min-w-0 flex-1">
@@ -133,7 +132,7 @@ export default function HeroSearch({ code, city }: { code: string; city: string 
 
         <button
           type="submit"
-          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-amber-600"
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-[10px] bg-amber-600 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
         >
           Explore AfriBook
           <ArrowRight className="h-4 w-4" />

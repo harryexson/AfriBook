@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
+import localFont from 'next/font/local'
 import './globals.css'
 import Header from '@/components/shared/Header'
 import CountryNotice from '@/components/shared/CountryNotice'
@@ -8,15 +8,9 @@ import ClientProviders from '@/components/providers/ClientProviders'
 import ServiceWorkerRegister from '@/components/shared/ServiceWorkerRegister'
 import { InlineScript } from '@/components/shared/InlineScript'
 
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-sans',
-  display: 'swap',
-})
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
+const inter = localFont({
+  src: './fonts/InterVariable.ttf',
+  variable: '--font-inter',
   display: 'swap',
 })
 
@@ -76,7 +70,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${geistMono.variable} h-full`}
+      className={`${inter.variable} h-full`}
     >
       <head>
         <InlineScript
@@ -87,7 +81,8 @@ export default function RootLayout({
         <ClientProviders>
           <Header />
           <CountryNotice />
-          <main className="flex-1">{children}</main>
+          <a href="#main-content" className="skip-link">Skip to content</a>
+          <main id="main-content" className="flex-1">{children}</main>
           <Footer />
         </ClientProviders>
         <ServiceWorkerRegister />

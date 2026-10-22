@@ -165,147 +165,17 @@ export default function FoodPage() {
 
   return (
     <div className="min-h-screen bg-surface">
-      {/* Hero */}
-      <section className="relative overflow-hidden bg-dark-700">
-        <div className="absolute inset-0 bg-[radial-gradient(50rem_50rem_at_68%_12%,rgba(255,132,93,0.18),transparent_58%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(40rem_40rem_at_12%_92%,rgba(245,158,11,0.18),transparent_55%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,14,20,0.88),rgba(15,14,20,0.9))]" />
-
-        <div className="relative mx-auto max-w-7xl px-4 py-20 sm:px-6 sm:py-28 lg:px-8">
-          <div className="grid items-center gap-16 lg:grid-cols-2 lg:gap-12">
-            <motion.div initial="hidden" animate="visible" variants={staggerContainer}>
-              <motion.span
-                variants={fadeIn}
-                className="inline-flex items-center gap-2 rounded-full border border-amber-500/25 bg-amber-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-amber-200"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                AfriBook Food
-              </motion.span>
-              <motion.h1
-                variants={fadeIn}
-                className="mt-8 text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-white sm:text-6xl"
-              >
-                Discover the best restaurants,
-                <span className="block bg-gradient-to-r from-amber-400 to-amber-200 bg-clip-text text-transparent">
-                  delivered fast.
-                </span>
-              </motion.h1>
-              <motion.p
-                variants={fadeIn}
-                className="mt-6 max-w-xl text-lg leading-relaxed text-white/70"
-              >
-                Browse premium local cuisine, schedule delivery, and order from
-                trusted kitchens across Africa. The fastest, safest food
-                delivery experience in one app.
-              </motion.p>
-
-              <motion.div variants={fadeIn} className="mt-8">
-                <DestinationChip onOpen={() => setDestinationOpen(true)} />
-              </motion.div>
-
-              <motion.div
-                variants={fadeIn}
-                className="mt-6 flex flex-col gap-4 sm:flex-row"
-              >
-                <button
-                  onClick={handleUseLocation}
-                  disabled={locating}
-                  className="inline-flex items-center justify-center gap-2 rounded-3xl border border-white/15 bg-white/5 px-7 py-3.5 text-base font-semibold text-white/80 transition-colors hover:bg-white/10 disabled:opacity-60"
-                >
-                  <Navigation className="h-4 w-4" />
-                  {locating
-                    ? "Locating..."
-                    : userLocation
-                      ? "Location set"
-                      : "Use my location"}
-                </button>
-                <div className="relative flex-1 sm:max-w-lg">
-                  <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/50" />
-                  <input
-                    type="text"
-                    placeholder="Search restaurants or dishes"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-3xl border border-white/10 bg-white/5 py-4 pl-14 pr-4 text-white placeholder:text-white/45 shadow-[0_10px_40px_rgba(0,0,0,0.12)] focus:border-amber-400 focus:outline-none"
-                  />
-                </div>
-              </motion.div>
-
-              <motion.div
-                variants={fadeIn}
-                className="mt-10 flex flex-wrap items-center gap-6"
-              >
-                {[
-                  { label: "Restaurants", value: `${restaurants.length}+` },
-                  { label: "Avg. prep", value: `${averageDelivery} min` },
-                  {
-                    label: "Rating",
-                    value: restaurants.length
-                      ? `${(
-                          restaurants.reduce((s, r) => s + r.rating, 0) /
-                          restaurants.length
-                        ).toFixed(1)}★`
-                      : "—",
-                  },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-3xl bg-white/5 px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.08)] backdrop-blur-xl"
-                  >
-                    <p className="text-2xl font-semibold text-white">{stat.value}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.22em] text-white/50">
-                      {stat.label}
-                    </p>
-                  </div>
-                ))}
-              </motion.div>
-            </motion.div>
-
-            <motion.div
-              initial="hidden"
-              animate="visible"
-              variants={fadeIn}
-              transition={{ delay: 0.25 }}
-              className="relative flex justify-center"
-            >
-              <PhoneMockup glow="rose">
-                <FoodAppScreen />
-              </PhoneMockup>
-
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.6 }}
-                className="absolute -left-6 top-24 hidden rounded-[2rem] border border-white/10 bg-dark-800/90 p-4 shadow-2xl backdrop-blur-xl sm:block"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-3xl bg-amber-500/15 text-amber-300">
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-white">
-                      {averageDelivery || 25}-{averageDelivery + 10 || 35} min
-                    </p>
-                    <p className="text-xs text-white/50">Fastest delivery</p>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.8 }}
-                className="absolute -right-6 bottom-24 hidden rounded-[2rem] border border-white/10 bg-dark-800/90 p-4 shadow-2xl backdrop-blur-xl sm:block"
-              >
-                <p className="text-xs text-white/50">Kitchens online</p>
-                <p className="text-sm font-semibold text-white">
-                  {restaurants.length} restaurants
-                </p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-300">
-                  <Truck className="h-3 w-3" /> Delivery available
-                </p>
-              </motion.div>
-            </motion.div>
+      <section className="relative overflow-hidden bg-[#f7eee3] pt-24 md:pt-28 pb-10 border-b border-border-light">
+        <img src="/food/local.jpg" alt="" className="absolute inset-y-0 right-0 h-full w-1/2 object-cover" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,#f7eee3_20%,#f7eee3ed_45%,#f7eee300_100%)]" />
+        <div className="relative max-w-7xl mx-auto px-5 sm:px-8">
+          <p className="text-[10px] tracking-[.2em] uppercase text-amber-800 font-semibold">Good food. Close to home.</p>
+          <h1 className="mt-4 text-4xl sm:text-5xl font-bold tracking-[-.045em] text-[#291b13]">Your next favourite<br />is around the corner.</h1>
+          <p className="mt-4 text-sm text-text-secondary max-w-sm">Local kitchens, familiar flavours and something new to try.</p>
+          <div className="mt-5"><DestinationChip onOpen={() => setDestinationOpen(true)} /></div>
+          <div className="mt-5 flex gap-2 max-w-xl rounded-xl border border-border-light bg-white p-2 shadow-sm">
+            <div className="relative flex-1"><Search className="absolute left-3 top-3.5 h-4 w-4 text-text-secondary" /><input aria-label="Search restaurants or dishes" placeholder="Search restaurants or dishes" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-transparent py-3 pl-10 pr-2 text-sm outline-none" /></div>
+            <button onClick={handleUseLocation} disabled={locating} aria-label="Use my location" className="rounded-lg bg-[#fff0e3] px-3 text-amber-800"><Navigation size={18} /></button>
           </div>
         </div>
       </section>
@@ -349,7 +219,7 @@ export default function FoodPage() {
       </section>
 
       {/* Sort */}
-      <section className="sticky top-0 z-20 border-b border-border bg-surface/95 py-4 backdrop-blur-xl">
+      <section className="sticky top-16 md:top-20 z-20 border-b border-border bg-surface/95 py-4 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-end">
             <div className="relative shrink-0">

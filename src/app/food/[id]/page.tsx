@@ -187,32 +187,31 @@ export default function RestaurantMenuPage() {
   return (
     <div className="min-h-screen bg-surface">
       {/* Header */}
-      <section className="relative overflow-hidden bg-dark-700">
+      <section className="relative overflow-hidden bg-[#FFFCF8] pt-20">
         <img
           src={heroPhoto}
           alt={restaurant.name}
-          className="absolute inset-0 h-full w-full object-cover"
+          className="mx-auto h-56 sm:h-72 w-full max-w-4xl object-cover sm:rounded-b-2xl"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,14,20,0.55),rgba(15,14,20,0.92))]" />
-        <div className="relative mx-auto max-w-4xl px-4 pb-14 pt-20 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-4xl px-4 pb-7 pt-5 sm:px-6 lg:px-8">
           <button
             onClick={() => router.back()}
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-white/70 transition hover:text-white"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition hover:text-text-primary"
           >
             <ChevronLeft className="h-4 w-4" />
             Back
           </button>
 
-          <motion.div initial="hidden" animate="visible" variants={fadeIn} className="mt-8 flex items-start gap-5">
+          <motion.div initial="hidden" animate="visible" variants={fadeIn} className="mt-4 flex items-start gap-5">
             <div className="min-w-0">
-              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-4xl">
+              <h1 className="text-3xl font-semibold tracking-[-0.03em] text-text-primary sm:text-4xl">
                 {restaurant.name}
               </h1>
-              <p className="mt-1.5 text-sm text-white/70">{restaurant.description}</p>
-              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/75">
+              <p className="mt-1.5 text-sm text-text-secondary">{restaurant.description}</p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-text-secondary">
                 <span className="inline-flex items-center gap-1.5">
                   <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                  <span className="font-semibold text-white">{restaurant.rating.toFixed(1)}</span>
+                  <span className="font-semibold text-text-primary">{restaurant.rating.toFixed(1)}</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <MapPin className="h-4 w-4" />
@@ -237,7 +236,7 @@ export default function RestaurantMenuPage() {
 
       {/* Category tabs */}
       {menu.length > 1 && (
-        <div className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur-xl">
+        <div className="sticky top-16 md:top-20 z-20 border-b border-border bg-surface/95 backdrop-blur-xl">
           <div className="mx-auto flex max-w-4xl gap-2 overflow-x-auto px-4 py-3 sm:px-6 lg:px-8">
             {menu.map((category) => (
               <button
@@ -295,7 +294,7 @@ export default function RestaurantMenuPage() {
                     <img
                       src={dishPhotoFor(item.id, item.name, item.image, 88)}
                       alt={item.name}
-                      className="hidden h-20 w-20 shrink-0 rounded-2xl object-cover sm:block"
+                      className="h-16 w-16 sm:h-20 sm:w-20 shrink-0 rounded-xl object-cover"
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -343,7 +342,7 @@ export default function RestaurantMenuPage() {
                         <button
                           onClick={() => setSheetItem(item)}
                           aria-label={`Choose options for ${item.name}`}
-                          className="grid h-11 w-11 place-items-center rounded-2xl bg-dark-300 text-white transition-[colors,transform] hover:bg-dark-200 active:scale-95"
+                          className="grid h-11 w-11 place-items-center rounded-2xl bg-[#BC5127] text-white transition-[colors,transform] hover:bg-[#A8421E] active:scale-95"
                         >
                           <Plus className="h-5 w-5" />
                         </button>
@@ -395,7 +394,7 @@ export default function RestaurantMenuPage() {
           <motion.div
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-between gap-4 rounded-[1.5rem] bg-dark-800 px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+            className="flex items-center justify-between gap-4 rounded-xl bg-[#BC5127] px-5 py-4 shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
           >
             <div className="flex items-center gap-3 text-white">
               <div className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-500/15 text-amber-300">

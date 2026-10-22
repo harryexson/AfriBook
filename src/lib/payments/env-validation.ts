@@ -128,9 +128,11 @@ export interface CoreEnvReport {
 }
 
 const CORE_REQUIRED_ENV = [
-  'NEXT_PUBLIC_SUPABASE_URL',
-  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
-  'SUPABASE_SERVICE_ROLE_KEY',
+  'NEXT_PUBLIC_NEON_URL',
+  'NEXT_PUBLIC_NEON_DATA_API_URL',
+  'NEON_AUTH_BASE_URL',
+  'NEON_AUTH_COOKIE_SECRET',
+  'NEON_DATABASE_URL',
 ];
 
 export function checkCoreEnv(): CoreEnvReport {

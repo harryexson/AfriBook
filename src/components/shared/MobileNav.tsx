@@ -7,12 +7,14 @@ import {
   Globe, X, ShoppingBag, Store, Truck, Utensils, Package,
   LogIn, Heart, HelpCircle, ChevronRight, Calendar, BedDouble, Sparkles,
 } from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
+import type { User } from '@/types'
 import { useCountry } from './CountryProvider'
 
 interface MobileNavProps {
   open: boolean
   onClose: () => void
+  user: User | null
+  authenticated: boolean
 }
 
 const NAV_ITEMS = [
@@ -31,8 +33,7 @@ const ACCOUNT_ITEMS = [
   { label: 'Help Center', href: '/help', icon: HelpCircle },
 ]
 
-export default function MobileNav({ open, onClose }: MobileNavProps) {
-  const { user, authenticated } = useAuth()
+export default function MobileNav({ open, onClose, user, authenticated }: MobileNavProps) {
   const { countryCode, country } = useCountry()
 
   useEffect(() => {

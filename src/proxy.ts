@@ -22,7 +22,7 @@ const VENDOR_ROUTES = ['/vendor'];
 const ADMIN_ROUTES = ['/admin'];
 const DRIVER_ROUTES = ['/driver'];
 
-function detectCountry(hostname: string): string {
+function detectCountry(hostname: string): string | null {
   const host = hostname.toLowerCase();
   for (const cc of COUNTRY_CODES) {
     if (host.startsWith(`${cc.toLowerCase()}.`)) return cc;
@@ -46,7 +46,7 @@ function detectCountry(hostname: string): string {
     'afribook.mw': 'MW',
   };
 
-  return knownDomains[host] ?? 'NG';
+  return knownDomains[host] ?? null;
 }
 
 /** Any well-formed ISO-3166 alpha-2 code counts as a deliberate market
@@ -168,6 +168,7 @@ export async function proxy(req: NextRequest) {
   const hasUserSelection = isWellFormedCountryCode(countryCookie);
   const normalizedCookie = countryCookie?.toUpperCase();
   const detectedFromHost = detectCountry(hostname);
+  const pathCountry = pathname.split('/')[1]?.toUpperCase();
   const languageCountry = parseCountryFromAcceptLanguage(acceptLanguage);
   const ipCountry = countryFromIpHeaders(req.headers);
 
@@ -176,7 +177,8 @@ export async function proxy(req: NextRequest) {
 
   const resolvedCountry: CountryCode =
     (hasUserSelection && isValid(normalizedCookie!) ? normalizedCookie as CountryCode : undefined)
-    ?? (isValid(detectedFromHost) ? detectedFromHost as CountryCode : undefined)
+    ?? (pathCountry && isValid(pathCountry) ? pathCountry : undefined)
+    ?? (detectedFromHost && isValid(detectedFromHost) ? detectedFromHost : undefined)
     ?? (ipCountry && isValid(ipCountry) ? ipCountry as CountryCode : undefined)
     ?? (languageCountry && isValid(languageCountry) ? languageCountry as CountryCode : undefined)
     ?? 'NG';
@@ -218,7 +220,10 @@ export async function proxy(req: NextRequest) {
   }
 
   // ─── Auth Protection ───────────────────────────────────────
-  if (!isPublicPath && !isStaticPath && !isApiPath) {
+  if (!isPublicPath && !isStaticPath && !isApiPath && AUTH_PROTECTED_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
+    if (!process.env.NEON_AUTH_BASE_URL || !process.env.NEON_AUTH_COOKIE_SECRET || !process.env.NEXT_PUBLIC_NEON_DATA_API_URL) {
+      return new NextResponse('Authentication service is not configured. Contact the platform administrator.', { status: 503 });
+    }
     const { createClient } = await import('@/lib/neon/server');
     const neon = await createClient();
 

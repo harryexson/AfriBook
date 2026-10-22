@@ -64,7 +64,7 @@ export default function Button({
     variant === "ink" || variant === "danger"
       ? colors.textInverse
       : variant === "primary"
-        ? colors.ink
+        ? colors.textInverse
         : colors.textPrimary;
 
   return (
@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: borderRadius.full,
+    borderRadius: 10,
     gap: spacing.sm,
   },
   primary: {
@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
   text_primary: {
-    color: colors.ink,
+    color: colors.textInverse,
   },
   text_ink: {
     color: colors.textInverse,

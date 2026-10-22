@@ -100,8 +100,12 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   }, [location])
 
   useEffect(() => {
-    detect()
-  }, [detect])
+    // Precise location is requested by explicit user actions (refresh), not
+    // automatically on the first marketing-page visit.
+    const stored = getStoredLocation()
+    if (stored) setLocation(stored)
+    setLoading(false)
+  }, [])
 
   return (
     <LocationContext.Provider

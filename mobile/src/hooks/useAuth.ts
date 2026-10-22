@@ -1,15 +1,15 @@
 import { useEffect, useCallback } from 'react';
 import { useRouter } from 'expo-router';
-import { createClient } from '../lib/supabase';
+import { createClient, supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/auth-store';
 import type { User } from '../types';
 
 export function useAuth() {
   const router = useRouter();
-  const supabase = createClient();
   const { user, status, error, setUser, setStatus, setError, reset } = useAuthStore();
 
   const initialize = useCallback(async () => {
+    if (!supabase) { const error = new Error('Mobile sign-in is not configured yet. Please use the website to sign in.'); setError(error.message); return { error }; }
     setStatus('loading');
     try {
       const { data, error: sessionError } = await supabase.auth.getSession();
@@ -59,12 +59,13 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut();
+    if (supabase) await supabase.auth.signOut();
     reset();
     router.replace('/');
   }, []);
 
   const refreshProfile = useCallback(async () => {
+    if (!supabase) return;
     const { data } = await supabase.auth.getUser();
     if (data.user) {
       const profile = await fetchProfile(data.user.id);
@@ -73,6 +74,7 @@ export function useAuth() {
   }, []);
 
   useEffect(() => {
+    if (!supabase) return;
     const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         const profile = await fetchProfile(session.user.id);
@@ -100,6 +102,7 @@ export function useAuth() {
 }
 
 async function fetchProfile(userId: string): Promise<User> {
+  const supabase = createClient();
   const supabase = createClient();
   const { data, error } = await supabase
     .from('users')

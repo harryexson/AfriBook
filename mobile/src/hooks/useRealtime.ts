@@ -60,10 +60,11 @@ export function useRealtime<T extends PayloadRow = any>(
 
   const subscribe = useCallback(() => {
     if (!enabled) return;
+    if (!supabase) { setError('Live updates are not configured.'); return; }
 
     // Clean up existing channel
     if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
+      supabase?.removeChannel(channelRef.current);
     }
 
     const channelName = `realtime:${table}:${filter ?? 'all'}`;

@@ -1,5 +1,5 @@
-import React, { useRef } from "react";
-import { Animated, Pressable, PressableProps, StyleProp, ViewStyle } from "react-native";
+import React, { useRef, useEffect, useState } from "react";
+import { AccessibilityInfo, Animated, Pressable, PressableProps, StyleProp, ViewStyle } from "react-native";
 
 interface PressableScaleProps extends Omit<PressableProps, "style"> {
   children: React.ReactNode;
@@ -27,10 +27,16 @@ export default function PressableScale({
   ...props
 }: PressableScaleProps) {
   const scale = useRef(new Animated.Value(1)).current;
+  const [reduceMotion, setReduceMotion] = useState(true);
+  useEffect(() => {
+    void AccessibilityInfo.isReduceMotionEnabled().then(setReduceMotion);
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => subscription.remove();
+  }, []);
 
   const to = (value: number) =>
     Animated.spring(scale, {
-      toValue: value,
+      toValue: reduceMotion ? 1 : value,
       useNativeDriver: true,
       speed: 40,
       bounciness: 4,

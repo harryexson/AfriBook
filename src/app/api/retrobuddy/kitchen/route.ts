@@ -9,6 +9,7 @@ import {
   reorderQueue,
 } from '@/lib/retrobuddy/kitchen-display';
 import type { KitchenDisplayPriority } from '@/lib/retrobuddy/types';
+import { ownsKitchenOrder, ownsRestaurant, canAssignKitchenStaff } from '@/lib/retrobuddy/access';
 
 export async function GET(req: NextRequest) {
   const supabase = await createClient();
@@ -97,6 +98,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
     }
 
+    if (!await ownsKitchenOrder(user.id, body.orderId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     try {
       const item = await addToKitchenDisplay(body.orderId, body.priority ?? 'normal');
       return NextResponse.json(item, { status: 201 });
@@ -117,6 +122,10 @@ export async function POST(req: NextRequest) {
     const validStatuses = ['pending', 'in_progress', 'ready'];
     if (!validStatuses.includes(body.status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+
+    if (!await ownsKitchenOrder(user.id, body.itemId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     try {
@@ -164,6 +173,10 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
+    if (!await canAssignKitchenStaff(user.id, body.itemId, body.staffId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -189,6 +202,10 @@ export async function PATCH(req: NextRequest) {
         { error: 'restaurantId and newOrder are required' },
         { status: 400 },
       );
+    }
+
+    if (!await ownsRestaurant(user.id, body.restaurantId)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const { data: profile } = await supabase

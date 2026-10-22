@@ -155,7 +155,8 @@ export default function RegisterPage() {
         // is fully supported and already configured. Sent explicitly because
         // sign-up itself doesn't auto-send a verification email on this
         // project (verify_email_on_sign_up is off).
-        await client.auth.signInWithOtp({ email: data.email })
+        const { error: sendError } = await client.auth.signInWithOtp({ email: data.email })
+        if (sendError) throw sendError
       }
       setStep(3)
     } catch (err: any) {
@@ -169,7 +170,11 @@ export default function RegisterPage() {
     const client = (await import('@/lib/neon/client')).createClient()
     // Previously this advanced the wizard regardless of what was typed —
     // any 6 digits "verified". Now it's checked for real.
-    const { error } = await client.auth.verifyOtp({
+    // A successful OTP may have already established a session before profile
+    // creation failed. Do not consume the same one-time code again on retry.
+    const { data: sessionData } = await client.auth.getSession()
+    const alreadyVerified = pendingSignup && sessionData.session?.user.id === pendingSignup.userId
+    const { error } = alreadyVerified ? { error: null } : await client.auth.verifyOtp({
       email: watchedEmail,
       token: code,
       type: 'email',
@@ -181,12 +186,16 @@ export default function RegisterPage() {
     // here, once auth.uid() will resolve to the signed-in user.
     if (pendingSignup) {
       const { userId, data } = pendingSignup
-      const { error: profileError } = await client.from('profiles').insert({
+      const { data: existingProfile, error: lookupError } = await client.from('profiles').select('id').eq('id', userId).maybeSingle()
+      if (lookupError) throw new Error(describeAuthError(lookupError))
+      const { error: profileError } = existingProfile ? { error: null } : await client.from('profiles').insert({
         id: userId,
         email: data.email,
         full_name: data.name,
         phone: data.phone,
-        country_code: selectedCountry.code,
+        // Location is selected in the next step. The UI country catalogue is
+        // larger than the database's supported countries; an arbitrary default
+        // must not fail this insert's foreign-key constraint.
         role: accountType || 'customer',
         metadata: showBusinessFields
           ? { business_name: data.businessName, business_category: data.businessCategory }
@@ -221,7 +230,8 @@ export default function RegisterPage() {
 
   const handleResendCode = async () => {
     const client = (await import('@/lib/neon/client')).createClient()
-    await client.auth.signInWithOtp({ email: watchedEmail })
+    const { error } = await client.auth.signInWithOtp({ email: watchedEmail })
+    if (error) throw new Error(describeAuthError(error))
   }
 
   const handleLocationSubmit = () => {

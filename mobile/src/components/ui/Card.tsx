@@ -38,7 +38,7 @@ export default function Card({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: borderRadius["2xl"],
+    borderRadius: 12,
     backgroundColor: colors.surface,
     overflow: "hidden",
   },

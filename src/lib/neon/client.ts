@@ -12,7 +12,7 @@
 // only the import.
 import { createClient as createNeonClient, SupabaseAuthAdapter } from '@neondatabase/neon-js'
 
-const NEON_URL = process.env.NEXT_PUBLIC_NEON_URL!
+const DATA_API_URL = process.env.NEXT_PUBLIC_NEON_DATA_API_URL!
 
 // createClient's overloads for {auth:{adapter}} are structurally
 // near-identical across its three supported adapters (Supabase/Vanilla/
@@ -64,9 +64,15 @@ export interface NeonBrowserClient {
 }
 
 function buildClient(): NeonBrowserClient {
-  const raw = createNeonClient(NEON_URL, {
-    auth: { adapter: SupabaseAuthAdapter() },
-  } as any)
+  const origin = typeof window === 'undefined'
+    ? process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    : window.location.origin
+  // Route auth through the same-origin SDK handler. Direct-to-Neon cookies
+  // cannot authenticate the Next.js server's protected routes.
+  const raw = createNeonClient({
+    auth: { url: new URL('/api/auth', origin).toString(), adapter: SupabaseAuthAdapter() },
+    dataApi: { url: DATA_API_URL },
+  })
   return raw as unknown as NeonBrowserClient
 }
 

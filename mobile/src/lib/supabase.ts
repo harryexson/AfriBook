@@ -44,4 +44,4 @@ export function createClient(): SupabaseClient<Database> {
   return client;
 }
 
-export const supabase = createClient();
+export const supabase = SUPABASE_URL && SUPABASE_ANON_KEY ? createClient() : null;

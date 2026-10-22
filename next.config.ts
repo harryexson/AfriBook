@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  allowedDevOrigins: ['127.0.0.1'],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.supabase.co" },

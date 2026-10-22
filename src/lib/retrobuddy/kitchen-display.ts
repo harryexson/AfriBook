@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/neon/server';
+import { withTransaction } from '@/lib/neon/admin';
 import type {
   KitchenDisplayItem,
   KitchenDisplayPriority,
@@ -70,7 +71,8 @@ function estimatedReadyAt(row: FoodDeliveryRow): string {
 }
 
 function rowToKitchenItem(row: FoodDeliveryRow): KitchenDisplayItem {
-  const status = KITCHEN_STATUS_MAP[row.status] ?? 'pending';
+  const status = row.status === 'at_pickup' ? 'ready'
+    : row.metadata?.kitchen_status === 'in_progress' ? 'in_progress' : 'pending';
   const readyAt = estimatedReadyAt(row);
   return {
     id: row.id,
@@ -137,35 +139,27 @@ export async function updateKitchenItemStatus(
   itemId: string,
   status: 'pending' | 'in_progress' | 'ready',
 ): Promise<KitchenDisplayItem> {
-  const supabase = await createClient() as any;
-
-  const orderStatus: string =
-    status === 'ready' ? 'at_pickup' : status === 'in_progress' ? 'en_route_to_pickup' : 'accepted';
-
-  const updateData: Record<string, unknown> = {
-    status: orderStatus,
-    updated_at: new Date().toISOString(),
-  };
-
-  if (status === 'ready') {
-    updateData.restaurant_ready_at = new Date().toISOString();
-  }
-
-  const { data, error } = await supabase
-    .from('ridely_food_deliveries')
-    .update(updateData)
-    .eq('id', itemId)
-    .select()
-    .single() as unknown as {
-    data: FoodDeliveryRow | null;
-    error: { message: string } | null;
-  };
-
-  if (error) {
-    throw new Error(`Failed to update kitchen item: ${error.message}`);
-  }
-
-  return rowToKitchenItem(data!);
+  return withTransaction(async sql => {
+    const rows = await sql<FoodDeliveryRow & Record<string, unknown>>('SELECT * FROM ridely_food_deliveries WHERE id = $1 FOR UPDATE', [itemId]);
+    const row = rows[0];
+    if (!row || !['accepted', 'en_route_to_pickup', 'at_pickup'].includes(row.status)) {
+      throw new Error('Order is no longer in the kitchen. Refresh the queue.');
+    }
+    const current = rowToKitchenItem(row).status;
+    if (current === status) return rowToKitchenItem(row);
+    if (current === 'ready' || status === 'pending') throw new Error('Kitchen orders cannot move backwards. Refresh the queue.');
+    // Cooking is distinct from courier movement: do not fabricate a driver
+    // travelling to the restaurant when preparation begins.
+    const updated = await sql<FoodDeliveryRow & Record<string, unknown>>(
+      `UPDATE ridely_food_deliveries
+       SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('kitchen_status', $2::text),
+           status = CASE WHEN $2 = 'ready' THEN 'at_pickup' ELSE status END,
+           restaurant_ready_at = CASE WHEN $2 = 'ready' THEN COALESCE(restaurant_ready_at, now()) ELSE restaurant_ready_at END,
+           updated_at = now()
+       WHERE id = $1 RETURNING *`, [itemId, status],
+    );
+    return rowToKitchenItem(updated[0]);
+  });
 }
 
 export async function assignToStaff(
@@ -253,9 +247,9 @@ export async function getKitchenStats(restaurantId: string): Promise<KitchenStat
   const items = data ?? [];
   const active = items.filter((i) => KITCHEN_STATUS_MAP[i.status]);
 
-  const pendingCount = active.filter((i) => KITCHEN_STATUS_MAP[i.status] === 'pending').length;
-  const inProgressCount = active.filter((i) => KITCHEN_STATUS_MAP[i.status] === 'in_progress').length;
-  const readyCount = active.filter((i) => KITCHEN_STATUS_MAP[i.status] === 'ready').length;
+  const pendingCount = active.filter((i) => rowToKitchenItem(i).status === 'pending').length;
+  const inProgressCount = active.filter((i) => rowToKitchenItem(i).status === 'in_progress').length;
+  const readyCount = active.filter((i) => rowToKitchenItem(i).status === 'ready').length;
 
   const completedItems = items.filter((i) => i.restaurant_ready_at && i.requested_at);
   const averageWaitMinutes =
