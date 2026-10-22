@@ -19,6 +19,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   restaurant: 'Restaurant',
   menu: 'Menu',
   orders: 'Orders',
+  kitchen: 'Kitchen',
   analytics: 'Analytics',
   payouts: 'Payouts',
   qr: 'QR Codes',

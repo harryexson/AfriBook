@@ -9,7 +9,8 @@ import { useUIStore } from '@/stores/ui-store'
 import {
   LayoutDashboard, Building2, Scissors, Package, Users, Calendar,
   Utensils, BarChart3, Wallet, Settings, QrCode, X,
-  ShoppingBag, Globe, ScrollText, Hotel,
+  ShoppingBag,
+  ChefHat, Globe, ScrollText, Hotel,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { label: 'Bookings', href: '/vendor/bookings', icon: Calendar },
   { label: 'Menu', href: '/vendor/restaurant/menu', icon: Utensils },
   { label: 'Orders', href: '/vendor/restaurant/orders', icon: ShoppingBag },
+  { label: 'Kitchen', href: '/vendor/restaurant/kitchen', icon: ChefHat },
   { label: 'Hotel', href: '/vendor/hotel', icon: Hotel },
   { label: 'Domain', href: '/vendor/domain', icon: Globe },
   { label: 'Analytics', href: '/vendor/analytics', icon: BarChart3 },
