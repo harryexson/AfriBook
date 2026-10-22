@@ -52,12 +52,12 @@ Provider → POST /api/webhooks/{provider}
 |---------|------------------|---------|
 | NG (Nigeria) | Paystack, Flutterwave | Card, Bank Transfer, USSD, M-Pesa |
 | KE (Kenya) | M-Pesa, DLocal | M-Pesa, Card |
-| ZA (South Africa) | PayChangu, Flutterwave | Card, EFT |
+| ZA (South Africa) | Flutterwave, Airwallex | Card, EFT |
 | GH (Ghana) | Flutterwave, Paystack | Card, Mobile Money |
 | IN (India) | Razorpay | Card, UPI, Netbanking |
 | US/GB/EU | Stripe | Card, SEPA |
 | AE (UAE) | Airwallex, Adyen | Card |
-| MW (Malawi) | PawaPay | Airtel Money, TNM |
+| MW (Malawi) | PayChangu | Card, mobile money (Airtel Money, TNM) — PawaPay not routed until a correspondent is verified |
 | Global fallback | Stripe, Airwallex | Card |
 
 ---
