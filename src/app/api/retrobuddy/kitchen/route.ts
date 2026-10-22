@@ -124,8 +124,40 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    if (!await ownsKitchenOrder(user.id, body.itemId)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    // Only the restaurant's owner (or an admin) may move its orders along.
+    // Before this check any signed-in user could change any order's status.
+    const { data: orderRow } = await supabase
+      .from('ridely_food_deliveries')
+      .select('restaurant_id')
+      .eq('id', body.itemId)
+      .maybeSingle() as unknown as { data: { restaurant_id: string } | null };
+    if (!orderRow) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single() as unknown as { data: { role: string } | null };
+    const isAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
+    if (!isAdmin) {
+      const { data: restaurant } = await supabase
+        .from('restaurants')
+        .select('business_id')
+        .eq('id', orderRow.restaurant_id)
+        .single() as unknown as { data: { business_id: string } | null };
+      const { data: owns } = restaurant?.business_id
+        ? await supabase
+            .from('businesses')
+            .select('id')
+            .eq('id', restaurant.business_id)
+            .eq('owner_id', user.id)
+            .maybeSingle() as unknown as { data: { id: string } | null }
+        : { data: null };
+      if (!owns) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
     }
 
     try {
