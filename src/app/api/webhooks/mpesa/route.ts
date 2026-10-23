@@ -9,6 +9,16 @@ import { NextRequest, NextResponse } from 'next/server';
  * terminal-state guard (a transaction already `succeeded`/`failed` is not
  * re-transitioned).
  */
+// The callback body is unsigned, so the outcome is taken only from the STK
+// Query API via the orchestrator. The orchestrator fails closed: if the
+// lookup cannot run, the transaction keeps its existing non-terminal status.
+async function verifyStkStatus(transactionId: string) {
+  const { getPaymentOrchestrator } = await import('@/lib/payments');
+  const orchestrator = getPaymentOrchestrator();
+  await orchestrator.initializeAll();
+  return orchestrator.getTransactionStatus(transactionId);
+}
+
 export async function POST(req: NextRequest) {
   const { query } = await import('@/lib/neon/admin');
 
@@ -32,7 +42,6 @@ export async function POST(req: NextRequest) {
   }
 
   const resultCode = String(stkCallback.ResultCode ?? '');
-  const isSuccess = resultCode === '0';
 
   const callbackMetadata = (stkCallback.CallbackMetadata as Record<string, unknown> | undefined)
     ?.Item as Array<{ Name?: string; Value?: unknown }> | undefined;
@@ -65,7 +74,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, idempotent: true });
   }
 
-  if (isSuccess) {
+  const verified = await verifyStkStatus(tx.id);
+  if (verified !== 'succeeded' && verified !== 'failed') {
+    return NextResponse.json({ received: true, verification: 'pending' });
+  }
+
+  if (verified === 'succeeded') {
     const id = tx.id;
     await query(
       `UPDATE payment_transactions SET status = 'succeeded', provider_transaction_id = $2, metadata = $3, updated_at = now()

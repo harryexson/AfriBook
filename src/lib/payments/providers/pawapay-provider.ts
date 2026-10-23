@@ -1,5 +1,6 @@
 import { createHmac } from 'crypto';
 import { createPaymentDb } from '../db';
+import { PAWAPAY_CORRESPONDENTS } from '../pawapay-operators';
 import type {
   PaymentProvider,
   PaymentRequest,
@@ -24,27 +25,7 @@ import {
 // Docs: https://docs.pawapay.io/
 // ──────────────────────────────────────────────────────────────
 
-const CORRESPONDENTS: Record<string, string> = {
-  KE: 'MPESA_KE',
-  UG: 'MTN_UG',
-  TZ: 'VODACOM_TZ',
-  GH: 'MTN_GH',
-  NG: 'MTN_NG',
-  ZM: 'MTN_ZM',
-  ZW: 'ECOCASH_ZW',
-  RW: 'MTN_RW',
-  SN: 'ORANGE_SN',
-  CI: 'ORANGE_CI',
-  CM: 'MTN_CM',
-  BJ: 'MTN_BJ',
-  CD: 'VODACOM_CD',
-  CG: 'MTN_CG',
-  GN: 'ORANGE_GN',
-  ML: 'ORANGE_ML',
-  MR: 'MASTERMOBILE_MR',
-  NE: 'AIRTEL_NE',
-  BF: 'MOOV_BF',
-};
+const CORRESPONDENTS = PAWAPAY_CORRESPONDENTS;
 
 const SUPPORTED = Object.keys(CORRESPONDENTS);
 

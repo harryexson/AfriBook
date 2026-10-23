@@ -12,6 +12,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/hooks/useAuth'
 import { useCountry } from './CountryProvider'
+import { COUNTRIES } from '@/lib/localization/countries'
 import MobileNav from './MobileNav'
 import CountrySelector from './CountrySelector'
 import Button from '@/components/ui/Button'
@@ -29,7 +30,6 @@ const NAV_LINKS = [
 // Routes that have a dark hero behind the header and rely on the
 // transparent (light-on-dark) treatment. Everything else gets a solid header.
 const TRANSPARENT_HEADER_PATHS = new Set([
-  '/',
   '/about',
   '/business',
   '/deliveries',
@@ -70,7 +70,9 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null)
   const pathname = usePathname()
   const { user, authenticated, signOut } = useAuth()
-  const { country: selectedCountry } = useCountry()
+  const { country: contextCountry } = useCountry()
+  const urlCountryCode = /^\/([A-Za-z]{2})(?:\/|$)/.exec(pathname ?? '')?.[1]?.toUpperCase()
+  const selectedCountry = (urlCountryCode && COUNTRIES[urlCountryCode]) || contextCountry
 
   const isHeroRoute = shouldUseTransparentHeader(pathname ?? '')
   const solid = scrolled || !isHeroRoute

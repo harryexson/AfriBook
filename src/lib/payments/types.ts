@@ -319,9 +319,10 @@ export const COUNTRY_PROVIDER_MAP: Record<string, string[]> = {
   KE: ['mpesa', 'pawapay', 'airwallex'],
   TZ: ['mpesa', 'pawapay'],
   UG: ['mpesa', 'pawapay'],
-  MW: ['paychangu', 'pawapay'],
-  ZA: ['flutterwave', 'airwallex', 'pawapay'],
-  EG: ['paychangu', 'airwallex', 'pawapay'],
+  // PayChangu is a Malawi-focused gateway; PawaPay Malawi needs a verified correspondent first.
+  MW: ['paychangu'],
+  ZA: ['flutterwave', 'airwallex'],
+  EG: ['airwallex'],
   RW: ['pawapay', 'airwallex'],
   ZM: ['pawapay', 'airwallex'],
   SN: ['pawapay', 'airwallex'],

@@ -17,7 +17,8 @@ import PromoCard, { type PromoConfig } from '@/components/marketplace/PromoCard'
 import CategoryIcon from '@/components/marketplace/CategoryIcon'
 import IconTile from '@/components/ui/IconTile'
 import SectionHeader from '@/components/ui/SectionHeader'
-import HeroMosaic from '@/components/marketplace/HeroMosaic'
+import CtaBanner from '@/components/marketplace/CtaBanner'
+import SuperHero from '@/components/marketplace/SuperHero'
 import type { Business, Service } from '@/types'
 
 export function generateStaticParams() {
@@ -61,6 +62,10 @@ export async function generateMetadata({
   }
 }
 
+// ─── Category icons ───────────────────────────────────────────
+// One distinct icon per category — previously five icons (Store, Sparkles,
+// MapPin, Star, TrendingUp) were each reused across 2-3 unrelated
+// categories, which made the category grid hard to scan at a glance.
 // ─── Promos (currency aware, deterministic) ──────────────────
 function getCountryPromos(country: CountryConfig): PromoConfig[] {
   const symbol = country.currency.symbol
@@ -133,7 +138,7 @@ export default async function CountryHomePage({
 
   return (
     <div dir={isRTL ? 'rtl' : 'ltr'} className="flex flex-col">
-      <HeroMosaic country={countryConfig} code={code} businessCount={stats.businesses} />
+      <SuperHero country={countryConfig} code={code} />
 
       <CategoryPhotoRail items={rail} />
 

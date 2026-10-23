@@ -1,32 +1,18 @@
-// ─── Ride Status Realtime ───────────────────────────────────
-// Real-time ride/delivery status tracking — previously Supabase Realtime.
+// ─── Ride Status Polling ─────────────────────────────────────
+// Real-time ride/delivery status tracking via polling.
 //
-// NOTE (Neon migration gap): `@/lib/neon/client` (the Neon-backed browser
-// client, via SupabaseAuthAdapter + Data API) has no realtime/channel
-// primitive — confirmed during the ridely migration (see
-// src/lib/ridely/dispatch-engine.ts and src/lib/realtime/driver-location.ts,
-// which hit the exact same gap). There is no documented Neon equivalent as
-// of this migration. Even leaving these on @/lib/supabase/client would not
-// help: writes now go through Neon (src/lib/neon/server.ts), so the old
-// Supabase Postgres these channels watched never receives the inserts/
-// updates that would fire them — they would silently never call back
-// rather than error.
+// Neon has no Supabase Realtime equivalent (no channel()/postgres_changes).
+// These functions subscribe to status changes by polling REST endpoints at
+// a fixed interval — serverless-compatible, zero new dependencies.
 //
-// Left as explicit no-ops (matching driver-location.ts's precedent) rather
-// than a broken `.channel()` call or a silent dead subscription, so a
-// caller sees the warning in dev instead of debugging "why don't ride
-// updates ever arrive". Follow-up: a polling hook on an interval, or a
-// real realtime channel once Neon exposes one.
+// Poll interval: 4 s for active rides (low latency needed), 8 s for
+// offers (driver sees new offers within one interval).
 // ──────────────────────────────────────────────────────────────
 
 import type { RideStatusEvent } from '@/types/ridely';
 
-function warnNoRealtime(fn: string): void {
-  console.warn(
-    `[realtime:ride-status] ${fn} is a no-op: Neon has no Supabase-Realtime ` +
-      'equivalent (no channel()/postgres_changes). See NOTE at the top of ride-status.ts.',
-  );
-}
+const RIDE_POLL_INTERVAL_MS = 4_000;
+const OFFER_POLL_INTERVAL_MS = 8_000;
 
 // ─── Client: Subscribe to Ride Status Changes ────────────────
 
@@ -34,10 +20,30 @@ export function subscribeToRideStatus(
   rideId: string,
   onStatusChange: (event: RideStatusEvent) => void,
 ): () => void {
-  void rideId;
-  void onStatusChange;
-  warnNoRealtime('subscribeToRideStatus');
-  return () => {};
+  let lastStatus: string | null = null;
+  let active = true;
+
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const res = await fetch(`/api/ridely/status/${rideId}?type=ride`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status && data.status !== lastStatus) {
+          lastStatus = data.status;
+          onStatusChange({ rideId, status: data.status, driverId: data.driver_id, timestamp: data.updated_at });
+        }
+      }
+    } catch { /* network errors are silent — caller sees no update */ }
+  };
+
+  poll();
+  const timer = setInterval(poll, RIDE_POLL_INTERVAL_MS);
+
+  return () => {
+    active = false;
+    clearInterval(timer);
+  };
 }
 
 // ─── Client: Subscribe to Delivery Status Changes ────────────
@@ -46,10 +52,30 @@ export function subscribeToDeliveryStatus(
   deliveryId: string,
   onStatusChange: (event: RideStatusEvent) => void,
 ): () => void {
-  void deliveryId;
-  void onStatusChange;
-  warnNoRealtime('subscribeToDeliveryStatus');
-  return () => {};
+  let lastStatus: string | null = null;
+  let active = true;
+
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const res = await fetch(`/api/ridely/status/${deliveryId}?type=delivery`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status && data.status !== lastStatus) {
+          lastStatus = data.status;
+          onStatusChange({ rideId: deliveryId, status: data.status, driverId: data.driver_id, timestamp: data.updated_at });
+        }
+      }
+    } catch { /* silent */ }
+  };
+
+  poll();
+  const timer = setInterval(poll, RIDE_POLL_INTERVAL_MS);
+
+  return () => {
+    active = false;
+    clearInterval(timer);
+  };
 }
 
 // ─── Client: Subscribe to Food Delivery Status ───────────────
@@ -58,34 +84,70 @@ export function subscribeToFoodDeliveryStatus(
   orderId: string,
   onStatusChange: (event: RideStatusEvent) => void,
 ): () => void {
-  void orderId;
-  void onStatusChange;
-  warnNoRealtime('subscribeToFoodDeliveryStatus');
-  return () => {};
+  let lastStatus: string | null = null;
+  let active = true;
+
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const res = await fetch(`/api/ridely/status/${orderId}?type=food`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status && data.status !== lastStatus) {
+          lastStatus = data.status;
+          onStatusChange({ rideId: orderId, status: data.status, driverId: data.driver_id, timestamp: data.updated_at });
+        }
+      }
+    } catch { /* silent */ }
+  };
+
+  poll();
+  const timer = setInterval(poll, RIDE_POLL_INTERVAL_MS);
+
+  return () => {
+    active = false;
+    clearInterval(timer);
+  };
 }
 
 // ─── Client: Subscribe to Driver Offer Responses ─────────────
-// For dispatch engine to detect when a driver accepts/declines.
 
 export function subscribeToOfferResponse(
   rideId: string,
   onOfferUpdate: (driverId: string, status: string) => void,
 ): () => void {
-  void rideId;
-  void onOfferUpdate;
-  warnNoRealtime('subscribeToOfferResponse');
-  return () => {};
+  let lastDriverId: string | null = null;
+  let lastStatus: string | null = null;
+  let active = true;
+
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const res = await fetch(`/api/ridely/status/${rideId}?type=ride`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.driver_id !== lastDriverId || data.status !== lastStatus) {
+          lastDriverId = data.driver_id;
+          lastStatus = data.status;
+          if (data.driver_id) {
+            onOfferUpdate(data.driver_id, data.status);
+          }
+        }
+      }
+    } catch { /* silent */ }
+  };
+
+  poll();
+  const timer = setInterval(poll, OFFER_POLL_INTERVAL_MS);
+
+  return () => {
+    active = false;
+    clearInterval(timer);
+  };
 }
 
 // ─── Client: Subscribe to New Incoming Offers (driver side) ──
-// The counterpart to subscribeToOfferResponse above: this is what a
-// driver's own dashboard listens on to learn a new trip has been offered
-// to them. Fires on INSERT rather than UPDATE — driver_offers rows are
-// created once per candidate driver by the dispatch engine and never
-// re-inserted, so INSERT is the correct event to watch here. Relies on
-// the existing `driver_offers_select` RLS policy, which already scopes
-// visibility to `driver_id IN (SELECT id FROM drivers WHERE profile_id =
-// auth.uid())` — the same policy realtime enforces for postgres_changes.
+
 export interface DriverOfferEvent {
   offerId: string;
   rideId: string;
@@ -102,8 +164,31 @@ export function subscribeToDriverOffers(
   driverId: string,
   onNewOffer: (offer: DriverOfferEvent) => void,
 ): () => void {
-  void driverId;
-  void onNewOffer;
-  warnNoRealtime('subscribeToDriverOffers');
-  return () => {};
+  const seenOfferIds = new Set<string>();
+  let active = true;
+
+  const poll = async () => {
+    if (!active) return;
+    try {
+      const res = await fetch('/api/driver/offers/pending');
+      if (res.ok) {
+        const data = await res.json();
+        for (const offer of data.offers ?? []) {
+          if (!seenOfferIds.has(offer.offerId)) {
+            seenOfferIds.add(offer.offerId);
+            onNewOffer(offer as DriverOfferEvent);
+          }
+        }
+      }
+    } catch { /* silent */ }
+  };
+
+  void driverId; // driverId resolved server-side from session; kept in signature for API compatibility
+  poll();
+  const timer = setInterval(poll, OFFER_POLL_INTERVAL_MS);
+
+  return () => {
+    active = false;
+    clearInterval(timer);
+  };
 }

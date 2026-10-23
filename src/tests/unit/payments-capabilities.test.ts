@@ -23,7 +23,7 @@ describe('payment capabilities (runtime table)', () => {
     mockQuery.mockResolvedValue([]);
     const providers = await getAvailableProviders('MW');
     expect(providers).toContain('paychangu');
-    expect(providers).toContain('pawapay');
+    expect(providers).not.toContain('pawapay');
   });
 
   it('falls back to static methods when the table is empty', async () => {

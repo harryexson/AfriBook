@@ -8,14 +8,22 @@ const COOKIE_SECRET = process.env.NEON_AUTH_COOKIE_SECRET!
 const DATA_API_URL = process.env.NEXT_PUBLIC_NEON_DATA_API_URL!
 
 /**
- * Singleton server auth instance — cheap to share across requests (it holds
- * config, not per-request state; per-request session comes from the cookies
- * each call reads via next/headers).
+ * Created on first use, not at import: Next evaluates route modules during
+ * build, and an unset NEON_AUTH_COOKIE_SECRET must fail requests, not the build.
+ * Per-request session still comes from the cookies each call reads.
  */
-export const neonAuth = createNeonAuth({
-  baseUrl: AUTH_BASE_URL,
-  cookies: { secret: COOKIE_SECRET },
-})
+let neonAuthInstance: ReturnType<typeof createNeonAuth> | null = null;
+
+export function getNeonAuth(): ReturnType<typeof createNeonAuth> {
+  if (!neonAuthInstance) {
+    if (!COOKIE_SECRET) throw new Error('NEON_AUTH_COOKIE_SECRET is not configured');
+    neonAuthInstance = createNeonAuth({
+      baseUrl: AUTH_BASE_URL,
+      cookies: { secret: COOKIE_SECRET },
+    });
+  }
+  return neonAuthInstance;
+}
 
 /**
  * Fetches a Data-API-scoped JWT for the current request's session, by
@@ -73,7 +81,7 @@ export async function createClient() {
   return {
     auth: {
       async getUser() {
-        const { data: session } = await neonAuth.getSession()
+        const { data: session } = await getNeonAuth().getSession()
         return { data: { user: session?.user ?? null }, error: null }
       },
     },

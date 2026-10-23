@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Inter, Geist_Mono } from 'next/font/google'
+import { DM_Sans, Manrope } from 'next/font/google'
 import './globals.css'
 import Header from '@/components/shared/Header'
 import CountryNotice from '@/components/shared/CountryNotice'
@@ -8,16 +8,18 @@ import ClientProviders from '@/components/providers/ClientProviders'
 import ServiceWorkerRegister from '@/components/shared/ServiceWorkerRegister'
 import { InlineScript } from '@/components/shared/InlineScript'
 
-const inter = Inter({
+const dmSans = DM_Sans({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
+  weight: ['400', '500', '600', '700'],
 })
 
-const geistMono = Geist_Mono({
+const manrope = Manrope({
   subsets: ['latin'],
-  variable: '--font-mono',
+  variable: '--font-heading',
   display: 'swap',
+  weight: ['400', '500', '600', '700', '800'],
 })
 
 export const metadata: Metadata = {
@@ -58,8 +60,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0E0C12' },
+    { media: '(prefers-color-scheme: light)', color: '#fbf4ed' },
+    { media: '(prefers-color-scheme: dark)', color: '#1a0f08' },
   ],
   width: 'device-width',
   initialScale: 1,
@@ -76,7 +78,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${geistMono.variable} h-full`}
+      className={`${dmSans.variable} ${manrope.variable} h-full`}
     >
       <head>
         <InlineScript

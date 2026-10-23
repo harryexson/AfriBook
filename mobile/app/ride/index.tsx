@@ -277,7 +277,12 @@ export default function RideRequestScreen() {
               </>
             ) : ride.status === "matched" || ride.status === "accepted" ? (
               <>
-                <Text style={styles.title}>Driver Found!</Text>
+                <View style={styles.statusChip}>
+                  <Ionicons name="checkmark-circle" size={16} color={colors.olive} />
+                  <Text style={styles.statusChipText}>
+                    Driver is on the way · ETA {ride.etaMinutes ?? 3} min
+                  </Text>
+                </View>
                 <View style={styles.driverInfo}>
                   <View style={styles.driverAvatar}>
                     <Ionicons
@@ -452,11 +457,29 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.xs,
   },
+  statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: spacing.sm,
+    backgroundColor: colors.mint,
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  statusChipText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: "600",
+    color: colors.textPrimary,
+  },
   driverInfo: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    borderRadius: borderRadius["2xl"],
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: spacing.lg,
     marginTop: spacing.md,
   },

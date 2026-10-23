@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect } from 'react'
-import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { motion, Variants } from 'framer-motion'
 import { ArrowRight, Truck, Calendar } from 'lucide-react'
+import SuperHero from '@/components/marketplace/SuperHero'
 import CategoryGrid from '@/components/marketplace/CategoryGrid'
 import FeaturedBusinesses from '@/components/marketplace/FeaturedBusinesses'
 import DiscoverFeed from '@/components/marketplace/DiscoverFeed'
@@ -21,11 +21,6 @@ import {
   SellAppScreen,
 } from '@/components/showcase/AppScreens'
 import { COUNTRIES } from '@/lib/localization/countries'
-
-const GlobeSection = dynamic(
-  () => import('@/components/globe/GlobeSection'),
-  { ssr: false }
-)
 
 const TRUSTED_FLAGS = Object.values(COUNTRIES)
   .filter((_, i) => i < 12)
@@ -76,8 +71,8 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col">
-      {/* Hero / Globe Section */}
-      <GlobeSection />
+      {/* Hero — city, all in one place */}
+      <SuperHero />
 
       {/* One app for everything */}
       <SuperAppShowcase

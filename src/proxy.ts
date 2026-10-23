@@ -132,7 +132,7 @@ export async function proxy(req: NextRequest) {
       // bucket rather than silently disabling the limit.
       const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
       const key = `${ip}:${bucket.prefix}`;
-      const result = checkRateLimit(key, bucket.limit, bucket.windowMs);
+      const result = await checkRateLimit(key, bucket.limit, bucket.windowMs);
       if (!result.allowed) {
         return NextResponse.json(
           { success: false, error: 'Too many requests, please try again shortly.' },
@@ -155,6 +155,27 @@ export async function proxy(req: NextRequest) {
   response.headers.set('X-Frame-Options', 'DENY');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  // Content-Security-Policy: permit same-origin resources, the CDN/image
+  // domains AfriBook uses, and inline scripts (required for the theme-preload
+  // script rendered via <InlineScript> in layout.tsx, which must run inline
+  // during HTML parsing to prevent FOUC). Strict-dynamic is used so
+  // nonce-based script loading can be adopted incrementally later.
+  if (!isApiPath) {
+    response.headers.set(
+      'Content-Security-Policy',
+      [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src 'self' https://fonts.gstatic.com",
+        "img-src 'self' data: blob: https:",
+        "connect-src 'self' https:",
+        "frame-ancestors 'none'",
+        "form-action 'self'",
+        "base-uri 'self'",
+      ].join('; '),
+    );
+  }
 
   if (isApiPath) {
     response.headers.set('Access-Control-Allow-Origin', '*');
