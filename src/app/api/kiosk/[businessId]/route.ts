@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, context: Context) {
 export async function POST(req: NextRequest, context: Context) {
   try {
     const { businessId } = await context.params
-    const limit = checkRateLimit(`kiosk:${businessId}:${req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'}`, 5, 60000)
+    const limit = await checkRateLimit(`kiosk:${businessId}:${req.headers.get('x-forwarded-for')?.split(',')[0] || 'unknown'}`, 5, 60000)
     if (!limit.allowed) return NextResponse.json({ error: 'Please wait before placing another order.' }, { status: 429, headers: { 'Retry-After': String(limit.retryAfterSeconds) } })
     const body = await req.json()
     const input = saleSchema.parse({ ...body, businessId })
