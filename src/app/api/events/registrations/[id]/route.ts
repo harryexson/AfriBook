@@ -3,7 +3,10 @@ import Stripe from "stripe";
 import { query } from "@/lib/neon/admin";
 import { requireAuthenticatedUser } from "@/lib/neon/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe payments are not configured on this deployment');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { typescript: true });
+}
 
 export async function GET(
   req: NextRequest,
@@ -275,7 +278,7 @@ export async function DELETE(
 
       if (canRefund && paymentIntentId) {
         try {
-          const refund = await stripe.refunds.create({
+          const refund = await getStripe().refunds.create({
             payment_intent: paymentIntentId,
             reason: "requested_by_customer",
             metadata: {

@@ -18,7 +18,10 @@ async function getDb() {
   return createClient() as any;
 }
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe payments are not configured on this deployment');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { typescript: true });
+}
 
 async function getOrganizerStripeAccountId(organizerId: string): Promise<string | null> {
   const rows = await query<{ metadata: Record<string, unknown> | null }>(
@@ -294,7 +297,7 @@ export async function POST(
       const stripeAccountId = await getOrganizerStripeAccountId(event.organizer_id);
       const appFeeAmount = Math.round((platformFee + processingFee + tax) * 100);
 
-      const stripePaymentIntent = await stripe.paymentIntents.create({
+      const stripePaymentIntent = await getStripe().paymentIntents.create({
         amount: Math.round(total * 100),
         currency: event.currency_code.toLowerCase(),
         metadata: {

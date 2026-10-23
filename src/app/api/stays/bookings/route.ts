@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (body.liveOnly === true) return NextResponse.json({ error: 'Your booking could not be saved. Please retry later.' }, { status: 503 })
   const mock: StayBooking = saveMockBooking({
     bookingCode: generateMockBookingCode(),
     hotelId: hotel.id,

@@ -10,7 +10,10 @@ import {
 } from '@/lib/celebrations/service';
 import { usdToLocal } from '@/lib/localization/ppp';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe payments are not configured on this deployment');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { typescript: true });
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -130,7 +133,7 @@ export async function POST(req: NextRequest) {
       }
 
       const currency = market.currencyCode;
-      const paymentIntent = await stripe.paymentIntents.create({
+      const paymentIntent = await getStripe().paymentIntents.create({
         amount: toMinorUnits(pricePerEvent, currency),
         currency: currency.toLowerCase(),
         metadata: {
@@ -170,7 +173,7 @@ export async function POST(req: NextRequest) {
     const existing = await getActiveCelebrationSubscription(user.id);
     if (existing?.stripe_subscription_id) {
       try {
-        await stripe.subscriptions.update(existing.stripe_subscription_id, {
+        await getStripe().subscriptions.update(existing.stripe_subscription_id, {
           cancel_at_period_end: true,
         });
       } catch {
@@ -184,7 +187,7 @@ export async function POST(req: NextRequest) {
 
     let customerId = existing?.stripe_customer_id ?? null;
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: profile?.email ?? undefined,
         name: profile?.full_name ?? undefined,
         metadata: { user_id: user.id },
@@ -193,7 +196,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create a plan-specific recurring price (one per plan+currency).
-    const price = await stripe.prices.create({
+    const price = await getStripe().prices.create({
       currency: market.currencyCode.toLowerCase(),
       unit_amount: toMinorUnits(priceMonthly, market.currencyCode),
       recurring: { interval: 'month' },
@@ -204,7 +207,7 @@ export async function POST(req: NextRequest) {
       metadata: { celebration_plan: plan.code },
     });
 
-    const stripeSubscription = await stripe.subscriptions.create({
+    const stripeSubscription = await getStripe().subscriptions.create({
       customer: customerId,
       items: [{ price: price.id }],
       payment_behavior: 'default_incomplete',

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/neon/admin';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 
 export async function POST(req: NextRequest) {
   try {
+    const { user } = await requireAuthenticatedUser();
     const body = await req.json();
     const { driverId, lat, lng, heading = 0, speed = 0, accuracy = 0 } = body;
 
@@ -21,7 +23,7 @@ export async function POST(req: NextRequest) {
     }
 
     const driverRows = await query<{ id: string; status: string }>(
-      'SELECT id, status FROM drivers WHERE id = $1',
+      'SELECT id, status FROM drivers WHERE id = $1 AND profile_id = $2',
       [driverId],
     );
     const driver = driverRows[0];
@@ -56,14 +58,15 @@ export async function POST(req: NextRequest) {
       success: true,
       data: { driverId, lat, lng, heading, speed, accuracy, updatedAt: now },
     });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: Number(err?.status) === 401 ? 401 : 500 });
   }
 }
 
 export async function GET(req: NextRequest) {
   try {
+    const { user } = await requireAuthenticatedUser();
     const { searchParams } = new URL(req.url);
     const driverId = searchParams.get('driverId');
 
@@ -74,6 +77,10 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    const access = await query(`SELECT id FROM drivers WHERE id = $1 AND profile_id = $2
+      UNION SELECT driver_id AS id FROM ridely_rides WHERE driver_id = $1 AND rider_id = $2
+      AND status IN ('accepted','en_route','arrived','in_progress')`, [driverId, user.id]);
+    if (!access.length) return NextResponse.json({ error: 'Location access denied' }, { status: 403 });
     const rows = await query<{
       driver_id: string;
       lat: number;
@@ -104,8 +111,8 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({ success: true, data: location });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: Number(err?.status) === 401 ? 401 : 500 });
   }
 }

@@ -1,0 +1,10 @@
+# Native builds need only the Expo application. In particular, never upload
+# the web server's local Neon configuration, caches or database audit exports.
+/*
+!/mobile
+/mobile/node_modules/
+/mobile/.expo/
+/mobile/dist/
+/mobile/.env*
+!/mobile/.env.example
+/mobile/assets/editorial/*.png

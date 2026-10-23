@@ -3,7 +3,10 @@ import Stripe from 'stripe';
 import { sendEmail } from '@/lib/email';
 import { sendSms } from '@/lib/sms';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe payments are not configured on this deployment');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { typescript: true });
+}
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 
 async function getDb() {
@@ -168,7 +171,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   const query = await getDb();
 
   const metadata = session.metadata ?? {};
-  const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+  const lineItems = await getStripe().checkout.sessions.listLineItems(session.id);
 
   const transactionId = metadata.afribook_transaction_id;
   const amount = session.amount_total ? session.amount_total / 100 : 0;
@@ -267,7 +270,7 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
+    event = getStripe().webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Signature verification failed';
     return NextResponse.json({ error: message }, { status: 400 });

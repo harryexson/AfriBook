@@ -3,7 +3,10 @@ import Stripe from "stripe";
 import { query } from "@/lib/neon/admin";
 import { requireAuthenticatedUser } from "@/lib/neon/server";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe payments are not configured on this deployment');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { typescript: true });
+}
 
 export async function GET(_req: NextRequest) {
   try {
@@ -188,7 +191,7 @@ export async function POST(req: NextRequest) {
 
     if (existing?.stripe_subscription_id) {
       try {
-        await stripe.subscriptions.update(existing.stripe_subscription_id, {
+        await getStripe().subscriptions.update(existing.stripe_subscription_id, {
           cancel_at_period_end: true,
         });
       } catch {
@@ -205,7 +208,7 @@ export async function POST(req: NextRequest) {
     let customerId = existing?.stripe_customer_id ?? null;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: userData?.email ?? undefined,
         name: userData?.full_name ?? undefined,
         metadata: { user_id: userId },
@@ -241,7 +244,7 @@ export async function POST(req: NextRequest) {
     }
 
     const stripeSubscription =
-      await stripe.subscriptions.create(subscriptionParams);
+      await getStripe().subscriptions.create(subscriptionParams);
 
     const planLimits: Record<
       string,

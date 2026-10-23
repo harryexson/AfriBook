@@ -52,6 +52,7 @@ export default function ProfileScreen() {
     { label: 'Notifications', icon: 'notifications-outline', onPress: () => router.push('/profile/notifications') },
     { label: 'Become a vendor', icon: 'storefront-outline', onPress: () => router.push('/vendor') },
     { label: 'Drive with AfriBook', icon: 'car-outline', onPress: () => router.push('/driver') },
+    { label: 'Account & privacy', icon: 'person-circle-outline', onPress: () => router.push('/profile/account') },
     { label: 'Settings', icon: 'settings-outline', onPress: () => router.push('/profile/settings') },
     { label: 'Help & support', icon: 'help-circle-outline', onPress: () => router.push('/profile/help') },
   ];

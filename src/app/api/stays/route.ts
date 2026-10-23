@@ -64,6 +64,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  if (!data && searchParams.get('liveOnly') === '1') { data = []; source = 'db'; }
   if (!data) {
     const hotels = getStayHotels(countryCode || 'NG')
     let filtered = hotels

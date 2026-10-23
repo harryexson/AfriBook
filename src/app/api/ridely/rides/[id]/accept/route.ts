@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/neon/admin';
+import { requireAuthenticatedUser } from '@/lib/neon/server';
 
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { user } = await requireAuthenticatedUser();
     const { id } = await params;
     const body = await req.json();
     const { driverId } = body;
@@ -71,6 +73,10 @@ export async function POST(
       );
     }
 
+    if (driver.user_id !== user.id) {
+      return NextResponse.json({ success: false, error: 'This is not your driver account' }, { status: 403 });
+    }
+
     // NOTE: `drivers.status` is `driver_status` — valid values are
     // offline/online/busy/on_trip/pending_review, not 'available'. The
     // original code's `driver.status !== 'available'` check could never be
@@ -85,6 +91,13 @@ export async function POST(
     }
 
     await withTransaction(async (txQuery) => {
+      // Lock both records so two drivers cannot accept the same ride, or one
+      // driver accept two rides, after passing the checks above concurrently.
+      const [lockedDriver] = await txQuery('SELECT status FROM drivers WHERE id = $1 FOR UPDATE', [driverId]);
+      const [lockedRide] = await txQuery('SELECT status FROM ridely_rides WHERE id = $1 FOR UPDATE', [id]);
+      if (lockedDriver?.status !== 'online' || !['requesting', 'searching'].includes(lockedRide?.status)) {
+        throw Object.assign(new Error('This ride is no longer available'), { status: 409 });
+      }
       await txQuery(
         `UPDATE ridely_rides
          SET driver_id = $2, status = 'accepted', accepted_at = now(), updated_at = now()
@@ -136,8 +149,8 @@ export async function POST(
         },
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: [401,403,409].includes(Number(err?.status)) ? Number(err.status) : 500 });
   }
 }

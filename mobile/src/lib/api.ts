@@ -1,9 +1,9 @@
 import { Platform } from 'react-native';
-import * as SecureStore from 'expo-secure-store';
-import { createClient } from './supabase';
+import { getSessionToken } from './session';
 import { useMarketStore } from '../stores/market-store';
 
-const API_BASE = process.env.EXPO_PUBLIC_API_URL ?? 'https://api.afribook.com';
+export const API_BASE = (process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === 'web' ? `${globalThis.location.protocol}//${globalThis.location.hostname}:3000` : '')).replace(/\/$/, '');
 
 class ApiClient {
   private baseUrl: string;
@@ -13,16 +13,8 @@ class ApiClient {
   }
 
   private async getAccessToken(): Promise<string | null> {
-    try {
-      const { data } = await createClient().auth.getSession();
-      if (data.session?.access_token) return data.session.access_token;
-    } catch {
-      // fall through to the legacy SecureStore key
-    }
-    // expo-secure-store has no web implementation — the legacy token
-    // path is native-only; web relies entirely on the Supabase session.
-    if (Platform.OS === 'web') return null;
-    return SecureStore.getItemAsync('afribook-token');
+    if (!this.baseUrl) throw new Error('Set EXPO_PUBLIC_API_URL to your AfriBook website URL before using the native app.');
+    return getSessionToken();
   }
 
   private async getHeaders(): Promise<Record<string, string>> {
@@ -86,6 +78,13 @@ class ApiClient {
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!res.ok) await this.throwResponseError('DELETE', path, res);
+    return res.json();
+  }
+
+  async patch<T>(path: string, body: unknown): Promise<T> {
+    const headers = await this.getHeaders();
+    const res = await fetch(`${this.baseUrl}${path}`, { method: 'PATCH', headers, body: JSON.stringify(body) });
+    if (!res.ok) await this.throwResponseError('PATCH', path, res);
     return res.json();
   }
 }

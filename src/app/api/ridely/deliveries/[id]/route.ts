@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/neon/admin';
-import { createClient } from '@/lib/neon/server';
+import { createClient, requireAuthenticatedUser } from '@/lib/neon/server';
+import { requireRideActor } from '@/lib/ridely/ride-access';
 import {
   DELIVERY_STATUS_TRANSITIONS,
   type DeliveryStatus,
@@ -106,6 +107,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireAuthenticatedUser();
     const { id } = await params;
 
     if (!id) {
@@ -124,6 +126,7 @@ export async function GET(
       );
     }
 
+    await requireRideActor({ rider_id: delivery.customer_id, driver_id: delivery.driver_id });
     let driverLocation = null;
     if (delivery.driver_id) {
       // NOTE: original code queried a nonexistent `ridely_driver_locations`
@@ -150,9 +153,9 @@ export async function GET(
         driverLocation,
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: [401,403].includes(Number(err?.status)) ? Number(err.status) : 500 });
   }
 }
 
@@ -161,6 +164,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireAuthenticatedUser();
     const { id } = await params;
     const body = await req.json();
     const { status, metadata } = body;
@@ -192,6 +196,8 @@ export async function PATCH(
       );
     }
 
+    const actor = await requireRideActor({ rider_id: existing.customer_id, driver_id: existing.driver_id });
+    if (actor !== 'driver' && status !== 'cancelled') return NextResponse.json({ error: 'Only the assigned courier can advance this delivery' }, { status: 403 });
     const allowed = DELIVERY_STATUS_TRANSITIONS[existing.status as DeliveryStatus];
     if (!allowed || !allowed.includes(status as DeliveryStatus)) {
       return NextResponse.json(
@@ -254,9 +260,9 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, data: delivery });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: [401,403].includes(Number(err?.status)) ? Number(err.status) : 500 });
   }
 }
 
@@ -265,6 +271,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireAuthenticatedUser();
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { reason, cancelledBy } = body;
@@ -289,6 +296,7 @@ export async function DELETE(
       );
     }
 
+    const actor = await requireRideActor({ rider_id: existing.customer_id, driver_id: existing.driver_id });
     if (existing.status === 'delivered' || existing.status === 'cancelled') {
       return NextResponse.json(
         { success: false, error: 'Cannot cancel a delivery that is completed or already cancelled' },
@@ -312,7 +320,7 @@ export async function DELETE(
          SET status = 'cancelled', cancelled_at = now(), updated_at = now(),
              metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object('cancelled_by', $2::text, 'cancel_reason', $3::text)
          WHERE id = $1`,
-        [id, cancelledBy ?? 'customer', reason ?? null],
+        [id, actor === 'driver' ? 'driver' : 'customer', reason ?? null],
       );
 
       if (existing.driver_id) {
@@ -329,8 +337,8 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true, data: { id, status: 'cancelled' } });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: [401,403].includes(Number(err?.status)) ? Number(err.status) : 500 });
   }
 }

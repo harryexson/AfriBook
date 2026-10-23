@@ -8,7 +8,10 @@ import {
   toMinorUnits,
 } from '@/lib/celebrations/service';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { typescript: true });
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe payments are not configured on this deployment');
+  return new Stripe(process.env.STRIPE_SECRET_KEY, { typescript: true });
+}
 
 export async function GET(
   _req: NextRequest,
@@ -164,7 +167,7 @@ export async function POST(
       );
     }
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount: toMinorUnits(numericAmount, currencyCode),
       currency: currencyCode.toLowerCase(),
       metadata: {

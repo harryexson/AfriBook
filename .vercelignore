@@ -1,0 +1,8 @@
+mobile
+.env*
+.claude
+docs/audits/*schema.json
+scripts/*redesign*
+scripts/*mobile*.cjs
+public/editorial/*.png
+skills-lock.json

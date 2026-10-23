@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
   }
 
+  if (!Number.isFinite(Date.parse(startTime)) || !Number.isFinite(Date.parse(endTime)) || Date.parse(startTime) <= Date.now()) {
+    return NextResponse.json({ error: 'Choose a valid future booking time' }, { status: 400 });
+  }
   if (new Date(endTime) <= new Date(startTime)) {
     return NextResponse.json({ error: 'endTime must be after startTime' }, { status: 400 });
   }

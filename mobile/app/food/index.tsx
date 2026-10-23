@@ -67,7 +67,7 @@ export default function FoodOrderScreen() {
     setError(null);
     try {
       const res = await api.get<{ data: { restaurants: RestaurantSummary[] } }>(
-        `/api/restaurants?country=${countryCode}`,
+        `/api/restaurants?liveOnly=1&country=${countryCode}`,
       );
       setRestaurants(res.data?.restaurants ?? []);
     } catch (err) {

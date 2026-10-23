@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
 
   const [{ data: products }, { data: menuItems }] = await Promise.all([
     productIds.length
-      ? supabase.from('products').select('id, name, price, stock, is_available').in('id', productIds)
+      ? supabase.from('products').select('id, name, price, stock, is_available').in('id', productIds).eq('business_id', businessId)
       : Promise.resolve({ data: [], error: null }),
     menuItemIds.length
       ? supabase
@@ -71,6 +71,10 @@ export async function POST(req: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
   ]);
 
+  if (items.some(i => !Number.isInteger(Number(i.quantity)) || Number(i.quantity) < 1 || Number(i.quantity) > 100)) {
+    return NextResponse.json({ error: 'Item quantities must be whole numbers between 1 and 100' }, { status: 400 });
+  }
+  if ((products || []).length !== new Set(productIds).size) return NextResponse.json({ error: 'A product is unavailable or belongs to another business' }, { status: 400 });
   const productMap = new Map<string, any>(
     (products as any[] | null)?.map((p) => [p.id, p]) ?? [],
   );

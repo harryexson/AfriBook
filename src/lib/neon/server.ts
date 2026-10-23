@@ -1,5 +1,6 @@
 import 'server-only'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
+import { mobileSessionCookie } from './mobile-session'
 import { createNeonAuth } from '@neondatabase/neon-js/auth/next/server'
 import { createClient as createNeonDataClient } from '@neondatabase/neon-js'
 
@@ -30,7 +31,8 @@ export const neonAuth = createNeonAuth({
  */
 async function getAccessToken(): Promise<string | null> {
   const cookieStore = await cookies()
-  const cookieHeader = cookieStore.toString()
+  const authorization = (await headers()).get('authorization')
+  const cookieHeader = authorization ? mobileSessionCookie(authorization) : cookieStore.toString()
   if (!cookieHeader) return null
 
   try {
@@ -73,6 +75,20 @@ export async function createClient() {
   return {
     auth: {
       async getUser() {
+        const authorization = (await headers()).get('authorization')
+        // An explicit bearer header must never fall back to a browser's cookie.
+        if (authorization) {
+          const cookie = mobileSessionCookie(authorization)
+          if (!cookie) return { data: { user: null }, error: null }
+          try {
+            const response = await fetch(`${AUTH_BASE_URL}/get-session`, {
+              headers: { cookie }, cache: 'no-store', signal: AbortSignal.timeout(10000),
+            })
+            if (!response.ok) return { data: { user: null }, error: null }
+            const session = await response.json()
+            return { data: { user: session?.user ?? null }, error: null }
+          } catch { return { data: { user: null }, error: null } }
+        }
         const { data: session } = await neonAuth.getSession()
         return { data: { user: session?.user ?? null }, error: null }
       },

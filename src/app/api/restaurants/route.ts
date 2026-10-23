@@ -118,7 +118,7 @@ export async function GET(req: NextRequest) {
     // Deterministic mock fallback (same strategy as /api/stays) so every
     // destination resolves to location-aware results even when Supabase is
     // unavailable or a market has no seeded restaurants yet.
-    if (restaurants.length === 0) {
+    if (restaurants.length === 0 && searchParams.get('liveOnly') !== '1') {
       const fallbackCountry = country || 'NG';
       const mock: MockRestaurant[] = getMockRestaurants(fallbackCountry);
       let fallback = mock.filter((r) => !city || matchesCity(r, city));

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query, withTransaction } from '@/lib/neon/admin';
-import { createClient } from '@/lib/neon/server';
+import { createClient, requireAuthenticatedUser } from '@/lib/neon/server';
+import { requireRideActor } from '@/lib/ridely/ride-access';
 import {
   RIDE_STATUS_TRANSITIONS,
   type RideStatus,
@@ -168,6 +169,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireAuthenticatedUser();
     const { id } = await params;
 
     if (!id) {
@@ -186,6 +188,7 @@ export async function GET(
       );
     }
 
+    await requireRideActor(ride);
     let driverLocation = null;
     if (ride.driver_id) {
       // NOTE: original code queried a nonexistent `ridely_driver_locations`
@@ -213,9 +216,9 @@ export async function GET(
         driverLocation,
       },
     });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: [401,403,409].includes(Number(err?.status)) ? Number(err.status) : 500 });
   }
 }
 
@@ -224,9 +227,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireAuthenticatedUser();
     const { id } = await params;
     const body = await req.json();
-    const { status, metadata } = body;
+    const { status } = body;
+    const metadata = undefined;
 
     if (!id) {
       return NextResponse.json(
@@ -258,6 +263,12 @@ export async function PATCH(
       );
     }
 
+    const actor = await requireRideActor(existing);
+    if (actor !== 'driver' && status !== 'cancelled') return NextResponse.json({ error: 'Only the assigned driver can advance this ride' }, { status: 403 });
+    if (status === 'in_progress') {
+      const [verification] = await query('SELECT pin_verified_at FROM ridely_rides WHERE id = $1', [id]);
+      if (!verification?.pin_verified_at) return NextResponse.json({ error: 'Verify the rider PIN before starting the trip' }, { status: 409 });
+    }
     const allowed = RIDE_STATUS_TRANSITIONS[existing.status as RideStatus];
     if (!allowed || !allowed.includes(status as RideStatus)) {
       return NextResponse.json(
@@ -352,9 +363,9 @@ export async function PATCH(
     });
 
     return NextResponse.json({ success: true, data: ride });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: [401,403,409].includes(Number(err?.status)) ? Number(err.status) : 500 });
   }
 }
 
@@ -363,6 +374,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    await requireAuthenticatedUser();
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
     const { reason, cancelledBy } = body;
@@ -397,7 +409,7 @@ export async function DELETE(
       );
     }
 
-    const actor = cancelledBy ?? 'rider';
+    const actor = await requireRideActor(existing);
     const cancellation = actor === 'rider'
       ? calculateRiderCancellationFee({
           hasDriver: !!existing.driver_id,
@@ -443,8 +455,8 @@ export async function DELETE(
       success: true,
       data: { id, status: 'cancelled', cancellationFee: cancellation.fee, cancellationFeeReason: cancellation.reason },
     });
-  } catch (err) {
+  } catch (err: any) {
     const message = err instanceof Error ? err.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: message }, { status: [401,403,409].includes(Number(err?.status)) ? Number(err.status) : 500 });
   }
 }

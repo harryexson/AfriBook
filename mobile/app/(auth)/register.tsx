@@ -12,7 +12,7 @@ import { useRouter, Link } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, typography, borderRadius } from '../../src/theme';
 import { useAuth } from '../../src/hooks/useAuth';
-import { createClient } from '../../src/lib/supabase';
+import { authAction } from '../../src/hooks/useNeonAuth';
 import Input from '../../src/components/ui/Input';
 import Button from '../../src/components/ui/Button';
 
@@ -29,34 +29,18 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     setFormError(null);
-    if (!name || !email || !password) return;
-    if (password !== confirmPassword) return;
+    if (!name.trim() || !email.includes('@') || password.length < 8) { setFormError('Enter your name, email and a password with at least 8 characters.'); return; }
+    if (password !== confirmPassword) { setFormError('Your passwords do not match.'); return; }
     if (!acceptedTerms) {
       setFormError('You must accept the Terms of Service to create an account');
       return;
     }
     const result = await signUp(email, password, { name, phone } as any);
     if (!('error' in result)) {
-      await recordTermsConsent(result.data?.user?.id);
-      router.replace('/(tabs)');
-    }
-  };
-
-  const recordTermsConsent = async (userId?: string) => {
-    if (!userId) return;
-    try {
-      await (createClient().from('user_consents') as any).upsert(
-        {
-          user_id: userId,
-          consent_type: 'terms_of_service',
-          consent_version: '1',
-          context: 'signup',
-          granted: true,
-        },
-        { onConflict: 'user_id,consent_type' },
-      );
-    } catch {
-      // Consent recording must never block account creation.
+      try {
+        await authAction('email-otp/send-verification-otp', { email: email.trim(), type: 'email-verification' });
+        router.replace({ pathname: '/(auth)/verify', params: { email: email.trim() } });
+      } catch (err) { setFormError((err as Error).message); }
     }
   };
 
