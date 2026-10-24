@@ -15,8 +15,9 @@ import { StripePaymentSection } from '@/components/checkout/StripePaymentSection
 import { useCountry } from '@/components/shared/CountryProvider'
 import { estimateRideFare } from '@/lib/ridely/ride-pricing'
 import { cn, formatCurrency } from '@/lib/utils'
-import { geocodeAddress, requestGeolocation, reverseGeocode, haversineDistance } from '@/lib/geo'
+import { geocodeAddress, requestGeolocation, reverseGeocode, haversineDistance, locationErrorMessage } from '@/lib/geo'
 import Button from '@/components/ui/Button'
+import AddressAutocomplete from '@/components/shared/AddressAutocomplete'
 
 /** Estimate a driver's ETA to pickup in minutes from their last GPS report. */
 function estimateEta(
@@ -254,8 +255,9 @@ export default function BookRidePage() {
     setLoading(true)
 
     try {
-      const pickup = pickupCoords ?? { lat: 6.5244, lng: 3.3792 } // Lagos fallback only if geocoding failed
-      const destination = destinationCoords ?? { lat: pickup.lat + 0.03, lng: pickup.lng + 0.02 }
+      if (!pickupCoords || !destinationCoords) throw new Error('Select a valid pickup and destination before requesting a ride.')
+      const pickup = pickupCoords
+      const destination = destinationCoords
 
       const res = await fetch('/api/ridely/rides', {
         method: 'POST',
@@ -396,22 +398,20 @@ export default function BookRidePage() {
               <div className="space-y-4 mb-6">
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full" />
-                  <input
-                    type="text"
+                  <AddressAutocomplete country={countryCode} onSelect={place => setPickupCoords({ lat: place.latitude, lng: place.longitude })}
                     placeholder="Pick-up location"
                     value={pickupAddress}
-                    onChange={(e) => setPickupAddress(e.target.value)}
+                    onChange={value => { setPickupAddress(value); setPickupCoords(null); }}
                     className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-surface-secondary border border-border text-text-primary placeholder-text-tertiary focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
                   />
                 </div>
 
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full" />
-                  <input
-                    type="text"
+                  <AddressAutocomplete country={countryCode} onSelect={place => setDestinationCoords({ lat: place.latitude, lng: place.longitude })}
                     placeholder="Drop-off location"
                     value={destinationAddress}
-                    onChange={(e) => setDestinationAddress(e.target.value)}
+                    onChange={value => { setDestinationAddress(value); setDestinationCoords(null); }}
                     className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-surface-secondary border border-border text-text-primary placeholder-text-tertiary focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
                   />
                 </div>
@@ -429,8 +429,8 @@ export default function BookRidePage() {
                       setPickupCoords({ lat: latitude, lng: longitude })
                       const place = await reverseGeocode(latitude, longitude)
                       setPickupAddress(place?.displayName || 'Current location')
-                    } catch {
-                      setError('Could not get your location. Please type your pickup address.')
+                    } catch (error) {
+                      setError(locationErrorMessage(error))
                     } finally {
                       setLocating(false)
                     }
@@ -452,20 +452,18 @@ export default function BookRidePage() {
                   setError(null)
                   setGeocoding(true)
                   try {
-                    // Only geocode an address by text if we don't already have
-                    // coordinates for it (e.g. from "Current Location").
                     const [pickupResult, destinationResult] = await Promise.all([
                       pickupCoords ? null : geocodeAddress(pickupAddress, countryCode),
-                      geocodeAddress(destinationAddress, countryCode),
+                      destinationCoords ? null : geocodeAddress(destinationAddress, countryCode),
                     ])
-                    if (pickupResult) setPickupCoords({ lat: pickupResult.latitude, lng: pickupResult.longitude })
-                    if (destinationResult) setDestinationCoords({ lat: destinationResult.latitude, lng: destinationResult.longitude })
-                  } catch {
-                    // Geocoding failed — estimated fare falls back to the
-                    // default distance; the server still recomputes on request.
+                    const from = pickupCoords || (pickupResult && { lat: pickupResult.latitude, lng: pickupResult.longitude })
+                    const to = destinationCoords || (destinationResult && { lat: destinationResult.latitude, lng: destinationResult.longitude })
+                    if (!from || !to) throw new Error('Choose a matching pickup and destination address from the suggestions.')
+                    setPickupCoords(from); setDestinationCoords(to); setStep('select')
+                  } catch (error) {
+                    setError(error instanceof Error ? error.message : 'Could not locate the route. Please retry.')
                   } finally {
                     setGeocoding(false)
-                    setStep('select')
                   }
                 }}
                 disabled={!pickupAddress.trim() || !destinationAddress.trim() || geocoding}

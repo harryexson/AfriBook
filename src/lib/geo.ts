@@ -70,83 +70,37 @@ export function getCountryFromUrl(): string {
   return candidate?.length === 2 ? candidate : ''
 }
 
-export async function reverseGeocode(
-  latitude: number,
-  longitude: number
-): Promise<{ countryCode: string; city: string; state: string; displayName: string } | null> {
+export async function reverseGeocode(latitude: number, longitude: number) {
   try {
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`,
-      { headers: { 'Accept-Language': 'en' } }
-    )
-    if (!res.ok) return null
-    const data = await res.json()
-    const addr = data.address ?? {}
-    const countryCode = addr.country_code?.toUpperCase()
-    if (!countryCode) return null
-
-    return {
-      countryCode,
-      city: addr.city ?? addr.town ?? addr.village ?? addr.municipality ?? '',
-      state: addr.state ?? addr.county ?? '',
-      displayName: data.display_name ?? '',
-    }
-  } catch {
-    return null
-  }
+    const response = await fetch('/api/geo?' + new URLSearchParams({ mode: 'reverse', lat: String(latitude), lon: String(longitude) }));
+    if (!response.ok) return null;
+    const body = await response.json();
+    return body.data[0] ?? null;
+  } catch { return null; }
 }
 
-/**
- * Forward-geocode a free-text address into coordinates. Used by ride/delivery
- * booking so fare distance and driver dispatch are computed from where the
- * rider actually typed, instead of a hardcoded city.
- */
-export async function geocodeAddress(
-  query: string,
-  countryCode?: string,
-): Promise<{ latitude: number; longitude: number; displayName: string } | null> {
-  const trimmed = query.trim()
-  if (!trimmed) return null
-  try {
-    const params = new URLSearchParams({
-      format: 'json',
-      q: trimmed,
-      limit: '1',
-      addressdetails: '0',
-    })
-    if (countryCode) params.set('countrycodes', countryCode.toLowerCase())
+export async function geocodeAddress(query: string, countryCode?: string): Promise<{ latitude: number; longitude: number; displayName: string } | null> {
+  if (query.trim().length < 3) return null;
+  const response = await fetch('/api/geo?' + new URLSearchParams({ q: query.trim(), ...(countryCode ? { country: countryCode } : {}) }));
+  const body = await response.json();
+  if (!response.ok) throw new Error(body.error || 'Address search unavailable. Please retry.');
+  return body.data[0] ?? null;
+}
 
-    const res = await fetch(
-      `https://nominatim.openstreetmap.org/search?${params.toString()}`,
-      { headers: { 'Accept-Language': 'en' } }
-    )
-    if (!res.ok) return null
-    const results = await res.json()
-    const first = Array.isArray(results) ? results[0] : null
-    if (!first) return null
-
-    return {
-      latitude: parseFloat(first.lat),
-      longitude: parseFloat(first.lon),
-      displayName: first.display_name ?? trimmed,
-    }
-  } catch {
-    return null
-  }
+export function locationErrorMessage(error: unknown): string {
+  const code = (error as { code?: number })?.code;
+  if (code === 1) return 'Location access is blocked. Allow location for this site in your browser settings, or search for your pickup address.';
+  if (code === 2) return 'Your device could not determine its location. Check location services or search for your pickup address.';
+  if (code === 3) return 'Location lookup timed out. Try again or search for your pickup address.';
+  return error instanceof Error ? error.message : 'Could not get your location. Search for your pickup address instead.';
 }
 
 export function requestGeolocation(): Promise<GeolocationPosition> {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error('Geolocation not supported'))
-      return
-    }
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: false,
-      timeout: 8000,
-      maximumAge: 600000,
-    })
-  })
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return reject(new Error('This browser does not support location. Search for your pickup address.'));
+    if (!window.isSecureContext) return reject(new Error('Location needs HTTPS or localhost. Search for your pickup address.'));
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: false, timeout: 15000, maximumAge: 60000 });
+  });
 }
 
 export function sortBusinessesByProximity<T extends { location?: { latitude: number; longitude: number } }>(

@@ -24,7 +24,8 @@ import {
 } from 'lucide-react'
 import { cn, formatCurrency } from '@/lib/utils'
 import { useCountry } from '@/components/shared/CountryProvider'
-import { requestGeolocation, reverseGeocode } from '@/lib/geo'
+import { requestGeolocation, reverseGeocode, locationErrorMessage } from '@/lib/geo'
+import AddressAutocomplete from '@/components/shared/AddressAutocomplete'
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -184,7 +185,7 @@ const slideVariants = {
 // ── Page ───────────────────────────────────────────────────────
 
 export default function NewDeliveryPage() {
-  const { country } = useCountry()
+  const { country, countryCode } = useCountry()
   const currencyCode = country.currency.code
   const [currentStep, setCurrentStep] = useState<BookingStep>('package')
   const [direction, setDirection] = useState(1)
@@ -267,8 +268,8 @@ export default function NewDeliveryPage() {
       // "address" — "6.5244, 3.3792" isn't something a courier can read.
       const place = await reverseGeocode(latitude, longitude)
       updateForm('pickupAddress', place?.displayName || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`)
-    } catch {
-      setError('Unable to retrieve your location. Please enter it manually.')
+    } catch (error) {
+      setError(locationErrorMessage(error))
     } finally {
       setGeoLoading(false)
     }
@@ -593,12 +594,10 @@ export default function NewDeliveryPage() {
                   </label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 bg-emerald-500 rounded-full" />
-                    <input
-                      type="text"
-                      placeholder="Enter pickup location"
+                    <AddressAutocomplete country={countryCode} onSelect={place => { updateForm('pickupLat', place.latitude); updateForm('pickupLng', place.longitude); }} placeholder="Enter pickup location"
                       value={form.pickupAddress}
-                      onChange={(e) => {
-                        updateForm('pickupAddress', e.target.value)
+                      onChange={value => {
+                        updateForm('pickupAddress', value)
                         updateForm('pickupLat', null)
                         updateForm('pickupLng', null)
                       }}
@@ -626,11 +625,9 @@ export default function NewDeliveryPage() {
                   </label>
                   <div className="relative">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 bg-red-500 rounded-full" />
-                    <input
-                      type="text"
-                      placeholder="Enter delivery location"
+                    <AddressAutocomplete country={countryCode} onSelect={place => { updateForm('deliveryLat', place.latitude); updateForm('deliveryLng', place.longitude); }} placeholder="Enter delivery location"
                       value={form.deliveryAddress}
-                      onChange={(e) => updateForm('deliveryAddress', e.target.value)}
+                      onChange={value => { updateForm('deliveryAddress', value); updateForm('deliveryLat', null); updateForm('deliveryLng', null); }}
                       className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-surface-secondary border border-border text-text-primary placeholder-text-tertiary focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
                     />
                   </div>
